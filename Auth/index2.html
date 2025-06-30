@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang ="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name = "viewport" content = "width=device-width, initial-scale=1.0" />
+        <title>MVP: StanleyDB Login & Register Page</title>
+        <link rel = "stylesheet" href = "style2.css" />
+    </head>
+    <body>
+        <div class = "card">
+            <!--Register-->
+            <form id = "signupForm" class = "pane hide">
+                <h2>Create Account</h2>
+                <input id = "suEmail" type = "email" placeholder = "Email" required />
+                <input id = "suPass" type = "password" placeholder = "Password" required minlength = "8"/>
+                <button>Sign Up</button>
+                <p class = "swap">Have an account? <a id = "toLogin"> Log in</a></p>
+                <p class="msg" id="suMsg"></p>
+            </form>
+            <!--Login-->
+            <form id = "loginForm" class = "pane">
+                <h2>Log In</h2>
+                <input id = "liEmail" type = "email" placeholder = "Email" required />
+                <input id = "liPass" type = "password" placeholder = "Password " required />
+                <button>Log In</button>
+                <p class = "swap">New here? <a id = "toSignup"> Sign up</a></p>
+                <p class="msg" id="liMsg"></p>
+            </form>
+        </div>
+        
+        <script type = "module" src = "auth2.js"></script>
+    </body>
+</html>

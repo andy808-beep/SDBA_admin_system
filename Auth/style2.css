@@ -1,0 +1,11 @@
+/* Center card */
+body{margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#f2f5f9;font-family:Arial,Helvetica,sans-serif}
+.card{background:#fff;padding:2rem;width:320px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);position:relative}
+input{display:block;width:100%;padding:.6rem;margin:.7rem 0;border:1px solid #ccc;border-radius:4px}
+button{width:100%;padding:.7rem;border:none;border-radius:4px;background:#0f6ec7;color:#fff;font-weight:bold;cursor:pointer}
+button:hover{background:#0c5aa3}
+.swap{font-size:.85rem;text-align:center}
+.swap a{color:#0f6ec7;cursor:pointer;text-decoration:none}
+.swap a:hover{color:#0c5aa3}
+.msg{font-size:.8rem;color:#c00;text-align:center;margin-top:.5rem}
+.hide{display:none}

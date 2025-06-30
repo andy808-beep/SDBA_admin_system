@@ -1,0 +1,33 @@
+<!-- confirm.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Confirming...</title>
+</head>
+<body>
+  <h2 id="msg">Confirming your email...</h2>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+    const sb = createClient(
+      "https://khqarcvszewerjckmtpg.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY"
+    ); 
+
+    // Wait for Supabase to finish auth from magic link
+    sb.auth.getSession().then(({ data, error }) => {
+      if (error || !data.session) {
+        document.getElementById("msg").textContent = "There was a problem confirming your email.";
+      } else {
+        document.getElementById("msg").textContent = "Email confirmed! Redirecting...";
+        setTimeout(() => {
+          window.location.href = "dashboard.html";
+        }, 2000);
+      }
+    });
+  </script>
+</body>
+</html>
