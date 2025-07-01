@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Race Day Arrangement</title>
+  <link rel="stylesheet" href="main_form.css" />
+</head>
+<body>
+  <div class="card">
+    <form id="raceDayForm">
+      <h2>Race Day Arrangement</h2>
+
+      <div class="section">
+        <h3>Athlete Marquee</h3>
+        <div class="line-row">
+          <span>Unit Price: HK$2,000</span>
+          <input type="number" id="marqueeQty" name="marqueeQty" min="0" value="0" />
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Official Steersman</h3>
+        <p>Teams hired Official Steersman during practice</p>
+        <div class="line-row">
+          <span>Unit Price: HK$800</span>
+          <input type="number" id="steerWithQty" name="steerWithQty" min="0" value="0" />
+        </div>
+        <p>Teams DID NOT hire Official Steersman during practice</p>
+        <div class="line-row">
+          <span>Unit Price: HK$1,500</span>
+          <input type="number" id="steerWithoutQty" name="steerWithoutQty" min="0" value="0" />
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Junk Registration</h3>
+        <div class="line-row">
+          <label for="junkBoatNo">Pleasure Boat No.:</label>
+          <input type="text" id="junkBoatNo" name="junkBoatNo" />
+          <span>HK$2,500</span>
+          <input type="number" id="junkBoatQty" name="junkBoatQty" min="0" value="0"/>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Speed Boat Registration</h3>
+        <div class="line-row">
+          <label for="speedBoatNo">Speed Boat No.:</label>
+          <input type="text" id="speedBoatNo" name="speedBoatNo" />
+          <span>HK$1,500</span>
+          <input type="number" id="speedboatQty" name="speedboatQty" min="0" value="0"/>
+        </div>
+      </div>
+
+      <p class="msg" id="formMsg"></p>
+      <button type="submit">Next</button>
+    </form>
+  </div>
+
+  <script type="module" src="main_form.js" defer></script>
+</body>
+</html>
