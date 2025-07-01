@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Team Information</title>
+  <link rel="stylesheet" href="main_form.css" />
+</head>
+<body>
+  <div class="card">
+    <form id="teamInfoForm">
+      <h2>Team Information</h2>
+
+      <div id="teamNameFields"></div>
+      <div class="form-group">
+        <label for="orgName">Organization / Group Name</label>
+        <input type="text" id="orgName" name="orgName" placeholder="" required />
+      </div>
+      <div class="form-group">
+        <label for="mailingAddress">Mailing Address</label>
+        <textarea id="mailingAddress" name="mailingAddress" rows="3" placeholder="Room/Floor, Building Name, Street, District, City" required></textarea>
+      </div>
+      <h3>Team Manager Contact</h3>
+
+      <div id="managerFields"></div>
+
+
+      <p class="msg" id="formMsg"></p>
+      <button type="submit">Next</button>
+    </form>
+  </div>
+  <script type="module" src="main_form.js" defer></script>
+</body>
+</html>

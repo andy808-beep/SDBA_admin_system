@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Race Registration</title>
+  <link rel="stylesheet" href="main_form.css" />
+</head>
+<body>
+  <div class="card">
+    <form id="categoryForm">
+      <h2>Select Race Category</h2>
+
+      <label for="raceCategory">Choose category:</label>
+      <select id="raceCategory" required>
+        <option value="">-- Please choose --</option>
+        <option value="men_open">Men Open</option>
+        <option value="ladies_open">Ladies Open</option>
+        <option value="mixed_open">Mixed Open</option>
+        <option value="mixed_corporate">Mixed Corporate</option>
+      </select>
+
+      <label for="teamCount">How many teams will you register?</label>
+      <input type="number" id="teamCount" min="1" placeholder="e.g. 2" required />
+
+      <hr />
+
+      <div id="entryOptions" hidden>
+        <h3>Entry Options</h3>
+
+        <div class="entry-option">
+          <strong>Option 1</strong>
+          <ul>
+            <li>Entry Fee</li>
+            <li>Practice with equipment x12hrs</li>
+            <li>Souvenir Tee x20 pieces</li>
+            <li>20L Dry Bag x1</li>
+            <li><u>Padded Shorts x20 pieces</u></li>
+            <li><span id="opt1Price"></span> per team</li>
+          </ul>
+          <label>How many teams choose Option 1:
+            <input type="number" id="opt1Count" min="0" value="0" required />
+          </label>
+        </div>
+
+        <div class="entry-option">
+          <strong>Option 2</strong>
+          <ul>
+            <li>Entry Fee</li>
+            <li>Practice with equipment x12hrs</li>
+            <li>Souvenir Tee x20 pieces</li>
+            <li>20L Dry Bag x1</li>
+            <li><s>Padded Shorts x20 pieces</s></li>
+            <li><span id="opt2Price"></span> per team</li>
+          </ul>
+          <label>How many teams choose Option 2:
+            <input type="number" id="opt2Count" min="0" value="0" required />
+          </label>
+        </div>
+      </div>
+
+      <p class="msg" id="formMsg"></p>
+      <button type="submit">Next</button>
+    </form>
+
+
+  </div>
+  <script type="module" src="main_form.js" defer></script>
+</body>
+</html>
