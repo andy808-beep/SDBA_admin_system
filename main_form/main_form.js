@@ -9,6 +9,9 @@ switch (page) {
   case "2_teaminfo.html":
     document.addEventListener("DOMContentLoaded", initTeamInfoPage);
     break;
+  case "3_raceday.html":
+    document.addEventListener("DOMContentLoaded", initRaceDayPage);
+    break;
   // Add more cases for other pages here...
 }
 
@@ -196,3 +199,28 @@ for (let i = 1; i <= 3; i++) {
 
   window.location.href = "3_raceday.html"; // or next page
   };
+
+/* ------------------------
+   PAGE 3: Race Day Arrangement
+------------------------- */
+function initRaceDayPage() {
+  const form = document.getElementById("raceDayForm");
+  const msg = document.getElementById("formMsg");
+
+form.onsubmit = (e) => {
+  e.preventDefault();
+
+    const data = {
+      marqueeQty: parseInt(form["marqueeQty"].value) || 0,
+      steerWithQty: parseInt(form["steerWithQty"].value) || 0,
+      steerWithoutQty: parseInt(form["steerWithoutQty"].value) || 0,
+      junkBoatNo: form["junkBoatNo"].value.trim(),
+      junkBoatQty: parseInt(form["junkBoatQty"].value) || 0,
+      speedBoatNo: form["speedBoatNo"].value.trim(),
+      speedboatQty: parseInt(form["speedboatQty"].value) || 0,
+    };
+
+    localStorage.setItem("race_day_arrangement", JSON.stringify(data));
+    window.location.href = "4_summary.html";
+};
+}
