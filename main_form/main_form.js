@@ -29,6 +29,9 @@ switch (page) {
   case "3_raceday.html":
     document.addEventListener("DOMContentLoaded", initRaceDayPage);
     break;
+  case "4_summary.html":
+  document.addEventListener("DOMContentLoaded", initSummaryPage);
+  break;
   // Add more cases for other pages here...
 }
 
@@ -255,3 +258,84 @@ form.onsubmit = (e) => {
     window.location.href = "4_summary.html";
 };
 }
+
+/* ------------------------
+   PAGE 4: Summary
+------------------------- */
+function initSummaryPage() {
+  insertTeamsToSupabase();
+
+  async function insertTeamsToSupabase() {
+    const selectedCategory = localStorage.getItem("selectedCategory");
+    const table = getTeamTableByCategory(selectedCategory);
+    const userId = localStorage.getItem("userId");
+
+    const teamNames = JSON.parse(localStorage.getItem("team_names") || "{}");
+    const teamOptions = JSON.parse(localStorage.getItem("team_options") || "{}");
+    const orgName = localStorage.getItem("org_name");
+    const address = localStorage.getItem("org_address");
+    const managers = JSON.parse(localStorage.getItem("managers") || "[]");
+
+    if (!userId || !table) {
+      alert("Missing user or table info. Please log in and start again.");
+      return;
+    }
+
+    // Step 1: Get current count from Supabase table
+    const { count, error: countError } = await sb
+      .from(table)
+      .select("*", { count: "exact", head: true });
+
+    if (countError) {
+      console.error("Failed to count existing teams:", countError);
+      alert("Team code generation failed.");
+      return;
+    }
+
+    const prefixMap = {
+      men_open: "M",
+      ladies_open: "L",
+      mixed_open: "X",
+      mixed_corporate: "C"
+    };
+
+    const prefix = prefixMap[selectedCategory] || "?";
+    let nextIndex = count + 1;
+
+    const rows = [];
+
+    Object.entries(teamNames).forEach(([teamKey, teamName]) => {
+      const option = teamOptions[teamKey] === "opt1" ? "Option 1" : "Option 2";
+      const teamCode = `${prefix}${nextIndex++}`;
+
+      rows.push({
+        user_id: userId,
+        option_choice: option,
+        team_code: teamCode,
+        team_name: teamName,
+        organization_name: orgName,
+        address: address,
+        team_manager_1: managers[0]?.name || "",
+        mobile_1: managers[0]?.mobile || "",
+        email_1: managers[0]?.email || "",
+        team_manager_2: managers[1]?.name || "",
+        mobile_2: managers[1]?.mobile || "",
+        email_2: managers[1]?.email || "",
+        team_manager_3: managers[2]?.name || "",
+        mobile_3: managers[2]?.mobile || "",
+        email_3: managers[2]?.email || ""
+      });
+    });
+
+    const { error } = await sb.from(table).insert(rows);
+
+    if (error) {
+      console.error("Insert failed:", error);
+      alert("Insert failed: " + error.message);
+    } else {
+      alert("Teams successfully submitted to Supabase!");
+      window.location.href = "submission_complete.html"; // or reset
+    }
+  }
+}
+
