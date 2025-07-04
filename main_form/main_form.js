@@ -1,4 +1,21 @@
 // Detect current page and call corresponding init
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+const SUPABASE_URL  = "https://khqarcvszewerjckmtpg.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY";
+export const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+sb.auth.getUser().then(console.log);
+
+function getTeamTableByCategory(category) {
+  switch (category) {
+    case "mixed_corporate": return "mixed_corporate_team_list";
+    case "mixed_open":      return "mixed_open_team_list";
+    case "ladies_open":     return "ladies_open_team_list";
+    case "men_open":        return "mens_open_team_list";
+    default: return null;
+  }
+}
+
 const path = window.location.pathname;
 const page = path.substring(path.lastIndexOf('/') + 1);
 
@@ -78,13 +95,15 @@ function initRaceCategoryPage() {
       return;
     }
 
-    // Save to localStorage
+    // Save all values to localStorage
     localStorage.setItem("race_category", cat);
+    localStorage.setItem("selectedCategory", cat); // for Supabase table
     localStorage.setItem("num_teams", numTeams);
     localStorage.setItem("num_teams_opt1", numOpt1);
     localStorage.setItem("num_teams_opt2", numOpt2);
     localStorage.setItem("team_submission_loop", "0");
 
+    // Go to next step
     window.location.href = "2_teaminfo.html";
   };
 }
@@ -95,6 +114,7 @@ function initRaceCategoryPage() {
 function initTeamInfoPage() {
   const form = document.getElementById("teamInfoForm");
   const container = document.getElementById("teamNameFields");
+  const managerContainer = document.getElementById("managerFields");
   const msg = document.getElementById("formMsg");
 
   const numTeams = parseInt(localStorage.getItem("num_teams") || "1");
@@ -106,11 +126,14 @@ function initTeamInfoPage() {
     return;
   }
 
-  // Dynamically generate fields
+  // Dynamically generate team name fields
   for (let i = 1; i <= numTeams; i++) {
+    const group = document.createElement("div");
+    group.className = "form-group";
+
     const label = document.createElement("label");
-    label.textContent = `Team No.${i} Name`;
     label.setAttribute("for", `teamName${i}`);
+    label.textContent = `Team ${i} Name`;
 
     const input = document.createElement("input");
     input.type = "text";
@@ -119,86 +142,94 @@ function initTeamInfoPage() {
     input.placeholder = `Enter name for Team ${i}`;
     input.required = true;
 
-    container.appendChild(label);
-    container.appendChild(input);
-    container.appendChild(document.createElement("br"));
+    group.appendChild(label);
+    group.appendChild(input);
+    container.appendChild(group);
+  }
 
-  }}
+  // Dynamically generate team manager fields
+  for (let i = 1; i <= 3; i++) {
+    const group = document.createElement("div");
+    group.className = "form-group";
 
-  // Generate team manager fields
-const managerContainer = document.getElementById("managerFields");
+    const heading = document.createElement("p");
+    heading.innerHTML = `<strong>Manager ${i}${i === 3 ? " (optional)" : ""}</strong>`;
+    group.appendChild(heading);
 
-for (let i = 1; i <= 3; i++) {
-  const group = document.createElement("div");
-  group.className = "form-group";
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.name = `manager${i}_name`;
+    nameInput.placeholder = "Full Name";
+    nameInput.required = i < 3;
 
-  const heading = document.createElement("p");
-  heading.innerHTML = `<strong>Manager ${i}${i === 3 ? " (optional)" : ""}</strong>`;
-  group.appendChild(heading);
+    const mobileInput = document.createElement("input");
+    mobileInput.type = "tel";
+    mobileInput.name = `manager${i}_mobile`;
+    mobileInput.placeholder = "Mobile Number";
+    mobileInput.required = i < 3;
 
-  const nameInput = document.createElement("input");
-  nameInput.type = "text";
-  nameInput.name = `manager${i}_name`;
-  nameInput.placeholder = "Full Name";
-  nameInput.required = i < 3;
+    const emailInput = document.createElement("input");
+    emailInput.type = "email";
+    emailInput.name = `manager${i}_email`;
+    emailInput.placeholder = "Email Address";
+    emailInput.required = i < 3;
 
-  const mobileInput = document.createElement("input");
-  mobileInput.type = "tel";
-  mobileInput.name = `manager${i}_mobile`;
-  mobileInput.placeholder = "Mobile Number";
-  mobileInput.required = i < 3;
+    group.appendChild(nameInput);
+    group.appendChild(mobileInput);
+    group.appendChild(emailInput);
+    managerContainer.appendChild(group);
+  }
 
-  const emailInput = document.createElement("input");
-  emailInput.type = "email";
-  emailInput.name = `manager${i}_email`;
-  emailInput.placeholder = "Email Address";
-  emailInput.required = i < 3;
-
-  group.appendChild(nameInput);
-  group.appendChild(mobileInput);
-  group.appendChild(emailInput);
-
-  managerContainer.appendChild(group);
-}
-
-
-  // Form submission
+  // Handle form submission
   form.onsubmit = (e) => {
-  e.preventDefault();
-  const orgName = form["orgName"].value.trim();
-  const teamNames = {};
-  const mailingAddress = form["mailingAddress"].value.trim();
+    e.preventDefault();
 
-  if (!orgName) {
-    msg.textContent = "Please enter your organization or group name.";
-    msg.style.color = "red";
-    return;
-  }
+    const orgName = form["orgName"].value.trim();
+    const mailingAddress = form["mailingAddress"].value.trim();
+    const teamNames = {};
+    const managers = [];
 
-  if (!mailingAddress) {
-  msg.textContent = "Please enter your mailing address.";
-  msg.style.color = "red";
-  return;
-  }
-
-  for (let i = 1; i <= numTeams; i++) {
-    const input = form[`teamName${i}`];
-    const name = input.value.trim();
-    if (!name) {
-      msg.textContent = `Please enter a name for Team ${i}.`;
+    if (!orgName) {
+      msg.textContent = "Please enter your organization or group name.";
       msg.style.color = "red";
       return;
     }
-    teamNames[`team${i}`] = name;
-  }
 
-  // Save to localStorage
-  localStorage.setItem("org_name", orgName);
-  localStorage.setItem("team_names", JSON.stringify(teamNames));
-  localStorage.setItem("team_submission_loop", "0");
+    if (!mailingAddress) {
+      msg.textContent = "Please enter your mailing address.";
+      msg.style.color = "red";
+      return;
+    }
 
-  window.location.href = "3_raceday.html"; // or next page
+    for (let i = 1; i <= numTeams; i++) {
+      const input = form[`teamName${i}`];
+      const name = input.value.trim();
+      if (!name) {
+        msg.textContent = `Please enter a name for Team ${i}.`;
+        msg.style.color = "red";
+        return;
+      }
+      teamNames[`team${i}`] = name;
+    }
+
+    for (let i = 1; i <= 3; i++) {
+      const name = form[`manager${i}_name`]?.value.trim() || "";
+      const mobile = form[`manager${i}_mobile`]?.value.trim() || "";
+      const email = form[`manager${i}_email`]?.value.trim() || "";
+      managers.push({ name, mobile, email });
+    }
+
+    // Save to localStorage
+    localStorage.setItem("org_name", orgName);
+    localStorage.setItem("org_address", mailingAddress);
+    localStorage.setItem("team_names", JSON.stringify(teamNames));
+    localStorage.setItem("managers", JSON.stringify(managers));
+    localStorage.setItem("team_submission_loop", "0");
+
+    // Continue to next page
+    window.location.href = "3_raceday.html";
   };
+}
 
 /* ------------------------
    PAGE 3: Race Day Arrangement
