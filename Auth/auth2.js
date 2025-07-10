@@ -23,26 +23,51 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   /* ---------- Sign-up ---------- */
-  signupForm.onsubmit = async (e) =>{
+  signupForm.onsubmit = async (e) => {
     e.preventDefault();
     const email = suEmail.value.trim();
     const pass  = suPass.value;
-    const { error } = await sb.auth.signUp({ email, password: pass });
+
+    const adminEmails = [
+      "cadence.c@dragonboat.org.hk",
+      "annie@dragonboat.org.hk",
+      "andy@dragonboat.org.hk"
+    ];
+
+    const role = adminEmails.includes(email.toLowerCase()) ? "admin" : "user";
+
+    const { error } = await sb.auth.signUp({
+      email,
+      password: pass,
+      options: {
+        data: { role }
+      }
+    });
+
     suMsg.style.color = error ? "#c00" : "green";
     suMsg.textContent = error ? error.message : "Check your email to confirm!";
   }
 
   /* ---------- Log-in ---------- */
-  loginForm.onsubmit = async (e) =>{
+  loginForm.onsubmit = async (e) => {
     e.preventDefault();
-    const { error } = await sb.auth.signInWithPassword({
+
+    const { data, error } = await sb.auth.signInWithPassword({
       email: liEmail.value.trim(),
       password: liPass.value
     });
-    if(error){
+
+    if (error) {
       liMsg.textContent = error.message;
-    }else{
-      window.location.href = "../dashboard/dashboard.html";
+    } else {
+      const user = data.user;
+      const role = user.user_metadata?.role;
+
+      if (role === "admin") {
+        window.location.href = "../admin/admin.html";
+      } else {
+        window.location.href = "../dashboard/dashboard.html";
+      }
     }
   }
 });
