@@ -1,8 +1,9 @@
 // ----- Configure Supabase -----
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-const SUPABASE_URL  = "https://khqarcvszewerjckmtpg.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY";
+// NOTE: These will only work if you're using a build system like Vite or Next.js
+import { SUPABASE_URL, SUPABASE_KEY } from "./supabase_config.js";
+
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ----- DOM refs -----
@@ -11,6 +12,12 @@ window.addEventListener('DOMContentLoaded', () => {
   const loginForm  = document.getElementById("loginForm");
   const suMsg      = document.getElementById("suMsg");
   const liMsg      = document.getElementById("liMsg");
+
+  // 🔧 Required: Reference all input elements
+  const suEmail = document.getElementById("suEmail");
+  const suPass  = document.getElementById("suPass");
+  const liEmail = document.getElementById("liEmail");
+  const liPass  = document.getElementById("liPass");
 
   // toggle helpers
   document.getElementById("toLogin").onclick = () => swap(true);
@@ -40,7 +47,8 @@ window.addEventListener('DOMContentLoaded', () => {
       email,
       password: pass,
       options: {
-        data: { role }
+        data: { role },
+        emailRedirectTo: "http://127.0.0.1:3000/Auth/confirm.html"
       }
     });
 
