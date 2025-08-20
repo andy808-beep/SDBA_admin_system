@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SDBA Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside>
+    <div class="brand">SDBA Admin</div>
+    <nav id="sidebarNav" aria-label="Primary">
+      <a href="#overview" data-route="#overview"><span class="nav-label">Overview</span></a>
+      <a href="#exports"  data-route="#exports"><span class="nav-label">Exports</span></a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="version">DEMO • v0.1</div>
+  </aside>
+   <!-- Header -->
+  <header>
+    <div class="header-left">
+      <span class="pill" id="envBadge">Local</span>
+    </div>
+    <div class="header-right">
+      <span class="pill" id="bell">🔔 <strong id="bellCount">0</strong></span>
+      <button class="btn" id="logoutBtn" title="(stub) Hook to Supabase later">Logout</button>
+    </div>
+  </header>
+  <!-- Main -->
+  <main id="main">
+    <!-- OVERVIEW -->
+    <section id="view-overview" class="view active" role="region" aria-labelledby="ov-h2">
+      <div class="section">
+        <h2 id="ov-h2">Overview</h2>
+        <p class="small">Placeholder for KPIs & notifications. We’ll wire data later.</p>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi">
+          <div class="label">New Today</div>
+          <div class="value" id="kpi-new-today">0</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Approved</div>
+          <div class="value" id="kpi-approved">0</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Pending</div>
+          <div class="value" id="kpi-pending">0</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Total Submissions</div>
+          <div class="value" id="kpi-total">0</div>
+        </div>
+      </div>
+    </section>
+    <!-- EXPORTS -->
+    <section id="view-exports" class="view" role="region" aria-labelledby="ex-h2">
+      <div class="section">
+        <h2 id="ex-h2">Exports</h2>
+        <p class="small">Download raw tables (CSV, UTF-8 with BOM). RLS must allow admin to read all rows.</p>
+
+        <div class="template-grid">
+          <div class="card">
+            <strong>Men Open</strong>
+            <div class="small">Table: <code>mens_open_team_list</code></div>
+            <button class="btn" id="btnMenOpen">Export CSV</button>
+          </div>
+
+          <div class="card">
+            <strong>Ladies Open</strong>
+            <div class="small">Table: <code>ladies_open_team_list</code></div>
+            <button class="btn" id="btnLadiesOpen">Export CSV</button>
+          </div>
+
+          <div class="card">
+            <strong>Mixed Open</strong>
+            <div class="small">Table: <code>mixed_open_team_list</code></div>
+            <button class="btn" id="btnMixedOpen">Export CSV</button>
+          </div>
+
+          <div class="card">
+            <strong>Mixed Corporate</strong>
+            <div class="small">Table: <code>mixed_corporate_team_list</code></div>
+            <button class="btn" id="btnMixedCorporate">Export CSV</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="admin.js"></script>
+</body>
