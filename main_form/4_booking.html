@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Practice Booking</title>
+  <link rel="stylesheet" href="main_form.css" />
+</head>
+<body>
+  <div class="card">
+
+    <h2>🛶 Practice Booking (Jan–Jul 2026)</h2>
+
+    <!-- 🧑‍🤝‍🧑 Team Selection -->
+    <div class="team-selector">
+      <label for="teamSelect">Select Team:</label>
+      <select id="teamSelect"></select>
+    </div>
+    <div id="teamNameFields"></div>
+
+    <!-- 🗓️ Calendar Container -->
+    <div id="calendarContainer" class="calendar-wrapper"></div>
+
+<!-- 📊 Practice Summary (Combined) -->
+<div id="practiceSummary" class="summary-box">
+  <h3>Practice Booking Summary</h3>
+  <p>Total Hours Selected: <span id="totalHours">0</span> / 12</p>
+  <p>Extra Practice Sessions (HK$600): <span id="extraPracticeQty">0</span></p>
+  <p>Trainer Sessions (HK$550): <span id="trainerQty">0</span></p>
+  <p>Steersman Sessions (HK$350): <span id="steersmanQty">0</span></p>
+</div>
+
+
+    <!-- 🔄 Navigation -->
+    <div class="nav-buttons">
+      <button type="button" id="backBtn">← Back</button>
+      <button type="button" id="nextBtn">Next →</button>
+    </div>
+
+  </div>
+
+  <script src="main_form.js" type="module"></script>
+</body>
+</html>
