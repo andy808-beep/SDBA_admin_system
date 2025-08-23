@@ -29,7 +29,10 @@ switch (page) {
   case "3_raceday.html":
     document.addEventListener("DOMContentLoaded", initRaceDayPage);
     break;
-  case "4_summary.html":
+  case "4_booking.html":
+  document.addEventListener("DOMContentLoaded", initBookingPage);
+  break;
+  case "5_summary.html":
   document.addEventListener("DOMContentLoaded", initSummaryPage);
   break;
   // Add more cases for other pages here...
@@ -255,12 +258,187 @@ form.onsubmit = (e) => {
     };
 
     localStorage.setItem("race_day_arrangement", JSON.stringify(data));
-    window.location.href = "4_summary.html";
+    window.location.href = "4_booking.html";
 };
 }
+/* ------------------------
+   PAGE 4: Practice Booking
+------------------------- */
+function initBookingPage() {
+  const PRACTICE_YEAR = 2026;
+  const calendarEl = document.getElementById("calendarContainer");
+
+  const totalHoursEl = document.getElementById("totalHours");
+  const trainerQtyEl = document.getElementById("trainerQty");
+  const steersmanQtyEl = document.getElementById("steersmanQty");
+  const extraQtyEl = document.getElementById("extraPracticeQty");
+
+  const selectedDates = {};
+
+  renderCalendar();
+  updateSummary();
+
+  function renderCalendar() {
+    calendarEl.innerHTML = "";
+
+    for (let month = 0; month < 7; month++) {
+      const monthDate = new Date(PRACTICE_YEAR, month, 1);
+      const monthName = monthDate.toLocaleString("default", { month: "long" });
+
+      const monthBox = document.createElement("div");
+      monthBox.className = "month-block";
+
+      const header = document.createElement("h3");
+      header.className = "month-toggle";
+      header.textContent = `${monthName} ${PRACTICE_YEAR}`;
+
+      const monthContent = document.createElement("div");
+      monthContent.className = "month-content";
+
+      const weekdaysRow = document.createElement("div");
+      weekdaysRow.className = "weekdays";
+      weekdaysRow.innerHTML = `
+        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div>
+        <div>Thu</div><div>Fri</div><div>Sat</div>
+      `;
+
+      const grid = document.createElement("div");
+      grid.className = "month-grid";
+
+      // Toggle month visibility
+      header.addEventListener("click", () => {
+        monthContent.classList.toggle("hide");
+      });
+
+      // Show January by default
+      if (month === 0) {
+        monthContent.classList.remove("hide");
+      } else {
+        monthContent.classList.add("hide");
+      }
+
+      monthContent.appendChild(weekdaysRow);
+      monthContent.appendChild(grid);
+      monthBox.appendChild(header);
+      monthBox.appendChild(monthContent);
+      calendarEl.appendChild(monthBox);
+
+      // Align start day correctly
+      const daysInMonth = new Date(PRACTICE_YEAR, month + 1, 0).getDate();
+      const firstDayOfWeek = new Date(PRACTICE_YEAR, month, 1).getDay();
+
+      for (let i = 0; i < firstDayOfWeek; i++) {
+        const padCell = document.createElement("div");
+        padCell.className = "calendar-day empty";
+        grid.appendChild(padCell);
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateObj = new Date(PRACTICE_YEAR, month, day);
+        const dateStr = dateObj.toISOString().split("T")[0];
+
+        const cell = document.createElement("div");
+        cell.className = "calendar-day";
+        cell.innerHTML = `
+          <label>
+            <input type="checkbox" data-date="${dateStr}" />
+            ${day}
+          </label>
+          <div class="dropdowns hide">
+            <select class="duration">
+              <option value="1">1h</option>
+              <option value="2">2h</option>
+            </select>
+            <select class="helpers">
+              <option value="">None</option>
+              <option value="S">S</option>
+              <option value="T">T</option>
+              <option value="ST">ST</option>
+            </select>
+          </div>
+        `;
+
+        const checkbox = cell.querySelector("input[type='checkbox']");
+        const dropdowns = cell.querySelector(".dropdowns");
+        const durationSel = cell.querySelector(".duration");
+        const helpersSel = cell.querySelector(".helpers");
+
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) {
+            dropdowns.classList.remove("hide");
+            selectedDates[dateStr] = {
+              hours: parseInt(durationSel.value),
+              helpers: helpersSel.value
+            };
+          } else {
+            dropdowns.classList.add("hide");
+            delete selectedDates[dateStr];
+          }
+          updateSummary();
+        });
+
+        durationSel.addEventListener("change", () => {
+          if (checkbox.checked) {
+            selectedDates[dateStr].hours = parseInt(durationSel.value);
+            updateSummary();
+          }
+        });
+
+        helpersSel.addEventListener("change", () => {
+          if (checkbox.checked) {
+            selectedDates[dateStr].helpers = helpersSel.value;
+            updateSummary();
+          }
+        });
+
+        grid.appendChild(cell);
+      }
+    }
+  }
+
+  function updateSummary() {
+    let total = 0, trainer = 0, steersman = 0;
+
+    for (const { hours, helpers } of Object.values(selectedDates)) {
+      total += hours;
+      if (helpers === "T") trainer++;
+      if (helpers === "S") steersman++;
+      if (helpers === "ST") {
+        trainer++;
+        steersman++;
+      }
+    }
+
+    const extra = Math.max(0, total - 12);
+
+    totalHoursEl.textContent = total;
+    trainerQtyEl.textContent = trainer;
+    steersmanQtyEl.textContent = steersman;
+    extraQtyEl.textContent = extra;
+  }
+
+  document.getElementById("nextBtn").addEventListener("click", () => {
+    localStorage.setItem("practiceData", JSON.stringify({
+      selectedDates,
+      trainerQty: parseInt(trainerQtyEl.textContent),
+      steersmanQty: parseInt(steersmanQtyEl.textContent),
+      extraPracticeQty: parseInt(extraQtyEl.textContent)
+    }));
+    window.location.href = "5_summary.html";
+  });
+
+  document.getElementById("backBtn").addEventListener("click", () => {
+    window.history.back();
+  });
+}
+
+if (window.location.pathname.includes("4_booking.html")) {
+  initBookingPage();
+}
+
 
 /* ------------------------
-   PAGE 4: Summary
+   PAGE 5: Summary
 ------------------------- */
 
 function initSummaryPage() {
