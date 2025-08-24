@@ -132,7 +132,6 @@ function initTeamInfoPage() {
     return;
   }
 
-  // Dynamically generate team name fields
   for (let i = 1; i <= numTeams; i++) {
     const group = document.createElement("div");
     group.className = "form-group";
@@ -153,7 +152,6 @@ function initTeamInfoPage() {
     container.appendChild(group);
   }
 
-  // Dynamically generate team manager fields
   for (let i = 1; i <= 3; i++) {
     const group = document.createElement("div");
     group.className = "form-group";
@@ -186,7 +184,12 @@ function initTeamInfoPage() {
     managerContainer.appendChild(group);
   }
 
-  // Handle form submission
+  // Back button
+  document.getElementById("backBtn").addEventListener("click", () => {
+    window.location.href = "1_category.html";
+  });
+
+  // Submit (Next)
   form.onsubmit = (e) => {
     e.preventDefault();
 
@@ -224,18 +227,17 @@ function initTeamInfoPage() {
       const email = form[`manager${i}_email`]?.value.trim() || "";
       managers.push({ name, mobile, email });
     }
-
-    // Save to localStorage
+    
     localStorage.setItem("org_name", orgName);
     localStorage.setItem("org_address", mailingAddress);
     localStorage.setItem("team_names", JSON.stringify(teamNames));
     localStorage.setItem("managers", JSON.stringify(managers));
     localStorage.setItem("team_submission_loop", "0");
 
-    // Continue to next page
     window.location.href = "3_raceday.html";
   };
 }
+
 
 /* ------------------------
    PAGE 3: Race Day Arrangement
@@ -244,8 +246,13 @@ function initRaceDayPage() {
   const form = document.getElementById("raceDayForm");
   const msg = document.getElementById("formMsg");
 
-form.onsubmit = (e) => {
-  e.preventDefault();
+  // Back button
+  document.getElementById("backBtn").addEventListener("click", () => {
+    window.location.href = "2_teaminfo.html";
+  });
+
+  form.onsubmit = (e) => {
+    e.preventDefault();
 
     const data = {
       marqueeQty: parseInt(form["marqueeQty"].value) || 0,
@@ -259,8 +266,9 @@ form.onsubmit = (e) => {
 
     localStorage.setItem("race_day_arrangement", JSON.stringify(data));
     window.location.href = "4_booking.html";
-};
+  };
 }
+
 /* ------------------------
    PAGE 4: Practice Booking
 ------------------------- */
@@ -428,8 +436,9 @@ function initBookingPage() {
   });
 
   document.getElementById("backBtn").addEventListener("click", () => {
-    window.history.back();
+    window.location.href = "3_raceday.html";
   });
+
 }
 
 if (window.location.pathname.includes("4_booking.html")) {
