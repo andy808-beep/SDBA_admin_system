@@ -75,6 +75,11 @@ button:hover {
   background: #0c5aa3;
 }
 
+/* ========== DUPLICATE ERROR ========== */
+
+input.dup-error { border-color:#c00; background:#fff6f6; }
+.small-hint { font-size:.85rem; color:#c00; margin-top:.25rem; }
+
 /* ========== MESSAGE STYLES ========== */
 
 .msg {
