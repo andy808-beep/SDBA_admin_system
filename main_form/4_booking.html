@@ -18,18 +18,225 @@
     </div>
     <div id="teamNameFields"></div>
 
+    <div class="copy-from-team1" style="margin-top: 0.5rem;">
+      <button type="button" id="copyFromTeam1Btn">📋 Copy from Team 1</button>
+    </div>
+
+
     <!-- 🗓️ Calendar Container -->
     <div id="calendarContainer" class="calendar-wrapper"></div>
 
-<!-- 📊 Practice Summary (Combined) -->
-<div id="practiceSummary" class="summary-box">
-  <h3>Practice Booking Summary</h3>
-  <p>Total Hours Selected: <span id="totalHours">0</span> / 12</p>
-  <p>Extra Practice Sessions (HK$600): <span id="extraPracticeQty">0</span></p>
-  <p>Trainer Sessions (HK$550): <span id="trainerQty">0</span></p>
-  <p>Steersman Sessions (HK$350): <span id="steersmanQty">0</span></p>
-</div>
+    <!-- 🧩 Time Slot Preference -->
+    <div class="slot-preferences">
+      <h3>Time Slot Preference Ranking</h3>
 
+      <table class="slot-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>2-Hour Session</th>
+            <th>1-Hour Session</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1st Choice</td>
+            <td>
+              <select id="slotPref2h_1" required>
+                <option value="">-- Select --</option>
+                <option value="Sat_08_2h">Saturday 08:00–10:00</option>
+                <option value="Sat_10_2h">Saturday 10:00–12:00</option>
+                <option value="Sat_1215_2h">Saturday 12:15–14:15</option>
+                <option value="Sat_1415_2h">Saturday 14:15–16:15</option>
+                <option value="Sat_1615_2h">Saturday 16:15–18:15</option>
+                <option value="Sun_09_2h">Sunday 09:00–11:00</option>
+                <option value="Sun_11_2h">Sunday 11:00–13:00</option>
+                <option value="Sun_1315_2h">Sunday 13:15–15:15</option>
+                <option value="Sun_1515_2h">Sunday 15:15–17:15</option>
+                <option value="Sun_1715_2h">Sunday 17:15–19:15</option>
+                <option value="Weekday_08_2h">Weekday 08:00–10:00</option>
+                <option value="Weekday_10_2h">Weekday 10:00–12:00</option>
+                <option value="Weekday_12_2h">Weekday 12:00–14:00</option>
+                <option value="Weekday_14_2h">Weekday 14:00–16:00</option>
+                <option value="Weekday_16_2h">Weekday 16:00–18:00</option>
+              </select>
+            </td>
+            <td>
+              <select id="slotPref1h_1">
+                <option value="">-- Select --</option>
+                <option value="Sat_08_1h">Saturday 08:00–09:00</option>
+                <option value="Sat_09_1h">Saturday 09:00–10:00</option>
+                <option value="Sat_10_1h">Saturday 10:00–11:00</option>
+                <option value="Sat_11_1h">Saturday 11:00–12:00</option>
+                <option value="Sat_1215_1h">Saturday 12:15–13:15</option>
+                <option value="Sat_1315_1h">Saturday 13:15–14:15</option>
+                <option value="Sat_1415_1h">Saturday 14:15–15:15</option>
+                <option value="Sat_1515_1h">Saturday 15:15–16:15</option>
+                <option value="Sat_1615_1h">Saturday 16:15–17:15</option>
+                <option value="Sat_1715_1h">Saturday 17:15–18:15</option>
+                <option value="Sat_1815_1h">Saturday 18:15–19:15</option>
+                <option value="Sun_08_1h">Sunday 08:00–09:00</option>
+                <option value="Sun_09_1h">Sunday 09:00–10:00</option>
+                <option value="Sun_10_1h">Sunday 10:00–11:00</option>
+                <option value="Sun_11_1h">Sunday 11:00–12:00</option>
+                <option value="Sun_1215_1h">Sunday 12:15–13:15</option>
+                <option value="Sun_1315_1h">Sunday 13:15–14:15</option>
+                <option value="Sun_1415_1h">Sunday 14:15–15:15</option>
+                <option value="Sun_1515_1h">Sunday 15:15–16:15</option>
+                <option value="Sun_1615_1h">Sunday 16:15–17:15</option>
+                <option value="Sun_1715_1h">Sunday 17:15–18:15</option>
+                <option value="Sun_1815_1h">Sunday 18:15–19:15</option>
+                <option value="Week_08_1h">Weekday 08:00–09:00</option>
+                <option value="Week_09_1h">Weekday 09:00–10:00</option>
+                <option value="Week_10_1h">Weekday 10:00–11:00</option>
+                <option value="Week_11_1h">Weekday 11:00–12:00</option>
+                <option value="Week_1215_1h">Weekday 12:15–13:15</option>
+                <option value="Week_1315_1h">Weekday 13:15–14:15</option>
+                <option value="Week_1415_1h">Weekday 14:15–15:15</option>
+                <option value="Week_1515_1h">Weekday 15:15–16:15</option>
+                <option value="Week_1615_1h">Weekday 16:15–17:15</option>
+                <option value="Week_1715_1h">Weekday 17:15–18:15</option>
+                <option value="Week_1815_1h">Weekday 18:15–19:15</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td>2nd Choice</td>
+            <td>
+              <select id="slotPref2h_2">
+                <option value="">-- Select --</option>
+                <option value="Sat_08_2h">Saturday 08:00–10:00</option>
+                <option value="Sat_10_2h">Saturday 10:00–12:00</option>
+                <option value="Sat_1215_2h">Saturday 12:15–14:15</option>
+                <option value="Sat_1415_2h">Saturday 14:15–16:15</option>
+                <option value="Sat_1615_2h">Saturday 16:15–18:15</option>
+                <option value="Sun_09_2h">Sunday 09:00–11:00</option>
+                <option value="Sun_11_2h">Sunday 11:00–13:00</option>
+                <option value="Sun_1315_2h">Sunday 13:15–15:15</option>
+                <option value="Sun_1515_2h">Sunday 15:15–17:15</option>
+                <option value="Sun_1715_2h">Sunday 17:15–19:15</option>
+                <option value="Weekday_08_2h">Weekday 08:00–10:00</option>
+                <option value="Weekday_10_2h">Weekday 10:00–12:00</option>
+                <option value="Weekday_12_2h">Weekday 12:00–14:00</option>
+                <option value="Weekday_14_2h">Weekday 14:00–16:00</option>
+                <option value="Weekday_16_2h">Weekday 16:00–18:00</option>
+              </select>
+            </td>
+            <td>
+              <select id="slotPref1h_2">
+                <option value="">-- Select --</option>
+                <option value="Sat_08_1h">Saturday 08:00–09:00</option>
+                <option value="Sat_09_1h">Saturday 09:00–10:00</option>
+                <option value="Sat_10_1h">Saturday 10:00–11:00</option>
+                <option value="Sat_11_1h">Saturday 11:00–12:00</option>
+                <option value="Sat_1215_1h">Saturday 12:15–13:15</option>
+                <option value="Sat_1315_1h">Saturday 13:15–14:15</option>
+                <option value="Sat_1415_1h">Saturday 14:15–15:15</option>
+                <option value="Sat_1515_1h">Saturday 15:15–16:15</option>
+                <option value="Sat_1615_1h">Saturday 16:15–17:15</option>
+                <option value="Sat_1715_1h">Saturday 17:15–18:15</option>
+                <option value="Sat_1815_1h">Saturday 18:15–19:15</option>
+                <option value="Sun_08_1h">Sunday 08:00–09:00</option>
+                <option value="Sun_09_1h">Sunday 09:00–10:00</option>
+                <option value="Sun_10_1h">Sunday 10:00–11:00</option>
+                <option value="Sun_11_1h">Sunday 11:00–12:00</option>
+                <option value="Sun_1215_1h">Sunday 12:15–13:15</option>
+                <option value="Sun_1315_1h">Sunday 13:15–14:15</option>
+                <option value="Sun_1415_1h">Sunday 14:15–15:15</option>
+                <option value="Sun_1515_1h">Sunday 15:15–16:15</option>
+                <option value="Sun_1615_1h">Sunday 16:15–17:15</option>
+                <option value="Sun_1715_1h">Sunday 17:15–18:15</option>
+                <option value="Sun_1815_1h">Sunday 18:15–19:15</option>
+                <option value="Week_08_1h">Weekday 08:00–09:00</option>
+                <option value="Week_09_1h">Weekday 09:00–10:00</option>
+                <option value="Week_10_1h">Weekday 10:00–11:00</option>
+                <option value="Week_11_1h">Weekday 11:00–12:00</option>
+                <option value="Week_1215_1h">Weekday 12:15–13:15</option>
+                <option value="Week_1315_1h">Weekday 13:15–14:15</option>
+                <option value="Week_1415_1h">Weekday 14:15–15:15</option>
+                <option value="Week_1515_1h">Weekday 15:15–16:15</option>
+                <option value="Week_1615_1h">Weekday 16:15–17:15</option>
+                <option value="Week_1715_1h">Weekday 17:15–18:15</option>
+                <option value="Week_1815_1h">Weekday 18:15–19:15</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td>3rd Choice</td>
+            <td>
+              <select id="slotPref2h_3">
+                <option value="">-- Select --</option>
+                <option value="Sat_08_2h">Saturday 08:00–10:00</option>
+                <option value="Sat_10_2h">Saturday 10:00–12:00</option>
+                <option value="Sat_1215_2h">Saturday 12:15–14:15</option>
+                <option value="Sat_1415_2h">Saturday 14:15–16:15</option>
+                <option value="Sat_1615_2h">Saturday 16:15–18:15</option>
+                <option value="Sun_09_2h">Sunday 09:00–11:00</option>
+                <option value="Sun_11_2h">Sunday 11:00–13:00</option>
+                <option value="Sun_1315_2h">Sunday 13:15–15:15</option>
+                <option value="Sun_1515_2h">Sunday 15:15–17:15</option>
+                <option value="Sun_1715_2h">Sunday 17:15–19:15</option>
+                <option value="Weekday_08_2h">Weekday 08:00–10:00</option>
+                <option value="Weekday_10_2h">Weekday 10:00–12:00</option>
+                <option value="Weekday_12_2h">Weekday 12:00–14:00</option>
+                <option value="Weekday_14_2h">Weekday 14:00–16:00</option>
+                <option value="Weekday_16_2h">Weekday 16:00–18:00</option>
+              </select>
+            </td>
+            <td>
+              <select id="slotPref1h_3">
+                <option value="">-- Select --</option>
+                <option value="Sat_08_1h">Saturday 08:00–09:00</option>
+                <option value="Sat_09_1h">Saturday 09:00–10:00</option>
+                <option value="Sat_10_1h">Saturday 10:00–11:00</option>
+                <option value="Sat_11_1h">Saturday 11:00–12:00</option>
+                <option value="Sat_1215_1h">Saturday 12:15–13:15</option>
+                <option value="Sat_1315_1h">Saturday 13:15–14:15</option>
+                <option value="Sat_1415_1h">Saturday 14:15–15:15</option>
+                <option value="Sat_1515_1h">Saturday 15:15–16:15</option>
+                <option value="Sat_1615_1h">Saturday 16:15–17:15</option>
+                <option value="Sat_1715_1h">Saturday 17:15–18:15</option>
+                <option value="Sat_1815_1h">Saturday 18:15–19:15</option>
+                <option value="Sun_08_1h">Sunday 08:00–09:00</option>
+                <option value="Sun_09_1h">Sunday 09:00–10:00</option>
+                <option value="Sun_10_1h">Sunday 10:00–11:00</option>
+                <option value="Sun_11_1h">Sunday 11:00–12:00</option>
+                <option value="Sun_1215_1h">Sunday 12:15–13:15</option>
+                <option value="Sun_1315_1h">Sunday 13:15–14:15</option>
+                <option value="Sun_1415_1h">Sunday 14:15–15:15</option>
+                <option value="Sun_1515_1h">Sunday 15:15–16:15</option>
+                <option value="Sun_1615_1h">Sunday 16:15–17:15</option>
+                <option value="Sun_1715_1h">Sunday 17:15–18:15</option>
+                <option value="Sun_1815_1h">Sunday 18:15–19:15</option>
+                <option value="Week_08_1h">Weekday 08:00–09:00</option>
+                <option value="Week_09_1h">Weekday 09:00–10:00</option>
+                <option value="Week_10_1h">Weekday 10:00–11:00</option>
+                <option value="Week_11_1h">Weekday 11:00–12:00</option>
+                <option value="Week_1215_1h">Weekday 12:15–13:15</option>
+                <option value="Week_1315_1h">Weekday 13:15–14:15</option>
+                <option value="Week_1415_1h">Weekday 14:15–15:15</option>
+                <option value="Week_1515_1h">Weekday 15:15–16:15</option>
+                <option value="Week_1615_1h">Weekday 16:15–17:15</option>
+                <option value="Week_1715_1h">Weekday 17:15–18:15</option>
+                <option value="Week_1815_1h">Weekday 18:15–19:15</option>
+              </select>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+
+
+
+    <!-- 📊 Practice Summary (Combined) -->
+    <div id="practiceSummary" class="summary-box">
+      <h3>Practice Booking Summary</h3>
+      <p>Total Hours Selected: <span id="totalHours">0</span> / 12</p>
+      <p>Extra Practice Sessions (HK$600): <span id="extraPracticeQty">0</span></p>
+      <p>Trainer Sessions (HK$550): <span id="trainerQty">0</span></p>
+      <p>Steersman Sessions (HK$350): <span id="steersmanQty">0</span></p>
+    </div>
 
     <!-- 🔄 Navigation -->
     <div class="nav-buttons">
@@ -39,6 +246,6 @@
 
   </div>
 
-  <script src="main_form.js" type="module"></script>
+  <script type="module" src="main_form.js" defer></script>
 </body>
 </html>
