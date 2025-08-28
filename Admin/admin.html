@@ -12,21 +12,44 @@
     <div class="brand">SDBA Admin</div>
     <nav id="sidebarNav" aria-label="Primary">
       <a href="#overview" data-route="#overview"><span class="nav-label">Overview</span></a>
+      <a href="#applications" data-route="#applications">
+        <span class="nav-label">Applications</span>
+        <span class="nav-badge" id="navBadgeApps">0</span>
+      </a>
+      <a href="#practice" data-route="#practice">
+        <span class="nav-label">Practice Calendar</span>
+      </a>
       <a href="#exports"  data-route="#exports"><span class="nav-label">Exports</span></a>
     </nav>
     <div class="spacer"></div>
-    <div class="version">DEMO • v0.1</div>
+    <div class="version">DEMO • v0.3</div>
   </aside>
-   <!-- Header -->
+
+  <!-- Header -->
   <header>
     <div class="header-left">
       <span class="pill" id="envBadge">Local</span>
     </div>
     <div class="header-right">
-      <span class="pill" id="bell">🔔 <strong id="bellCount">0</strong></span>
+      <!-- Bell with dropdown -->
+      <div class="bell-wrap">
+        <button class="pill bell-btn" id="bellBtn" aria-haspopup="true" aria-expanded="false">
+          🔔 <strong id="bellCount">0</strong>
+        </button>
+        <div class="dropdown" id="bellDropdown" role="menu" aria-hidden="true">
+          <div class="dropdown-header">Notifications</div>
+          <div class="dropdown-list" id="notifList">
+            <!-- Populated by JS -->
+          </div>
+          <div class="dropdown-footer">
+            <a href="#applications?queue=waiver_received" class="link">Review waivers →</a>
+          </div>
+        </div>
+      </div>
       <button class="btn" id="logoutBtn" title="(stub) Hook to Supabase later">Logout</button>
     </div>
   </header>
+
   <!-- Main -->
   <main id="main">
     <!-- OVERVIEW -->
@@ -55,6 +78,101 @@
         </div>
       </div>
     </section>
+
+    <!-- APPLICATIONS (new) -->
+    <section id="view-applications" class="view" role="region" aria-labelledby="app-h2">
+      <div class="section">
+        <h2 id="app-h2">Applications</h2>
+        <p class="small">Triage and review new submissions. Click a row to open the drawer.</p>
+
+        <!-- Queue pills -->
+        <div class="pillbar" id="queuePills">
+          <button class="pillx is-active" data-queue="all">All</button>
+          <button class="pillx" data-queue="waiver_received">Waiver: received <span class="count" id="pillWaiver">0</span></button>
+          <button class="pillx" data-queue="waiver_missing">Waiver: missing <span class="count" id="pillWaiver">0</span></button>
+          <button class="pillx" data-queue="logo_received">Shorts Logo: received <span class="count" id="pillLogo">0</span></button>
+          <button class="pillx" data-queue="logo_missing">Shorts Logo: missing <span class="count" id="pillLogo">0</span></button>
+          <button class="pillx" data-queue="shorts_pending">Shorts Sizes: received <span class="count" id="pillShorts">0</span></button>
+          <button class="pillx" data-queue="shorts_missing">Shorts Sizes: missing <span class="count" id="pillShorts">0</span></button>
+          <button class="pillx" data-queue="payment_attention">Payment: missing <span class="count" id="pillPayment">0</span></button>
+          <button class="pillx" data-queue="payment_approved">Payment: approved <span class="count" id="pillPayment">0</span></button>
+          <button class="pillx" data-queue="ready_to_approve">Ready to approve <span class="count" id="pillReady">0</span></button>
+        </div>
+
+        <!-- New items banner -->
+        <div class="banner hidden" id="newBanner">
+          <span id="newBannerText">New items</span>
+          <button class="btn btn-sm" id="btnLoadNew">Load</button>
+        </div>
+
+        <!-- Search row -->
+        <div class="controls">
+          <input id="searchBox" type="search" placeholder="Search team / org / manager" />
+          <select id="filterCategory">
+            <option value="">All categories</option>
+            <option value="men_open">Men Open</option>
+            <option value="ladies_open">Ladies Open</option>
+            <option value="mixed_open">Mixed Open</option>
+            <option value="mixed_corporate">Mixed Corporate</option>
+          </select>
+          <select id="filterStatus">
+            <option value="">All app statuses</option>
+            <option value="submitted">Submitted</option>
+            <option value="under_review">Under Review</option>
+            <option value="approved">Approved</option>
+          </select>
+          <button class="btn" id="btnExportCurrent" disabled title="Exports come from the Exports tab">Export current view</button>
+        </div>
+
+        <!-- Table -->
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Submitted</th>
+                <th>Catagory</th>
+                <th>Team Code</th>
+                <th>Team Name</th>
+                <th>Organization</th>
+                <th>Manager</th>
+                <th class="col-req">Requirements</th>
+                <th>App Status</th>
+              </tr>
+            </thead>
+            <tbody id="appTbody">
+              <!-- Rows injected by JS -->
+            </tbody>
+          </table>
+          <div class="empty" id="emptyState">No applications in this queue.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRACTICE CALENDAR (NEW) -->
+    <section id="view-practice" class="view" role="region" aria-labelledby="pr-h2">
+    <div class="section">
+        <div class="cal-topbar">
+        <h2 id="pr-h2">Practice Calendar</h2>
+        <div class="cal-controls">
+            <button class="btn btn-outline" id="calBtnPrev" title="Previous week">←</button>
+            <button class="btn btn-outline" id="calBtnToday" title="Jump to current week">Today</button>
+            <button class="btn btn-outline" id="calBtnNext" title="Next week">→</button>
+            <span class="cal-range" id="calRange"></span>
+        </div>
+        </div>
+        <p class="small">Weekly, read-only view. We’ll wire Supabase bookings later.</p>
+
+        <div class="cal-wrap">
+        <div class="cal-header" id="calHeader"></div>
+        <div class="cal-body">
+            <div class="cal-timecol" id="calTimes"></div>
+            <div class="cal-grid" id="calGrid"></div>
+            <div class="now-line" id="calNowLine" hidden></div>
+        </div>
+        </div>
+    </div>
+    </section>
+
     <!-- EXPORTS -->
     <section id="view-exports" class="view" role="region" aria-labelledby="ex-h2">
       <div class="section">
@@ -64,7 +182,7 @@
         <div class="template-grid">
           <div class="card">
             <strong>Men Open</strong>
-            <div class="small">Table: <code>mens_open_team_list</code></div>
+            <div class="small">Table: <code>men_open_team_list</code></div>
             <button class="btn" id="btnMenOpen">Export CSV</button>
           </div>
 
@@ -85,10 +203,90 @@
             <div class="small">Table: <code>mixed_corporate_team_list</code></div>
             <button class="btn" id="btnMixedCorporate">Export CSV</button>
           </div>
+
+          <div class="card">
+            <strong>All Four Tables</strong>
+            <div class="small">Downloads four files sequentially.</div>
+            <button class="btn" id="btnExportAll">Export All</button>
+          </div>
         </div>
       </div>
     </section>
   </main>
 
+  <!-- Right-side Drawer -->
+  <aside class="drawer hidden" id="drawer" aria-hidden="true" aria-labelledby="drawerTitle">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title" id="drawerTitle">Team — </div>
+        <div class="drawer-sub" id="drawerSub">Category — </div>
+      </div>
+      <button class="btn btn-ghost" id="btnCloseDrawer">✕</button>
+    </div>
+
+    <div class="drawer-banner" id="drawerBanner">Ready to approve</div>
+
+    <div class="drawer-body">
+      <div class="card card-req">
+        <div class="card-head">
+          <strong>Liability Waiver</strong>
+          <span class="chip chip-received" id="chipWaiver">received</span>
+        </div>
+        <p class="small">Preview/Download will appear here when wired.</p>
+        <div class="actions">
+          <button class="btn btn-sm" disabled>Approve</button>
+          <button class="btn btn-sm btn-outline" disabled>Needs revision</button>
+        </div>
+      </div>
+
+      <div class="card card-req">
+        <div class="card-head">
+          <strong>Shorts Sizes</strong>
+          <span class="chip chip-pending" id="chipShorts">pending</span>
+        </div>
+        <p class="small">XS/S/M/L/XL/2XL quantities.</p>
+        <div class="actions">
+          <button class="btn btn-sm" disabled>Lock sizes</button>
+        </div>
+      </div>
+
+      <div class="card card-req">
+        <div class="card-head">
+          <strong>Team Logo</strong>
+          <span class="chip chip-needs" id="chipLogo">needs_revision</span>
+        </div>
+        <p class="small">Vector, transparent background, min size.</p>
+        <div class="actions">
+          <button class="btn btn-sm" disabled>Approve</button>
+          <button class="btn btn-sm btn-outline" disabled>Needs revision</button>
+        </div>
+      </div>
+
+      <div class="card card-req">
+        <div class="card-head">
+          <strong>Payment</strong>
+          <span class="chip chip-partial" id="chipPayment">partial</span>
+        </div>
+        <p class="small">Amount due/paid, method, reference.</p>
+        <div class="actions">
+          <button class="btn btn-sm" disabled>Mark paid</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <strong>Timeline</strong>
+        <ul class="timeline" id="timeline">
+        </ul>
+      </div>
+    </div>
+
+    <div class="drawer-foot">
+      <button class="btn btn-outline" id="btnPrev">← Prev</button>
+      <button class="btn" id="btnNext">Next →</button>
+    </div>
+  </aside>
+
+  <!-- IMPORTANT: module so we can import Supabase for Exports -->
   <script type="module" src="admin.js"></script>
 </body>
+</html>
