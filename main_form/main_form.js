@@ -174,6 +174,16 @@ function initTeamInfoPage() {
     return;
   }
 
+  const savedOrgName  = localStorage.getItem("org_name") || "";
+  const savedAddress  = localStorage.getItem("org_address") || "";
+  const savedNames    = JSON.parse(localStorage.getItem("team_names") || "[]");
+  const savedOptions  = JSON.parse(localStorage.getItem("team_options") || "[]");
+  const savedManagers = JSON.parse(localStorage.getItem("managers") || "[]");
+
+  // Restore org name and address
+  if (form["orgName"])         form["orgName"].value = savedOrgName;
+  if (form["mailingAddress"])  form["mailingAddress"].value = savedAddress;
+
   function normalizeName(s) {
     return (s || "")
       .normalize("NFKC")
@@ -238,12 +248,12 @@ function initTeamInfoPage() {
     input.name = `teamName${i}`;
     input.placeholder = `Enter name for Team ${i}`;
     input.required = true;
+    input.value = savedNames[i - 1] || "";
 
     ["input", "change", "blur"].forEach(evt =>
       input.addEventListener(evt, validateUniqueTeamNames)
     );
 
-    // Entry Option selector
     const optLabel = document.createElement("label");
     optLabel.setAttribute("for", `teamOption${i}`);
     optLabel.textContent = "Entry Option:";
@@ -262,6 +272,8 @@ function initTeamInfoPage() {
 
     optSelect.appendChild(opt1);
     optSelect.appendChild(opt2);
+
+    optSelect.value = savedOptions[i - 1] || "opt1";
 
     group.appendChild(label);
     group.appendChild(input);
@@ -283,18 +295,21 @@ function initTeamInfoPage() {
     nameInput.name = `manager${i}_name`;
     nameInput.placeholder = "Full Name";
     nameInput.required = i < 3;
+    nameInput.value = savedManagers[i - 1]?.name || "";
 
     const mobileInput = document.createElement("input");
     mobileInput.type = "tel";
     mobileInput.name = `manager${i}_mobile`;
     mobileInput.placeholder = "Mobile Number";
     mobileInput.required = i < 3;
+    mobileInput.value = savedManagers[i - 1]?.mobile || "";
 
     const emailInput = document.createElement("input");
     emailInput.type = "email";
     emailInput.name = `manager${i}_email`;
     emailInput.placeholder = "Email Address";
     emailInput.required = i < 3;
+    emailInput.value = savedManagers[i - 1]?.email || "";
 
     group.appendChild(nameInput);
     group.appendChild(mobileInput);
@@ -409,15 +424,17 @@ function initRaceDayPage() {
    PAGE 4: Practice Booking (stores compact practiceData)
 ------------------------- */
 function initBookingPage() {
-  const selectedDatesPerTeam = {};     // Stores each team's dates
-  let selectedDates = {};              // Currently active team’s calendar
-  let selectedTeamIndex = 0;           // Index of current team
-
   const PRACTICE_YEAR = 2026;
   localStorage.setItem("practice_year", String(PRACTICE_YEAR));
 
+  const calendarEl     = document.getElementById("calendarContainer");
+  const totalHoursEl   = document.getElementById("totalHours");
+  const trainerQtyEl   = document.getElementById("trainerQty");
+  const steersmanQtyEl = document.getElementById("steersmanQty");
+  const extraQtyEl     = document.getElementById("extraPracticeQty");
   const teamSelect     = document.getElementById("teamSelect");
   const teamNameFields = document.getElementById("teamNameFields");
+  const msg            = document.getElementById("formMsg");
 
   let teamNames = [];
   try {
@@ -426,8 +443,25 @@ function initBookingPage() {
     console.warn("Invalid team_names in localStorage", err);
   }
 
-  // Default to first team
-  selectedTeamIndex = 0;
+  const selectedDatesPerTeam = {};
+  let selectedDates = {};
+  let selectedTeamIndex = 0;
+
+  // Preload all practice data from localStorage
+  teamNames.forEach((_, i) => {
+    const raw = localStorage.getItem(`practiceData_team${i}`);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      selectedDatesPerTeam[i] = {};
+      for (const { date, hours, helpers } of parsed.dates || []) {
+        selectedDatesPerTeam[i][date] = { hours, helpers };
+      }
+    } catch (e) {
+      console.warn(`Invalid practice data for team ${i}`, e);
+    }
+  });
+
   if (!teamNames.length) {
     teamSelect.innerHTML = `<option disabled>No teams found</option>`;
     teamNameFields.textContent = "";
@@ -444,13 +478,9 @@ function initBookingPage() {
   }
 
   teamSelect.addEventListener("change", () => {
-    // Save current team's data
-    selectedDatesPerTeam[selectedTeamIndex] = { ...selectedDates };
+    saveCurrentTeamData(); // 🔁 auto-save before switching team
 
-    // Update selected team
     selectedTeamIndex = Number(teamSelect.value);
-
-    // Restore selectedDates for the new team
     selectedDates = { ...selectedDatesPerTeam[selectedTeamIndex] } || {};
 
     const teamName = teamNames[selectedTeamIndex] || `Team ${selectedTeamIndex + 1}`;
@@ -459,106 +489,86 @@ function initBookingPage() {
     loadPracticeForTeam(selectedTeamIndex);
   });
 
-
-
   // 📋 Copy from Team 1
-  const copyBtn = document.getElementById("copyFromTeam1Btn");
-  copyBtn.addEventListener("click", () => {
+  document.getElementById("copyFromTeam1Btn").addEventListener("click", () => {
     const targetIndex = Number(teamSelect.value || "0");
-    if (targetIndex === 0) {
-      alert("You are already on Team 1.");
-      return;
-    }
+    if (targetIndex === 0) return alert("You are already on Team 1.");
 
     const from = localStorage.getItem("practiceData_team0");
-    if (!from) {
-      alert("No practice data found for Team 1.");
-      return;
-    }
+    if (!from) return alert("No practice data found for Team 1.");
 
     localStorage.setItem(`practiceData_team${targetIndex}`, from);
-    loadPracticeForTeam(targetIndex);
-    alert(`Copied schedule from Team 1 → Team ${targetIndex + 1}`);
+    location.reload(); // Simple fix to re-run init logic and UI rendering
   });
 
-  const calendarEl     = document.getElementById("calendarContainer");
-  const totalHoursEl   = document.getElementById("totalHours");
-  const trainerQtyEl   = document.getElementById("trainerQty");
-  const steersmanQtyEl = document.getElementById("steersmanQty");
-  const extraQtyEl     = document.getElementById("extraPracticeQty");
-  const msg            = document.getElementById("formMsg");
-
-  // { 'YYYY-MM-DD': { hours: 1|2, helpers: '', 'S', 'T', 'ST' } }
   function loadPracticeForTeam(index) {
     Object.keys(selectedDates).forEach(k => delete selectedDates[k]);
     Object.assign(selectedDates, selectedDatesPerTeam[index] || {});
-
     updateSummary();
 
-// Reset all checkboxes and dropdowns
-document.querySelectorAll(".calendar-day input[type='checkbox']").forEach(cb => {
-  cb.checked = false;
-  cb.closest(".calendar-day").querySelector(".dropdowns")?.classList.add("hide");
-});
+    // Clear checkboxes & dropdowns
+    document.querySelectorAll(".calendar-day input[type='checkbox']").forEach(cb => {
+      cb.checked = false;
+      cb.closest(".calendar-day").querySelector(".dropdowns")?.classList.add("hide");
+    });
 
-// Reset slot preferences
-for (let i = 1; i <= 3; i++) {
-  document.getElementById(`slotPref2h_${i}`).value = "";
-  document.getElementById(`slotPref1h_${i}`).value = "";
+    for (const [date, { hours, helpers }] of Object.entries(selectedDates)) {
+      const cb = document.querySelector(`input[data-date='${date}']`);
+      if (!cb) continue;
+
+      const cell = cb.closest(".calendar-day");
+      const durationSel = cell.querySelector(".duration");
+      const helpersSel  = cell.querySelector(".helpers");
+      const dropdowns   = cell.querySelector(".dropdowns");
+
+      cb.checked = true;
+      dropdowns.classList.remove("hide");
+      durationSel.value = String(hours || 1);
+      helpersSel.value = helpers || "";
+    }
+
+    // Load slot preferences
+    const raw = localStorage.getItem(`practiceData_team${index}`);
+    if (!raw) return;
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch {}
+    const slotPrefs2 = parsed.slotPrefs_2hr || {};
+    const slotPrefs1 = parsed.slotPrefs_1hr || {};
+    for (let i = 1; i <= 3; i++) {
+      document.getElementById(`slotPref2h_${i}`).value = slotPrefs2[`slot_pref_${i}`] || "";
+      document.getElementById(`slotPref1h_${i}`).value = slotPrefs1[`slot_pref_${i}`] || "";
+    }
+
+    function saveCurrentTeamData() {
+      const teamIndex = selectedTeamIndex;
+      const datesArr = Object.entries(selectedDates).map(([date, v]) => ({
+        date,
+        hours: Number(v.hours) || 0,
+        helpers: v.helpers || ""
+      }));
+
+      if (datesArr.length === 0) return;
+
+      localStorage.setItem(`practiceData_team${teamIndex}`, JSON.stringify({
+        dates: datesArr,
+        trainerQty: Number(trainerQtyEl.textContent) || 0,
+        steersmanQty: Number(steersmanQtyEl.textContent) || 0,
+        extraPracticeQty: Number(extraQtyEl.textContent) || 0,
+        slotPrefs_2hr: {
+          slot_pref_1: document.getElementById("slotPref2h_1")?.value || "",
+          slot_pref_2: document.getElementById("slotPref2h_2")?.value || "",
+          slot_pref_3: document.getElementById("slotPref2h_3")?.value || ""
+        },
+        slotPrefs_1hr: {
+          slot_pref_1: document.getElementById("slotPref1h_1")?.value || "",
+          slot_pref_2: document.getElementById("slotPref1h_2")?.value || "",
+          slot_pref_3: document.getElementById("slotPref1h_3")?.value || ""
+        }
+      }));
 }
 
-// Load saved data for this team
-const raw = localStorage.getItem(`practiceData_team${index}`);
-if (!raw) return;
-
-let parsed;
-try {
-  parsed = JSON.parse(raw);
-} catch (e) {
-  console.warn("Invalid practice data for team", index);
-  return;
-}
-
-// Restore calendar selections into memory + UI
-for (const entry of parsed.dates || []) {
-  const { date, hours, helpers } = entry;
-  const cb = document.querySelector(`input[type='checkbox'][data-date='${date}']`);
-  if (!cb) continue;
-
-  const cell         = cb.closest(".calendar-day");
-  const dropdowns    = cell.querySelector(".dropdowns");
-  const durationSel  = cell.querySelector(".duration");
-  const helpersSel   = cell.querySelector(".helpers");
-
-  cb.checked = true;
-  dropdowns.classList.remove("hide");
-  durationSel.value = String(hours || 1);
-  helpersSel.value = helpers || "";
-
-  selectedDates[date] = {
-    hours: Number(hours) || 1,
-    helpers: helpers || ""
-  };
-}
-
-// Restore to temporary memory for this team
-Object.assign(selectedDatesPerTeam[index] = {}, selectedDates);
-
-// Restore summary counts
-updateSummary();
-
-// Restore slot preferences
-const slotPrefs2 = parsed.slotPrefs_2hr || {};
-const slotPrefs1 = parsed.slotPrefs_1hr || {};
-for (let i = 1; i <= 3; i++) {
-  document.getElementById(`slotPref2h_${i}`).value = slotPrefs2[`slot_pref_${i}`] || "";
-  document.getElementById(`slotPref1h_${i}`).value = slotPrefs1[`slot_pref_${i}`] || "";
-}
-}
-
-  renderCalendar();
-  updateSummary();
-  loadPracticeForTeam(0); // 👈 Load Team 1 data on page load
+    updateSummary();
+  }
 
   function renderCalendar() {
     calendarEl.innerHTML = "";
@@ -591,7 +601,6 @@ for (let i = 1; i <= 3; i++) {
         monthContent.classList.toggle("hide");
       });
 
-      // Show January by default
       if (month === 0) monthContent.classList.remove("hide");
       else monthContent.classList.add("hide");
 
@@ -601,16 +610,14 @@ for (let i = 1; i <= 3; i++) {
       monthBox.appendChild(monthContent);
       calendarEl.appendChild(monthBox);
 
-      // grid padding
-      const daysInMonth   = new Date(PRACTICE_YEAR, month + 1, 0).getDate();
-      const firstDayOfWeek= new Date(PRACTICE_YEAR, month, 1).getDay();
-      for (let i = 0; i < firstDayOfWeek; i++) {
-        const padCell = document.createElement("div");
-        padCell.className = "calendar-day empty";
-        grid.appendChild(padCell);
+      const daysInMonth = new Date(PRACTICE_YEAR, month + 1, 0).getDate();
+      const firstDay = new Date(PRACTICE_YEAR, month, 1).getDay();
+      for (let i = 0; i < firstDay; i++) {
+        const pad = document.createElement("div");
+        pad.className = "calendar-day empty";
+        grid.appendChild(pad);
       }
 
-      // days
       for (let day = 1; day <= daysInMonth; day++) {
         const dateObj = new Date(PRACTICE_YEAR, month, day);
         const dateStr = dateObj.toISOString().split("T")[0];
@@ -636,10 +643,10 @@ for (let i = 1; i <= 3; i++) {
           </div>
         `;
 
-        const checkbox    = cell.querySelector("input[type='checkbox']");
-        const dropdowns   = cell.querySelector(".dropdowns");
+        const checkbox = cell.querySelector("input[type='checkbox']");
+        const dropdowns = cell.querySelector(".dropdowns");
         const durationSel = cell.querySelector(".duration");
-        const helpersSel  = cell.querySelector(".helpers");
+        const helpersSel = cell.querySelector(".helpers");
 
         checkbox.addEventListener("change", () => {
           if (checkbox.checked) {
@@ -678,25 +685,24 @@ for (let i = 1; i <= 3; i++) {
     let total = 0, trainer = 0, steersman = 0;
 
     for (const { hours, helpers } of Object.values(selectedDates)) {
-      total += (Number(hours) || 0);
+      total += Number(hours) || 0;
       if (helpers === "T") trainer++;
       if (helpers === "S") steersman++;
       if (helpers === "ST") { trainer++; steersman++; }
     }
 
     const extra = Math.max(0, total - 12);
-
     totalHoursEl.textContent   = String(total);
     trainerQtyEl.textContent   = String(trainer);
     steersmanQtyEl.textContent = String(steersman);
     extraQtyEl.textContent     = String(extra);
   }
 
-  // Save & Next -> Summary (no DB write here)
   document.getElementById("nextBtn").addEventListener("click", () => {
-    const teamIndex = document.getElementById("teamSelect")?.value || "0"; // or use team name if preferred
+    const teamIndex = Number(document.getElementById("teamSelect")?.value || "0");
+    selectedDatesPerTeam[teamIndex] = { ...selectedDates };
 
-    const datesArr = Object.entries(selectedDatesPerTeam[selectedTeamIndex] || {}).map(([date, v]) => ({
+    const datesArr = Object.entries(selectedDates).map(([date, v]) => ({
       date,
       hours: Number(v.hours) || 0,
       helpers: v.helpers || ""
@@ -707,8 +713,6 @@ for (let i = 1; i <= 3; i++) {
       msg.style.color = "red";
       return;
     }
-
-    selectedDatesPerTeam[selectedTeamIndex] = { ...selectedDates };
 
     localStorage.setItem(`practiceData_team${teamIndex}`, JSON.stringify({
       dates: datesArr,
@@ -727,13 +731,17 @@ for (let i = 1; i <= 3; i++) {
       }
     }));
 
-  window.location.href = "5_summary.html";
-});
+    window.location.href = "5_summary.html";
+  });
 
   document.getElementById("backBtn").addEventListener("click", () => {
     window.location.href = "3_raceday.html";
   });
+
+  renderCalendar();
+  loadPracticeForTeam(0);
 }
+
 
 /* ------------------------
    PAGE 5: Summary
@@ -836,6 +844,9 @@ function renderSummary() {
   const container = document.getElementById("perTeamPracticeSummary");
   const teamNames = teamNamesArr;
 
+  let totalHours = 0;
+  let trainer = 0;
+  let steersman = 0;
   if (!container || teamNames.length === 0) {
     container.innerHTML = `<p class="muted">No teams found.</p>`;
   } else {
@@ -912,8 +923,9 @@ text("sumPracticeExtra",     String(Math.max(0, totalHours - maxFreeHours)));
 
 
   // Back button
-  const backBtn = document.getElementById("backBtn");
-  if (backBtn) backBtn.onclick = () => history.back();
+  document.getElementById("backBtn").addEventListener("click", () => {
+    window.location.href = "4_booking.html";
+  });
 }
 
 // --- unique name to avoid clobbering page-2 normalizeName
