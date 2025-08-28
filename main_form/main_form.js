@@ -67,7 +67,25 @@ function initRaceCategoryPage() {
     default:         { opt1: 20900, opt2: 17500 }
   };
 
-  // Show/hide entry options based on category
+  // --- 🧠 Restore previous selections if available ---
+  const savedCategory = localStorage.getItem("race_category");
+  const savedNumTeams = localStorage.getItem("num_teams");
+  const savedOpt1     = localStorage.getItem("num_teams_opt1");
+  const savedOpt2     = localStorage.getItem("num_teams_opt2");
+
+  if (savedCategory) {
+    categorySelect.value = savedCategory;
+    const prices = priceTable[savedCategory] || priceTable.default;
+    opt1PriceDisplay.textContent = `HK$${prices.opt1}`;
+    opt2PriceDisplay.textContent = `HK$${prices.opt2}`;
+    entryOptionsSection.hidden = false;
+  }
+
+  if (savedNumTeams) teamCountInput.value = savedNumTeams;
+  if (savedOpt1)      opt1Count.value = savedOpt1;
+  if (savedOpt2)      opt2Count.value = savedOpt2;
+
+  // --- Show/hide entry options based on category ---
   categorySelect.addEventListener("change", () => {
     const cat = categorySelect.value;
 
@@ -86,7 +104,7 @@ function initRaceCategoryPage() {
     msg.textContent = "";
   });
 
-  // Form submission
+  // --- Form submission ---
   const form = document.getElementById("categoryForm");
   form.onsubmit = (e) => {
     e.preventDefault();
@@ -130,17 +148,14 @@ function initRaceCategoryPage() {
       localStorage.setItem("season", String(getCurrentSeason()));
     }
 
-    // This flag is still fine to keep if you use it later
     localStorage.setItem("team_submission_loop", "0");
 
-    // Go to next step
     window.location.href = "2_teaminfo.html";
   };
 }
 
-
 /* ------------------------
-   PAGE 2: Team Info (with de‑dup)
+   PAGE 2: Team Info (with de‑dup + entry option)
 ------------------------- */
 function initTeamInfoPage() {
   const form = document.getElementById("teamInfoForm");
@@ -159,23 +174,19 @@ function initTeamInfoPage() {
     return;
   }
 
-  // ---------- helpers ----------
-  // Normalize for uniqueness: trim, collapse spaces, lowercase
   function normalizeName(s) {
     return (s || "")
-      .normalize("NFKC")          // Unicode normalize
+      .normalize("NFKC")
       .trim()
       .replace(/\s+/g, " ")
       .toLowerCase();
   }
 
-  // Validate all team name inputs; decorate duplicates
   function validateUniqueTeamNames() {
     const inputs = [...container.querySelectorAll('input[id^="teamName"]')];
-    const seen = new Map();  // norm -> first input
+    const seen = new Map();
     const dupSet = new Set();
 
-    // clear previous styles/hints
     for (const inp of inputs) {
       inp.classList.remove("dup-error");
       const hint = inp.parentElement.querySelector(".small-hint");
@@ -184,7 +195,7 @@ function initTeamInfoPage() {
 
     for (const inp of inputs) {
       const norm = normalizeName(inp.value);
-      if (!norm) continue; // ignore empties here; required is checked on submit
+      if (!norm) continue;
       if (seen.has(norm)) {
         dupSet.add(inp);
         dupSet.add(seen.get(norm));
@@ -193,7 +204,6 @@ function initTeamInfoPage() {
       }
     }
 
-    // decorate dup fields
     for (const inp of dupSet) {
       inp.classList.add("dup-error");
       const hint = document.createElement("div");
@@ -202,7 +212,6 @@ function initTeamInfoPage() {
       inp.parentElement.appendChild(hint);
     }
 
-    // global message + button state
     if (dupSet.size > 0) {
       msg.textContent = "Duplicate team names detected. Please make each team name unique.";
       msg.style.color = "red";
@@ -215,7 +224,6 @@ function initTeamInfoPage() {
     }
   }
 
-  // ---------- build dynamic fields ----------
   for (let i = 1; i <= numTeams; i++) {
     const group = document.createElement("div");
     group.className = "form-group";
@@ -231,13 +239,34 @@ function initTeamInfoPage() {
     input.placeholder = `Enter name for Team ${i}`;
     input.required = true;
 
-    // live validation
     ["input", "change", "blur"].forEach(evt =>
       input.addEventListener(evt, validateUniqueTeamNames)
     );
 
+    // Entry Option selector
+    const optLabel = document.createElement("label");
+    optLabel.setAttribute("for", `teamOption${i}`);
+    optLabel.textContent = "Entry Option:";
+
+    const optSelect = document.createElement("select");
+    optSelect.id = `teamOption${i}`;
+    optSelect.name = `teamOption${i}`;
+    optSelect.required = true;
+
+    const opt1 = document.createElement("option");
+    opt1.value = "opt1";
+    opt1.textContent = "Option 1 (with Padded Shorts)";
+    const opt2 = document.createElement("option");
+    opt2.value = "opt2";
+    opt2.textContent = "Option 2 (no Padded Shorts)";
+
+    optSelect.appendChild(opt1);
+    optSelect.appendChild(opt2);
+
     group.appendChild(label);
     group.appendChild(input);
+    group.appendChild(optLabel);
+    group.appendChild(optSelect);
     container.appendChild(group);
   }
 
@@ -273,21 +302,19 @@ function initTeamInfoPage() {
     managerContainer.appendChild(group);
   }
 
-  // initial validation state
   validateUniqueTeamNames();
 
-  // Back button
   backBtn.addEventListener("click", () => {
     window.location.href = "1_category.html";
   });
 
-  // Submit (Next)
   form.onsubmit = (e) => {
     e.preventDefault();
 
     const orgName = form["orgName"].value.trim();
     const mailingAddress = form["mailingAddress"].value.trim();
     const teamNames = {};
+    const teamOptions = [];
     const managers = [];
 
     if (!orgName) {
@@ -301,7 +328,6 @@ function initTeamInfoPage() {
       return;
     }
 
-    // ensure filled
     for (let i = 1; i <= numTeams; i++) {
       const input = form[`teamName${i}`];
       const raw = input.value.trim();
@@ -313,16 +339,15 @@ function initTeamInfoPage() {
       }
     }
 
-    // enforce uniqueness one more time
-    if (!validateUniqueTeamNames()) {
-      return;
-    }
+    if (!validateUniqueTeamNames()) return;
 
-    // save display names (keep single spaces)
     for (let i = 1; i <= numTeams; i++) {
       const input = form[`teamName${i}`];
       const display = input.value.trim().replace(/\s+/g, " ");
       teamNames[`team${i}`] = display;
+
+      const opt = form[`teamOption${i}`]?.value || "opt1";
+      teamOptions.push(opt);
     }
 
     for (let i = 1; i <= 3; i++) {
@@ -334,14 +359,15 @@ function initTeamInfoPage() {
 
     localStorage.setItem("org_name", orgName);
     localStorage.setItem("org_address", mailingAddress);
-    const teamNameArray = Object.values(teamNames);
-    localStorage.setItem("team_names", JSON.stringify(teamNameArray));
+    localStorage.setItem("team_names", JSON.stringify(Object.values(teamNames)));
+    localStorage.setItem("team_options", JSON.stringify(teamOptions));
     localStorage.setItem("managers", JSON.stringify(managers));
     localStorage.setItem("team_submission_loop", "0");
 
     window.location.href = "3_raceday.html";
   };
 }
+
 
 /* ------------------------
    PAGE 3: Race Day Arrangement
@@ -383,6 +409,10 @@ function initRaceDayPage() {
    PAGE 4: Practice Booking (stores compact practiceData)
 ------------------------- */
 function initBookingPage() {
+  const selectedDatesPerTeam = {};     // Stores each team's dates
+  let selectedDates = {};              // Currently active team’s calendar
+  let selectedTeamIndex = 0;           // Index of current team
+
   const PRACTICE_YEAR = 2026;
   localStorage.setItem("practice_year", String(PRACTICE_YEAR));
 
@@ -397,7 +427,7 @@ function initBookingPage() {
   }
 
   // Default to first team
-  let selectedTeamIndex = 0;
+  selectedTeamIndex = 0;
   if (!teamNames.length) {
     teamSelect.innerHTML = `<option disabled>No teams found</option>`;
     teamNameFields.textContent = "";
@@ -414,11 +444,22 @@ function initBookingPage() {
   }
 
   teamSelect.addEventListener("change", () => {
+    // Save current team's data
+    selectedDatesPerTeam[selectedTeamIndex] = { ...selectedDates };
+
+    // Update selected team
     selectedTeamIndex = Number(teamSelect.value);
+
+    // Restore selectedDates for the new team
+    selectedDates = { ...selectedDatesPerTeam[selectedTeamIndex] } || {};
+
     const teamName = teamNames[selectedTeamIndex] || `Team ${selectedTeamIndex + 1}`;
     teamNameFields.textContent = `Now scheduling: ${teamName}`;
-    // ⏳ You will later load practiceData_teamX here
+
+    loadPracticeForTeam(selectedTeamIndex);
   });
+
+
 
   // 📋 Copy from Team 1
   const copyBtn = document.getElementById("copyFromTeam1Btn");
@@ -448,66 +489,71 @@ function initBookingPage() {
   const msg            = document.getElementById("formMsg");
 
   // { 'YYYY-MM-DD': { hours: 1|2, helpers: '', 'S', 'T', 'ST' } }
-  const selectedDates = {};
   function loadPracticeForTeam(index) {
-  // Reset data
-  Object.keys(selectedDates).forEach(k => delete selectedDates[k]);
-  updateSummary();
+    Object.keys(selectedDates).forEach(k => delete selectedDates[k]);
+    Object.assign(selectedDates, selectedDatesPerTeam[index] || {});
 
-  // Reset calendar checkboxes & dropdowns
-  document.querySelectorAll(".calendar-day input[type='checkbox']").forEach(cb => {
-    cb.checked = false;
-    cb.closest(".calendar-day").querySelector(".dropdowns")?.classList.add("hide");
-  });
+    updateSummary();
 
-  // Reset slot preferences
-  for (let i = 1; i <= 3; i++) {
-    document.getElementById(`slotPref2h_${i}`).value = "";
-    document.getElementById(`slotPref1h_${i}`).value = "";
-  }
+// Reset all checkboxes and dropdowns
+document.querySelectorAll(".calendar-day input[type='checkbox']").forEach(cb => {
+  cb.checked = false;
+  cb.closest(".calendar-day").querySelector(".dropdowns")?.classList.add("hide");
+});
 
-  const raw = localStorage.getItem(`practiceData_team${index}`);
-  if (!raw) return;
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (e) {
-    console.warn("Invalid practice data for team", index);
-    return;
-  }
+// Reset slot preferences
+for (let i = 1; i <= 3; i++) {
+  document.getElementById(`slotPref2h_${i}`).value = "";
+  document.getElementById(`slotPref1h_${i}`).value = "";
+}
 
-  // Restore calendar selections
-  for (const entry of parsed.dates || []) {
-    const { date, hours, helpers } = entry;
-    const cb = document.querySelector(`input[type='checkbox'][data-date='${date}']`);
-    if (!cb) continue;
+// Load saved data for this team
+const raw = localStorage.getItem(`practiceData_team${index}`);
+if (!raw) return;
 
-    const cell = cb.closest(".calendar-day");
-    const dropdowns   = cell.querySelector(".dropdowns");
-    const durationSel = cell.querySelector(".duration");
-    const helpersSel  = cell.querySelector(".helpers");
+let parsed;
+try {
+  parsed = JSON.parse(raw);
+} catch (e) {
+  console.warn("Invalid practice data for team", index);
+  return;
+}
 
-    cb.checked = true;
-    dropdowns.classList.remove("hide");
-    durationSel.value = String(hours || 1);
-    helpersSel.value = helpers || "";
+// Restore calendar selections into memory + UI
+for (const entry of parsed.dates || []) {
+  const { date, hours, helpers } = entry;
+  const cb = document.querySelector(`input[type='checkbox'][data-date='${date}']`);
+  if (!cb) continue;
 
-    selectedDates[date] = {
-      hours: Number(hours) || 1,
-      helpers: helpers || ""
-    };
-  }
+  const cell         = cb.closest(".calendar-day");
+  const dropdowns    = cell.querySelector(".dropdowns");
+  const durationSel  = cell.querySelector(".duration");
+  const helpersSel   = cell.querySelector(".helpers");
 
-  // Restore summary counts
-  updateSummary();
+  cb.checked = true;
+  dropdowns.classList.remove("hide");
+  durationSel.value = String(hours || 1);
+  helpersSel.value = helpers || "";
 
-  // Restore slot preferences
-  const slotPrefs2 = parsed.slotPrefs_2hr || {};
-  const slotPrefs1 = parsed.slotPrefs_1hr || {};
-  for (let i = 1; i <= 3; i++) {
-    document.getElementById(`slotPref2h_${i}`).value = slotPrefs2[`slot_pref_${i}`] || "";
-    document.getElementById(`slotPref1h_${i}`).value = slotPrefs1[`slot_pref_${i}`] || "";
-  }
+  selectedDates[date] = {
+    hours: Number(hours) || 1,
+    helpers: helpers || ""
+  };
+}
+
+// Restore to temporary memory for this team
+Object.assign(selectedDatesPerTeam[index] = {}, selectedDates);
+
+// Restore summary counts
+updateSummary();
+
+// Restore slot preferences
+const slotPrefs2 = parsed.slotPrefs_2hr || {};
+const slotPrefs1 = parsed.slotPrefs_1hr || {};
+for (let i = 1; i <= 3; i++) {
+  document.getElementById(`slotPref2h_${i}`).value = slotPrefs2[`slot_pref_${i}`] || "";
+  document.getElementById(`slotPref1h_${i}`).value = slotPrefs1[`slot_pref_${i}`] || "";
+}
 }
 
   renderCalendar();
@@ -650,7 +696,7 @@ function initBookingPage() {
   document.getElementById("nextBtn").addEventListener("click", () => {
     const teamIndex = document.getElementById("teamSelect")?.value || "0"; // or use team name if preferred
 
-    const datesArr = Object.entries(selectedDates).map(([date, v]) => ({
+    const datesArr = Object.entries(selectedDatesPerTeam[selectedTeamIndex] || {}).map(([date, v]) => ({
       date,
       hours: Number(v.hours) || 0,
       helpers: v.helpers || ""
@@ -661,6 +707,8 @@ function initBookingPage() {
       msg.style.color = "red";
       return;
     }
+
+    selectedDatesPerTeam[selectedTeamIndex] = { ...selectedDates };
 
     localStorage.setItem(`practiceData_team${teamIndex}`, JSON.stringify({
       dates: datesArr,
@@ -705,8 +753,11 @@ function text(id, value) {
 }
 
 function renderSummary() {
-  // Basics
-  const season = Number(localStorage.getItem("season")) || getCurrentSeason();
+  // ------------------------
+  // 📦 Basic Info
+  // ------------------------
+  const numTeams = parseInt(localStorage.getItem("num_teams") || "1");
+  const season   = Number(localStorage.getItem("season")) || getCurrentSeason();
   const category = localStorage.getItem("race_category") || "—";
   const org      = localStorage.getItem("org_name") || "—";
   const addr     = localStorage.getItem("org_address") || "—";
@@ -716,29 +767,32 @@ function renderSummary() {
   text("sumOrg", org);
   text("sumAddress", addr);
 
-  // Teams
-  const teamNamesObj   = JSON.parse(localStorage.getItem("team_names")   || "{}");
-  const teamOptionsObj = JSON.parse(localStorage.getItem("team_options") || "{}");
-  const teamKeys = Object.keys(teamNamesObj).sort();
+  // ------------------------
+  // 🧾 Team Summary
+  // ------------------------
+  const teamNamesArr   = JSON.parse(localStorage.getItem("team_names")   || "[]");
+  const teamOptionsArr = JSON.parse(localStorage.getItem("team_options") || "[]");
   const optMap = { opt1: "Option 1", opt2: "Option 2" };
 
   const teamsTbody = document.getElementById("teamsTbody");
   if (teamsTbody) {
     teamsTbody.innerHTML = "";
-    if (teamKeys.length === 0) {
+    if (teamNamesArr.length === 0) {
       teamsTbody.innerHTML = `<tr><td colspan="3" class="muted">No teams</td></tr>`;
     } else {
-      teamKeys.forEach((k, idx) => {
-        const name = (teamNamesObj[k] || "").trim().replace(/\s+/g, " ");
-        const opt  = optMap[teamOptionsObj[k]] || "Option 1";
+      teamNamesArr.forEach((name, idx) => {
+        const cleanName = (name || "").trim().replace(/\s+/g, " ");
+        const option = optMap[teamOptionsArr[idx]] || "Option 1";
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${idx+1}</td><td>${name || "—"}</td><td>${opt}</td>`;
+        tr.innerHTML = `<td>${idx + 1}</td><td>${cleanName || "—"}</td><td>${option}</td>`;
         teamsTbody.appendChild(tr);
       });
     }
   }
 
-  // Managers
+  // ------------------------
+  // 👥 Manager Info
+  // ------------------------
   const managers = JSON.parse(localStorage.getItem("managers") || "[]");
   const managersTbody = document.getElementById("managersTbody");
   if (managersTbody) {
@@ -758,45 +812,104 @@ function renderSummary() {
     }
   }
 
-  // Race Day Arrangement
+  // ------------------------
+  // 🚩 Race Day Arrangement
+  // ------------------------
   const rda = JSON.parse(localStorage.getItem("race_day_arrangement") || "null");
   if (rda) {
-    text("sumMarquee", rda.marqueeQty ?? "—");
-    text("sumSteerWith", rda.steerWithQty ?? "—");
-    text("sumSteerWithout", rda.steerWithoutQty ?? "—");
-    text("sumJunk", `${rda.junkBoatNo || "—"} / ${rda.junkBoatQty ?? "—"}`);
-    text("sumSpeed", `${rda.speedBoatNo || "—"} / ${rda.speedboatQty ?? "—"}`);
+    text("sumMarquee",        rda.marqueeQty       ?? "—");
+    text("sumSteerWith",      rda.steerWithQty     ?? "—");
+    text("sumSteerWithout",   rda.steerWithoutQty  ?? "—");
+    text("sumJunk",           `${rda.junkBoatNo   || "—"} / ${rda.junkBoatQty   ?? "—"}`);
+    text("sumSpeed",          `${rda.speedBoatNo  || "—"} / ${rda.speedboatQty  ?? "—"}`);
   } else {
-    text("sumMarquee","—"); text("sumSteerWith","—"); text("sumSteerWithout","—");
-    text("sumJunk","—"); text("sumSpeed","—");
+    text("sumMarquee", "—");
+    text("sumSteerWith", "—");
+    text("sumSteerWithout", "—");
+    text("sumJunk", "—");
+    text("sumSpeed", "—");
   }
 
-  // Practice booking
-  const practice = JSON.parse(localStorage.getItem("practiceData") || "null");
-  const pBody = document.getElementById("practiceTbody");
-  if (practice && Array.isArray(practice.dates) && pBody) {
-    pBody.innerHTML = "";
-    if (practice.dates.length === 0) {
-      pBody.innerHTML = `<tr><td colspan="3" class="muted">No practice dates selected</td></tr>`;
-    } else {
-      practice.dates.forEach(d => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${d.date}</td><td>${d.hours}</td><td>${d.helpers || ""}</td>`;
-        pBody.appendChild(tr);
-      });
-    }
-    const totalHours = practice.dates.reduce((a,b)=>a+(+b.hours||0),0);
-    text("sumPracticeHours",     String(totalHours));
-    text("sumPracticeTrainer",   String(practice.trainerQty   ?? 0));
-    text("sumPracticeSteersman", String(practice.steersmanQty ?? 0));
-    text("sumPracticeExtra",     String(practice.extraPracticeQty ?? Math.max(0, totalHours - 12)));
+  // ------------------------
+  // 🛶 Practice Booking Summary (Per Team)
+  // ------------------------
+  const container = document.getElementById("perTeamPracticeSummary");
+  const teamNames = teamNamesArr;
+
+  if (!container || teamNames.length === 0) {
+    container.innerHTML = `<p class="muted">No teams found.</p>`;
   } else {
-    if (pBody) pBody.innerHTML = `<tr><td colspan="3" class="muted">No practice dates selected</td></tr>`;
-    text("sumPracticeHours","—");
-    text("sumPracticeTrainer","—");
-    text("sumPracticeSteersman","—");
-    text("sumPracticeExtra","—");
+    container.innerHTML = "";
+
+    teamNames.forEach((name, i) => {
+      const raw = localStorage.getItem(`practiceData_team${i}`);
+      if (!raw) return;
+
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (e) {
+        console.warn(`Invalid practice data for team ${i}`, e);
+        return;
+      }
+
+      const dates = parsed.dates || [];
+      let teamTotal = 0, trainer = 0, steersman = 0;
+
+      const rows = dates.map(({ date, hours, helpers }) => {
+        const hr = Number(hours) || 0;
+        const help = helpers || "";
+
+        teamTotal += hr;
+        if (help === "T") trainer++;
+        if (help === "S") steersman++;
+        if (help === "ST") { trainer++; steersman++; }
+
+        return `<tr><td>${date}</td><td>${hr}</td><td>${help || "—"}</td></tr>`;
+      });
+
+      const extra = Math.max(0, teamTotal - 12);
+
+      const section = document.createElement("div");
+      section.className = "team-summary";
+      section.innerHTML = `
+        <h4>Team ${i + 1}: ${name}</h4>
+        <p>Total Hours: <strong>${teamTotal}</strong></p>
+        <p>Trainer Sessions: <strong>${trainer}</strong></p>
+        <p>Steersman Sessions: <strong>${steersman}</strong></p>
+        <p>Extra Practice (over 12h): <strong>${extra}</strong></p>
+        <table>
+          <thead><tr><th>Date</th><th>Hours</th><th>Helpers</th></tr></thead>
+          <tbody>${rows.join("")}</tbody>
+        </table>
+      `;
+      container.appendChild(section);
+    });
   }
+
+
+// 📅 Render table
+const pBody = document.getElementById("practiceTbody");
+if (pBody) {
+  pBody.innerHTML = "";
+  if (allPracticeDates.length === 0) {
+    pBody.innerHTML = `<tr><td colspan="3" class="muted">No practice dates selected</td></tr>`;
+  } else {
+    allPracticeDates.forEach(({ date, hours, helpers }) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${date}</td><td>${hours}</td><td>${helpers || "—"}</td>`;
+      pBody.appendChild(tr);
+    });
+  }
+}
+
+// 📊 Totals
+const maxFreeHours = 12 * numTeams;
+text("sumPracticeHours",     String(totalHours));
+text("sumPracticeTrainer",   String(trainer));
+text("sumPracticeSteersman", String(steersman));
+text("sumPracticeExtra",     String(Math.max(0, totalHours - maxFreeHours)));
+
 
   // Back button
   const backBtn = document.getElementById("backBtn");
@@ -891,10 +1004,9 @@ async function insertTeamsToSupabaseMeta() {
 
 // Practice insert (only runs on Summary)
 async function insertPracticeSessionsAfterTeams(userId) {
-  const season   = Number(localStorage.getItem("season")) || getCurrentSeason();
-  const category = localStorage.getItem("race_category") || "";
-
+  const season = Number(localStorage.getItem("season")) || getCurrentSeason();
   const teamMeta = JSON.parse(localStorage.getItem("inserted_team_meta") || "[]");
+
   if (!Array.isArray(teamMeta) || teamMeta.length === 0) {
     throw new Error("Missing inserted team metadata.");
   }
@@ -910,20 +1022,16 @@ async function insertPracticeSessionsAfterTeams(userId) {
     const { slotPrefs_1hr = {}, slotPrefs_2hr = {} } = practice;
 
     for (const { date, hours, helpers } of practice.dates) {
-      const pref = hours === 2 ? slotPrefs_2hr : slotPrefs_1hr;
+      const slotSet = hours === 2 ? slotPrefs_2hr : slotPrefs_1hr;
 
       allRows.push({
-        user_id: userId,
-        season,
-        category,
-        team_code: team.team_code,
-        team_name: team.team_name,
+        team_id: team.id,
         practice_date: date,
-        hours: Number(hours) || 0,
-        helpers: helpers || "",
-        slot_pref_1: pref.slot_pref_1 || "",
-        slot_pref_2: pref.slot_pref_2 || "",
-        slot_pref_3: pref.slot_pref_3 || ""
+        duration_hours: Number(hours),
+        helpers_code: helpers || "",
+        slot_pref_1: slotSet.slot_pref_1 || "",
+        slot_pref_2: slotSet.slot_pref_2 || "",
+        slot_pref_3: slotSet.slot_pref_3 || ""
       });
     }
   }
