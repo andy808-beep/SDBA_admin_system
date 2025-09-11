@@ -1,0 +1,271 @@
+{
+  "project": {
+    "name": "dragonboat-3",
+    "type": "Next.js Application",
+    "version": "0.1.0",
+    "framework": "Next.js 15.4.5",
+    "react": "19.1.0",
+    "typescript": true,
+    "styling": "Tailwind CSS v4",
+    "backend": "Supabase"
+  },
+  "branch": "nextjs",
+  "structure": {
+    "root": {
+      "files": [
+        {
+          "name": "package.json",
+          "type": "configuration",
+          "content": {
+            "name": "sdba-app",
+            "version": "0.1.0",
+            "private": true,
+            "scripts": {
+              "dev": "next dev --turbopack",
+              "build": "next build",
+              "start": "next start",
+              "lint": "next lint"
+            },
+            "dependencies": {
+              "@supabase/supabase-js": "^2.55.0",
+              "next": "15.4.5",
+              "react": "19.1.0",
+              "react-dom": "19.1.0"
+            },
+            "devDependencies": {
+              "@tailwindcss/postcss": "^4",
+              "@types/node": "^20",
+              "@types/react": "^19",
+              "@types/react-dom": "^19",
+              "tailwindcss": "^4",
+              "typescript": "^5"
+            }
+          }
+        },
+        {
+          "name": "next.config.ts",
+          "type": "configuration",
+          "content": "Basic Next.js configuration with TypeScript"
+        },
+        {
+          "name": "tsconfig.json",
+          "type": "configuration",
+          "content": "TypeScript configuration with Next.js plugin and path aliases"
+        },
+        {
+          "name": "postcss.config.mjs",
+          "type": "configuration",
+          "content": "PostCSS configuration for Tailwind CSS v4"
+        },
+        {
+          "name": ".gitignore",
+          "type": "configuration",
+          "content": "Standard Next.js gitignore with environment files excluded"
+        },
+        {
+          "name": "README.md",
+          "type": "documentation",
+          "content": "Standard Next.js README with getting started instructions"
+        },
+        {
+          "name": "middleware.ts",
+          "type": "runtime",
+          "content": {
+            "description": "Auth redirect middleware for protected routes",
+            "protected_paths": ["/admin", "/dashboard"],
+            "matcher": ["/admin/:path*", "/dashboard/:path*"],
+            "uses_cookie": "sb-access-token"
+          }
+        },
+        {
+          "name": "tailwind.config.ts",
+          "type": "configuration",
+          "content": {
+            "description": "Tailwind CSS configuration (v4)",
+            "content_paths": [
+              "./app/**/*.{js,ts,jsx,tsx}",
+              "./components/**/*.{js,ts,jsx,tsx}",
+              "./lib/**/*.{js,ts,jsx,tsx}"
+            ],
+            "plugins": [],
+            "theme": "extended"
+          }
+        },
+        {
+          "name": ".eslintrc.json",
+          "type": "configuration",
+          "content": {
+            "extends": "next/core-web-vitals"
+          }
+        }
+      ]
+    },
+    "app": {
+      "type": "Next.js App Router",
+      "files": [
+        {
+          "name": "layout.tsx",
+          "type": "component",
+          "content": {
+            "description": "Root layout with Geist fonts and metadata",
+            "features": ["Font optimization", "Metadata configuration", "Global styles"]
+          }
+        },
+        {
+          "name": "page.tsx",
+          "type": "component",
+          "content": {
+            "description": "Home page with navigation to auth",
+            "features": ["Link to auth page", "Tailwind styling"]
+          }
+        },
+        {
+          "name": "globals.css",
+          "type": "styles",
+          "content": {
+            "description": "Global CSS with Tailwind imports and theme variables",
+            "features": ["Tailwind CSS v4", "Dark mode support", "CSS variables"]
+          }
+        },
+        {
+          "name": "favicon.ico",
+          "type": "asset"
+        }
+      ],
+      "routes": {
+        "auth": {
+          "name": "app/auth/page.tsx",
+          "type": "component",
+          "content": {
+            "description": "Authentication page with login/signup functionality",
+            "features": [
+              "Client-side component",
+              "Form handling",
+              "Supabase authentication",
+              "Role-based access (admin/user)",
+              "Password validation",
+              "Loading states",
+              "Error handling"
+            ],
+            "admin_emails": [
+              "cadence.c@dragonboat.org.hk",
+              "annie@dragonboat.org.hk",
+              "andy@dragonboat.org.hk"
+            ]
+          }
+        },
+        "admin": {
+          "name": "app/admin/page.tsx",
+          "type": "component",
+          "content": {
+            "description": "Admin dashboard page",
+            "features": [
+              "Client-side component",
+              "Logout functionality",
+              "Supabase integration"
+            ]
+          }
+        },
+        "dashboard": {
+          "name": "app/dashboard/page.tsx",
+          "type": "component",
+          "content": {
+            "description": "User dashboard page",
+            "features": [
+              "Client-side component",
+              "Logout functionality",
+              "Supabase integration"
+            ]
+          }
+        }
+      }
+    },
+    "errors": {
+      "directory": "app/(errors)",
+      "files": [
+        {
+          "name": "error.tsx",
+          "type": "error-boundary",
+          "content": {
+            "description": "Global client error boundary with reset action",
+            "features": ["Displays error message", "Reset button", "Full-screen layout"]
+          }
+        },
+        {
+          "name": "not-found.tsx",
+          "type": "not-found-page",
+          "content": {
+            "description": "Custom 404 page with link home",
+            "features": ["Centered layout", "Tailwind styling", "Go Home CTA"]
+          }
+        }
+      ]
+    },
+    "lib": {
+      "files": [
+        {
+          "name": "supabaseClient.ts",
+          "type": "utility",
+          "content": {
+            "description": "Supabase client configuration",
+            "features": [
+              "Environment variable configuration",
+              "Client initialization"
+            ],
+            "env_vars": [
+              "NEXT_PUBLIC_SUPABASE_URL",
+              "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+            ]
+          }
+        }
+      ]
+    },
+    "public": {
+      "type": "static assets",
+      "files": [
+        "file.svg",
+        "globe.svg",
+        "next.svg",
+        "vercel.svg",
+        "window.svg"
+      ]
+    }
+  },
+  "features": {
+    "authentication": {
+      "provider": "Supabase",
+      "features": [
+        "Email/password authentication",
+        "Role-based access control",
+        "Admin and user roles",
+        "Session management"
+      ]
+    },
+    "styling": {
+      "framework": "Tailwind CSS v4",
+      "features": [
+        "Utility-first CSS",
+        "Dark mode support",
+        "Custom theme variables",
+        "Responsive design"
+      ]
+    },
+    "development": {
+      "features": [
+        "TypeScript support",
+        "Hot reload with Turbopack",
+        "Path aliases (@/*)",
+        "ESLint integration"
+      ]
+    }
+  },
+  "missing_components": [
+    "Environment variables setup (.env.local)",
+    "API routes"
+  ],
+  "git_status": {
+    "branch": "nextjs",
+    "status": "clean",
+    "up_to_date": true
+  }
+}
