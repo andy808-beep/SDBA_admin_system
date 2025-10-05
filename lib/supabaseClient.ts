@@ -1,6 +1,6 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
 
 // Client-safe envs (okay to expose)
 const url  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -15,9 +15,6 @@ const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
  * Do NOT use this to read/write protected tables.
  * Public forms should POST to your API routes instead.
  */
-export const supabaseBrowser = createClient(url, anon, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
+export const supabase = createClient(url, anon, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
