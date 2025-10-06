@@ -1,8 +1,8 @@
 "use client";
 
+// lib/supabaseClient.ts
 import { createClient } from '@supabase/supabase-js';
 
-// Client-safe envs (okay to expose)
 const url  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from '../../lib/supabaseClient';
 
 /** Match your vanilla routes */
 type HashPath = "#overview" | "#applications" | "#practice" | "#exports";
