@@ -1,8 +1,70 @@
-// ---------- Supabase client ----------
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-import { SUPABASE_URL, SUPABASE_KEY } from "./supabase_config.js";
+import { loadEventConfig } from './configloader.js';
+import { sb } from './supabase_config.js'; // or wherever you create the client
 
-export const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const eventShortRef = params.get('event') || 'TN2025'; // pick your default
+
+  const disableInteractive = (message) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'background:#fff3cd;color:#856404;padding:8px;margin:8px 0;border:1px solid #ffeeba;font-size:14px';
+    div.textContent = message || 'We’re updating race settings. Please try again in a moment.';
+    document.body.prepend(div);
+
+    // Disable common interactive elements
+    const disable = (el) => {
+      if ('disabled' in el) el.disabled = true;
+      el.classList?.add('disabled');
+      el.setAttribute?.('aria-disabled', 'true');
+      el.style.pointerEvents = 'none';
+      el.style.opacity = '0.6';
+    };
+    document.querySelectorAll(
+      'button, [type="submit"], [type="button"], [type="reset"], input, select, textarea, .btn-next, .btn-submit, a.button, a.btn'
+    ).forEach(disable);
+  };
+
+  try {
+    const cfg = await loadEventConfig({ eventShortRef, supabase: sb, useCache: true });
+
+    // Ensure window.__CONFIG exists and includes event_short_ref
+    window.__CONFIG = Object.assign({}, window.__CONFIG || {}, cfg, {
+      event: { ...(cfg?.event || {}), event_short_ref: eventShortRef }
+    });
+
+    // Optional theming hook (no-op if not provided)
+    if (window.__CONFIG?.event?.event_colour_code_hex) {
+      document.documentElement.style.setProperty(
+        '--event-accent',
+        window.__CONFIG.event.event_colour_code_hex
+      );
+    }
+
+    // Feature flag: form disabled
+    if (window.__CONFIG?.event?.form_enabled === false) {
+      const msg =
+        window.__CONFIG?.event?.disabled_message ||
+        'This form is not accepting submissions at the moment.';
+      disableInteractive(msg);
+      // Still emit config:ready so pages can show read-only UI if they want
+      document.dispatchEvent(new CustomEvent('config:ready', { detail: { eventShortRef, disabled: true } }));
+      return;
+    }
+
+    // Config OK and form enabled → notify pages to initialize
+    document.dispatchEvent(new CustomEvent('config:ready', { detail: { eventShortRef, disabled: false } }));
+  } catch (err) {
+    console.error('Config load failed', err);
+    disableInteractive('We’re updating race settings. Please try again in a moment.');
+    document.dispatchEvent(new CustomEvent('config:ready', { detail: { eventShortRef, disabled: true } }));
+  }
+})();
+
+
+
+// ---------- Supabase client ----------
+// import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+// import { SUPABASE_URL, SUPABASE_KEY } from "./supabase_config.js";
 
 // ---------- Auth helper ----------
 export async function requireAuth() {
@@ -17,27 +79,44 @@ export async function requireAuth() {
 }
 
 // ---------- Page router ----------
+// ---- Page boot gating: wait for DOM + config ----
+async function bootPage(initFn) {
+  // Wait for DOM
+  if (document.readyState === 'loading') {
+    await new Promise(res => document.addEventListener('DOMContentLoaded', res, { once: true }));
+  }
+  // Wait for config if not ready yet
+  const cfgReady = !!(window.__CONFIG && window.__CONFIG.event);
+  if (!cfgReady) {
+    await new Promise(res => document.addEventListener('config:ready', res, { once: true }));
+  }
+  // Init
+  try { initFn(); } catch (e) { console.error('Page init failed:', e); }
+}
+
+// ---- Router (event-aware) ----
 const path = window.location.pathname;
-const page = path.substring(path.lastIndexOf("/") + 1);
+const page = path.substring(path.lastIndexOf('/') + 1);
 
 switch (page) {
-  case "1_category.html":
-    document.addEventListener("DOMContentLoaded", initRaceCategoryPage);
+  case '1_category.html':
+    bootPage(initRaceCategoryPage);
     break;
-  case "2_teaminfo.html":
-    document.addEventListener("DOMContentLoaded", initTeamInfoPage);
+  case '2_teaminfo.html':
+    bootPage(initTeamInfoPage);
     break;
-  case "3_raceday.html":
-    document.addEventListener("DOMContentLoaded", initRaceDayPage);
+  case '3_raceday.html':
+    bootPage(initRaceDayPage);
     break;
-  case "4_booking.html":
-    document.addEventListener("DOMContentLoaded", initBookingPage);
+  case '4_booking.html':
+    bootPage(initBookingPage);
     break;
-  case "5_summary.html":
-    document.addEventListener("DOMContentLoaded", initSummaryPage);
+  case '5_summary.html':
+    bootPage(initSummaryPage);
     break;
   // Add more cases for new pages...
 }
+
 
 // --- Season helper ---
 function getCurrentSeason() {
@@ -61,11 +140,7 @@ function initRaceCategoryPage() {
   const opt1PriceDisplay = document.getElementById("opt1Price");
   const opt2PriceDisplay = document.getElementById("opt2Price");
   const entryOptionsSection = document.getElementById("entryOptions");
-
-  const priceTable = {
-    mixed_corporate: { opt1: 21900, opt2: 18500 },
-    default:         { opt1: 20900, opt2: 17500 }
-  };
+  const priceTable = null; // placeholder: real data comes from __CONFIG
 
   // --- 🧠 Restore previous selections if available ---
   const savedCategory = localStorage.getItem("race_category");
@@ -75,9 +150,9 @@ function initRaceCategoryPage() {
 
   if (savedCategory) {
     categorySelect.value = savedCategory;
-    const prices = priceTable[savedCategory] || priceTable.default;
-    opt1PriceDisplay.textContent = `HK$${prices.opt1}`;
-    opt2PriceDisplay.textContent = `HK$${prices.opt2}`;
+    const p = window.__CONFIG?.packages?.[savedCategory] || window.__CONFIG?.packages?.default;
+    opt1PriceDisplay.textContent = p?.opt1?.price ? `HK$${p.opt1.price}` : '';
+    opt2PriceDisplay.textContent = p?.opt2?.price ? `HK$${p.opt2.price}` : '';
     entryOptionsSection.hidden = false;
   }
 
@@ -90,9 +165,9 @@ function initRaceCategoryPage() {
     const cat = categorySelect.value;
 
     if (cat) {
-      const prices = priceTable[cat] || priceTable.default;
-      opt1PriceDisplay.textContent = `HK$${prices.opt1}`;
-      opt2PriceDisplay.textContent = `HK$${prices.opt2}`;
+      const p = window.__CONFIG?.packages?.[cat] || window.__CONFIG?.packages?.default;
+      opt1PriceDisplay.textContent = p?.opt1?.price ? `HK$${p.opt1.price}` : '';
+      opt2PriceDisplay.textContent = p?.opt2?.price ? `HK$${p.opt2.price}` : '';
       entryOptionsSection.hidden = false;
     } else {
       entryOptionsSection.hidden = true;
@@ -142,12 +217,6 @@ function initRaceCategoryPage() {
     localStorage.setItem("num_teams", String(numTeams));
     localStorage.setItem("num_teams_opt1", String(numOpt1));
     localStorage.setItem("num_teams_opt2", String(numOpt2));
-
-    // Optional: store season once (used by team_meta insert)
-    if (!localStorage.getItem("season")) {
-      localStorage.setItem("season", String(getCurrentSeason()));
-    }
-
     localStorage.setItem("team_submission_loop", "0");
 
     window.location.href = "2_teaminfo.html";
@@ -265,10 +334,10 @@ function initTeamInfoPage() {
 
     const opt1 = document.createElement("option");
     opt1.value = "opt1";
-    opt1.textContent = "Option 1 (with Padded Shorts)";
+    opt1.textContent = window.__CONFIG?.packages?.labels?.opt1 || "Option 1";
     const opt2 = document.createElement("option");
     opt2.value = "opt2";
-    opt2.textContent = "Option 2 (no Padded Shorts)";
+    opt2.textContent = window.__CONFIG?.packages?.labels?.opt2 || "Option 2";
 
     optSelect.appendChild(opt1);
     optSelect.appendChild(opt2);
@@ -424,7 +493,9 @@ function initRaceDayPage() {
    PAGE 4: Practice Booking (stores compact practiceData)
 ------------------------- */
 function initBookingPage() {
-  const PRACTICE_YEAR = 2026;
+  const PRACTICE_YEAR = (window.__CONFIG?.event?.practice_start_date
+    ? new Date(window.__CONFIG.event.practice_start_date).getFullYear()
+    : 2026);
   localStorage.setItem("practice_year", String(PRACTICE_YEAR));
 
   const calendarEl     = document.getElementById("calendarContainer");
@@ -761,11 +832,21 @@ function text(id, value) {
 }
 
 function renderSummary() {
+// Build allPracticeDates for the legacy table view
+  const allPracticeDates = [];
+  (teamNamesArr || []).forEach((_, i) => {
+    const raw = localStorage.getItem(`practiceData_team${i}`);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      (parsed.dates || []).forEach(d => allPracticeDates.push(d));
+    } catch {}
+  });
   // ------------------------
   // 📦 Basic Info
   // ------------------------
   const numTeams = parseInt(localStorage.getItem("num_teams") || "1");
-  const season   = Number(localStorage.getItem("season")) || getCurrentSeason();
+  const season   = Number(window.__CONFIG?.event?.season) || Number(localStorage.getItem("season")) || NaN;
   const category = localStorage.getItem("race_category") || "—";
   const org      = localStorage.getItem("org_name") || "—";
   const addr     = localStorage.getItem("org_address") || "—";
@@ -937,86 +1018,79 @@ function normalizeNameSummary(s) {
     .toLowerCase();
 }
 
-// ---------- Inserts (unchanged flow) ----------
+/* DEV-ONLY (disabled): direct table writes replaced by Edge Function submit_registration.
+   This guard prevents accidental client-side inserts during MVP.
+   If you truly need to test direct writes later, set ALLOW_DIRECT_WRITES = true temporarily. */
+   const ALLOW_DIRECT_WRITES = false;
 
-// Insert all teams into team_meta (multi-row). Returns inserted rows.
-async function insertTeamsToSupabaseMeta() {
-  const user = await requireAuth();
-
-  const category        = localStorage.getItem("race_category");
-  const season          = Number(localStorage.getItem("season")) || getCurrentSeason();
-  const orgName         = localStorage.getItem("org_name") || "";
-  const address         = localStorage.getItem("org_address") || "";
-  const teamNamesObj    = JSON.parse(localStorage.getItem("team_names")   || "{}");
-  const teamOptionsObj  = JSON.parse(localStorage.getItem("team_options") || "{}");
-  const managers        = JSON.parse(localStorage.getItem("managers")     || "[]");
-
-  if (!category) throw new Error("Missing category. Please go back to Page 1.");
-  const teamKeys = Object.keys(teamNamesObj).sort();
-  if (teamKeys.length === 0) throw new Error("No team names found. Please go back to Page 2.");
-
-  // Count existing to build simple codes (MVP)
-  const { count, error: countError } = await sb
-    .from("team_meta")
-    .select("*", { count: "exact", head: true })
-    .eq("season", season)
-    .eq("category", category);
-  if (countError) throw countError;
-
-  const prefixMap = { men_open: "M", ladies_open: "L", mixed_open: "X", mixed_corporate: "C" };
-  const prefix = prefixMap[category] || "?";
-  let nextIndex = (count || 0) + 1;
-
-  const m1 = managers[0] || {}, m2 = managers[1] || {}, m3 = managers[2] || {};
-  const optMap = { opt1: "Option 1", opt2: "Option 2" };
-
-  // local duplicate guard (in case Page 2 got bypassed)
-  const seen = new Map();
-  for (const k of teamKeys) {
-    const display = (teamNamesObj[k] || "").trim().replace(/\s+/g, " ");
-    const norm = normalizeNameSummary(display);
-    if (seen.has(norm)) {
-      throw new Error(`Duplicate team names detected: “${seen.get(norm)}” and “${display}”.`);
-    }
-    seen.set(norm, display);
-  }
-
-  const rows = teamKeys.map((teamKey) => {
-    const teamName = (teamNamesObj[teamKey] || "").trim().replace(/\s+/g, " ");
-    const option   = optMap[teamOptionsObj[teamKey]] || "Option 1";
-    const teamCode = `${prefix}${nextIndex++}`;
-
-    return {
-      user_id: user.id,
-      season,
-      category,
-      option_choice: option,
-      team_code: teamCode,
-      team_name: teamName,
-      organization_name: orgName,
-      address: address,
-      team_manager_1: m1.name   || "",
-      mobile_1:       m1.mobile || "",
-      email_1:        m1.email  || "",
-      team_manager_2: m2.name   || "",
-      mobile_2:       m2.mobile || "",
-      email_2:        m2.email  || "",
-      team_manager_3: m3.name   || "",
-      mobile_3:       m3.mobile || "",
-      email_3:        m3.email  || ""
-    };
-  });
-
-  const { data, error } = await sb.from("team_meta").insert(rows).select();
-  if (error) throw error;
-
-  localStorage.setItem("inserted_team_meta", JSON.stringify(data));
-  return data;
-}
+   async function insertTeamsToSupabaseMeta() {
+     if (!ALLOW_DIRECT_WRITES) {
+       throw new Error("Direct writes disabled. Use the submit_registration Edge Function.");
+     }
+   
+     // --- If you flip the flag above, the legacy code path remains here for debugging only ---
+     const user = await requireAuth();
+   
+     const category       = localStorage.getItem("race_category");
+     const season         = Number(window.__CONFIG?.event?.season) || Number(localStorage.getItem("season")) || NaN;
+     const orgName        = localStorage.getItem("org_name") || "";
+     const address        = localStorage.getItem("org_address") || "";
+     const teamNamesObj   = JSON.parse(localStorage.getItem("team_names")   || "{}");
+     const teamOptionsObj = JSON.parse(localStorage.getItem("team_options") || "{}");
+     const managers       = JSON.parse(localStorage.getItem("managers")     || "[]");
+   
+     if (!category) throw new Error("Missing category. Please go back to Page 1.");
+     const teamKeys = Object.keys(teamNamesObj).sort();
+     if (teamKeys.length === 0) throw new Error("No team names found. Please go back to Page 2.");
+   
+     // NOTE: team_code now assigned by DB trigger; do not compute on client.
+     const m1 = managers[0] || {}, m2 = managers[1] || {}, m3 = managers[2] || {};
+     const optMap = { opt1: "Option 1", opt2: "Option 2" };
+   
+     // Local duplicate guard
+     const seen = new Map();
+     for (const k of teamKeys) {
+       const display = (teamNamesObj[k] || "").trim().replace(/\s+/g, " ");
+       const norm = normalizeNameSummary(display);
+       if (seen.has(norm)) throw new Error(`Duplicate team names detected: “${seen.get(norm)}” and “${display}”.`);
+       seen.set(norm, display);
+     }
+   
+     const rows = teamKeys.map((teamKey) => {
+       const teamName = (teamNamesObj[teamKey] || "").trim().replace(/\s+/g, " ");
+       const option   = optMap[teamOptionsObj[teamKey]] || "Option 1";
+       return {
+         user_id: user.id,
+         season,
+         category,
+         option_choice: option,
+         team_name: teamName,
+         // NOTE: These two will be mapped on the server once DDL is confirmed.
+         organization_name: orgName, // likely -> org_name
+         address: address,           // likely -> org_address
+         team_manager_1: m1.name   || "",
+         mobile_1:       m1.mobile || "",
+         email_1:        m1.email  || "",
+         team_manager_2: m2.name   || "",
+         mobile_2:       m2.mobile || "",
+         email_2:        m2.email  || "",
+         team_manager_3: m3.name   || "",
+         mobile_3:       m3.mobile || "",
+         email_3:        m3.email  || ""
+       };
+     });
+   
+     const { data, error } = await sb.from("team_meta").insert(rows).select();
+     if (error) throw error;
+   
+     localStorage.setItem("inserted_team_meta", JSON.stringify(data));
+     return data;
+   }
+   
 
 // Practice insert (only runs on Summary)
 async function insertPracticeSessionsAfterTeams(userId) {
-  const season = Number(localStorage.getItem("season")) || getCurrentSeason();
+  const season   = Number(window.__CONFIG?.event?.season) || Number(localStorage.getItem("season")) || NaN;
   const teamMeta = JSON.parse(localStorage.getItem("inserted_team_meta") || "[]");
 
   if (!Array.isArray(teamMeta) || teamMeta.length === 0) {
@@ -1050,7 +1124,7 @@ async function insertPracticeSessionsAfterTeams(userId) {
 
   if (allRows.length === 0) return { skipped: true };
 
-  const { error } = await sb.from("practice_sessions").insert(allRows);
+  const { error } = await sb.from("practice_preferences").insert(allRows);
   if (error) throw error;
 
   return { inserted: allRows.length };
@@ -1060,19 +1134,43 @@ async function insertPracticeSessionsAfterTeams(userId) {
 // Final click handler: teams -> (later) race-day -> practices
 async function onFinalSubmit() {
   const msgEl = document.getElementById("formMsg");
+  const eventShortRef = (window.__CONFIG?.event?.event_short_ref) || new URLSearchParams(location.search).get('event') || 'TN2025';
   try {
-    const inserted = await insertTeamsToSupabaseMeta();
-    localStorage.setItem("inserted_team_meta", JSON.stringify(inserted));
+    // Build consolidated payload from localStorage (pages 1–4). We'll refine once DDL arrives.
+    const payload = {
+      eventShortRef,
+      category: localStorage.getItem("race_category"),
+      season: window.__CONFIG?.event?.season, // prefer config
+      org_name: localStorage.getItem("org_name"),
+      org_address: localStorage.getItem("org_address"),
+      team_names: JSON.parse(localStorage.getItem("team_names") || "[]"),
+      team_options: JSON.parse(localStorage.getItem("team_options") || "[]"),
+      managers: JSON.parse(localStorage.getItem("managers") || "[]"),
+      race_day: JSON.parse(localStorage.getItem("race_day_arrangement") || "null"),
+      practice: (function () {
+        const out = [];
+        const teams = JSON.parse(localStorage.getItem("team_names") || "[]");
+        teams.forEach((_, i) => {
+          const raw = localStorage.getItem(`practiceData_team${i}`);
+          if (!raw) return;
+          try { out.push({ team_index: i, ...JSON.parse(raw) }); } catch {}
+        });
+        return out;
+      })()
+    };
 
-    // (reserved) insert race-day supplies to its own table…
+    // Edge Function (server-side transaction + team code trigger)
+    const resp = await fetch('/functions/v1/submit_registration', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) throw new Error(`Submit failed (${resp.status})`);
+    const result = await resp.json(); // { registration_id, team_codes: [...] }
 
-    const { data } = await sb.auth.getUser();
-    const userId = data?.user?.id;
-    if (!userId) throw new Error("Not authenticated");
-    await insertPracticeSessionsAfterTeams(userId);
-
-    alert("Submission complete!");
-    window.location.href = "../Dashboard/dashboard.html";
+    alert(`Submission complete! Team codes: ${Array.isArray(result?.team_codes) ? result.team_codes.join(', ') : 'TBD'}`);
+    // (optional) route to a simple thank-you page
+    window.location.href = "thankyou.html";
   } catch (err) {
     console.error(err);
     if (msgEl) { msgEl.textContent = err.message || "Submission failed."; msgEl.style.color = "red"; }
