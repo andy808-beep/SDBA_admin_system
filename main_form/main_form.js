@@ -118,14 +118,6 @@ switch (page) {
 }
 
 
-// --- Season helper ---
-function getCurrentSeason() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth(); // 0 = Jan, 11 = Dec
-  // If we're in Sep (8) or later, season is next year
-  return (month >= 7) ? year + 1 : year;
-}
 
 
 /* ------------------------
@@ -140,7 +132,20 @@ function initRaceCategoryPage() {
   const opt1PriceDisplay = document.getElementById("opt1Price");
   const opt2PriceDisplay = document.getElementById("opt2Price");
   const entryOptionsSection = document.getElementById("entryOptions");
-  const priceTable = null; // placeholder: real data comes from __CONFIG
+  function isCorporate(cat) {
+    return String(cat || '').trim() === 'mixed_corporate';
+  }
+  function packageCodeFor(option, cat) {
+    const corp = isCorporate(cat);
+    if (option === 'opt1') return corp ? 'option_1_corp' : 'option_1_non_corp';
+    if (option === 'opt2') return corp ? 'option_2_corp' : 'option_2_non_corp';
+    return null;
+  }
+  function getPackagePrice(option, cat) {
+    const code = packageCodeFor(option, cat);
+    const pkg = (window.__CONFIG?.packages || []).find(p => p.package_code === code);
+    return pkg?.listed_unit_price ?? null;
+  }
 
   // --- 🧠 Restore previous selections if available ---
   const savedCategory = localStorage.getItem("race_category");
@@ -150,9 +155,10 @@ function initRaceCategoryPage() {
 
   if (savedCategory) {
     categorySelect.value = savedCategory;
-    const p = window.__CONFIG?.packages?.[savedCategory] || window.__CONFIG?.packages?.default;
-    opt1PriceDisplay.textContent = p?.opt1?.price ? `HK$${p.opt1.price}` : '';
-    opt2PriceDisplay.textContent = p?.opt2?.price ? `HK$${p.opt2.price}` : '';
+    const p1 = getPackagePrice('opt1', savedCategory);
+    const p2 = getPackagePrice('opt2', savedCategory);
+    opt1PriceDisplay.textContent = (p1 != null) ? `HK$${p1}` : '';
+    opt2PriceDisplay.textContent = (p2 != null) ? `HK$${p2}` : '';
     entryOptionsSection.hidden = false;
   }
 
@@ -165,9 +171,10 @@ function initRaceCategoryPage() {
     const cat = categorySelect.value;
 
     if (cat) {
-      const p = window.__CONFIG?.packages?.[cat] || window.__CONFIG?.packages?.default;
-      opt1PriceDisplay.textContent = p?.opt1?.price ? `HK$${p.opt1.price}` : '';
-      opt2PriceDisplay.textContent = p?.opt2?.price ? `HK$${p.opt2.price}` : '';
+      const p1 = getPackagePrice('opt1', cat);
+      const p2 = getPackagePrice('opt2', cat);
+      opt1PriceDisplay.textContent = (p1 != null) ? `HK$${p1}` : '';
+      opt2PriceDisplay.textContent = (p2 != null) ? `HK$${p2}` : '';
       entryOptionsSection.hidden = false;
     } else {
       entryOptionsSection.hidden = true;
@@ -493,9 +500,14 @@ function initRaceDayPage() {
    PAGE 4: Practice Booking (stores compact practiceData)
 ------------------------- */
 function initBookingPage() {
-  const PRACTICE_YEAR = (window.__CONFIG?.event?.practice_start_date
-    ? new Date(window.__CONFIG.event.practice_start_date).getFullYear()
-    : 2026);
+  const PRACTICE_YEAR = (function() {
+    const ev = window.__CONFIG?.event || {};
+    if (ev.practice_start_date) {
+      try { return new Date(ev.practice_start_date).getFullYear(); } catch {}
+    }
+    if (typeof ev.season === 'number') return ev.season;
+    return new Date().getFullYear();
+  })();
   localStorage.setItem("practice_year", String(PRACTICE_YEAR));
 
   const calendarEl     = document.getElementById("calendarContainer");
@@ -832,7 +844,11 @@ function text(id, value) {
 }
 
 function renderSummary() {
-// Build allPracticeDates for the legacy table view
+  // Preload team arrays early
+  const teamNamesArr   = JSON.parse(localStorage.getItem("team_names")   || "[]");
+  const teamOptionsArr = JSON.parse(localStorage.getItem("team_options") || "[]");
+
+  // Build allPracticeDates for the legacy table view
   const allPracticeDates = [];
   (teamNamesArr || []).forEach((_, i) => {
     const raw = localStorage.getItem(`practiceData_team${i}`);
@@ -846,7 +862,7 @@ function renderSummary() {
   // 📦 Basic Info
   // ------------------------
   const numTeams = parseInt(localStorage.getItem("num_teams") || "1");
-  const season   = Number(window.__CONFIG?.event?.season) || Number(localStorage.getItem("season")) || NaN;
+  const season   = Number(window.__CONFIG?.event?.season);
   const category = localStorage.getItem("race_category") || "—";
   const org      = localStorage.getItem("org_name") || "—";
   const addr     = localStorage.getItem("org_address") || "—";
@@ -859,8 +875,6 @@ function renderSummary() {
   // ------------------------
   // 🧾 Team Summary
   // ------------------------
-  const teamNamesArr   = JSON.parse(localStorage.getItem("team_names")   || "[]");
-  const teamOptionsArr = JSON.parse(localStorage.getItem("team_options") || "[]");
   const optMap = { opt1: "Option 1", opt2: "Option 2" };
 
   const teamsTbody = document.getElementById("teamsTbody");
@@ -926,8 +940,8 @@ function renderSummary() {
   const teamNames = teamNamesArr;
 
   let totalHours = 0;
-  let trainer = 0;
-  let steersman = 0;
+  let totalTrainer = 0;
+  let totalSteersman = 0;
   if (!container || teamNames.length === 0) {
     container.innerHTML = `<p class="muted">No teams found.</p>`;
   } else {
@@ -946,29 +960,32 @@ function renderSummary() {
       }
 
       const dates = parsed.dates || [];
-      let teamTotal = 0, trainer = 0, steersman = 0;
+      let teamTotal = 0, teamTrainer = 0, teamSteersman = 0;
 
       const rows = dates.map(({ date, hours, helpers }) => {
         const hr = Number(hours) || 0;
         const help = helpers || "";
 
         teamTotal += hr;
-        if (help === "T") trainer++;
-        if (help === "S") steersman++;
-        if (help === "ST") { trainer++; steersman++; }
+        if (help === "T")  teamTrainer++;
+        if (help === "S")  teamSteersman++;
+        if (help === "ST") { teamTrainer++; teamSteersman++; }
 
         return `<tr><td>${date}</td><td>${hr}</td><td>${help || "—"}</td></tr>`;
       });
 
       const extra = Math.max(0, teamTotal - 12);
+      totalHours += teamTotal;
+      totalTrainer += teamTrainer;
+      totalSteersman += teamSteersman;
 
       const section = document.createElement("div");
       section.className = "team-summary";
       section.innerHTML = `
         <h4>Team ${i + 1}: ${name}</h4>
         <p>Total Hours: <strong>${teamTotal}</strong></p>
-        <p>Trainer Sessions: <strong>${trainer}</strong></p>
-        <p>Steersman Sessions: <strong>${steersman}</strong></p>
+        <p>Trainer Sessions: <strong>${teamTrainer}</strong></p>
+        <p>Steersman Sessions: <strong>${teamSteersman}</strong></p>
         <p>Extra Practice (over 12h): <strong>${extra}</strong></p>
         <table>
           <thead><tr><th>Date</th><th>Hours</th><th>Helpers</th></tr></thead>
@@ -998,8 +1015,8 @@ if (pBody) {
 // 📊 Totals
 const maxFreeHours = 12 * numTeams;
 text("sumPracticeHours",     String(totalHours));
-text("sumPracticeTrainer",   String(trainer));
-text("sumPracticeSteersman", String(steersman));
+text("sumPracticeTrainer",   String(totalTrainer));
+text("sumPracticeSteersman", String(totalSteersman));
 text("sumPracticeExtra",     String(Math.max(0, totalHours - maxFreeHours)));
 
 
@@ -1032,7 +1049,7 @@ function normalizeNameSummary(s) {
      const user = await requireAuth();
    
      const category       = localStorage.getItem("race_category");
-     const season         = Number(window.__CONFIG?.event?.season) || Number(localStorage.getItem("season")) || NaN;
+    const season         = Number(window.__CONFIG?.event?.season);
      const orgName        = localStorage.getItem("org_name") || "";
      const address        = localStorage.getItem("org_address") || "";
      const teamNamesObj   = JSON.parse(localStorage.getItem("team_names")   || "{}");
@@ -1090,7 +1107,10 @@ function normalizeNameSummary(s) {
 
 // Practice insert (only runs on Summary)
 async function insertPracticeSessionsAfterTeams(userId) {
-  const season   = Number(window.__CONFIG?.event?.season) || Number(localStorage.getItem("season")) || NaN;
+  if (typeof ALLOW_DIRECT_WRITES !== 'undefined' && !ALLOW_DIRECT_WRITES) {
+    throw new Error("Direct writes disabled. Use the submit_registration Edge Function.");
+  }
+  const season   = Number(window.__CONFIG?.event?.season);
   const teamMeta = JSON.parse(localStorage.getItem("inserted_team_meta") || "[]");
 
   if (!Array.isArray(teamMeta) || teamMeta.length === 0) {
@@ -1135,14 +1155,25 @@ async function insertPracticeSessionsAfterTeams(userId) {
 async function onFinalSubmit() {
   const msgEl = document.getElementById("formMsg");
   const eventShortRef = (window.__CONFIG?.event?.event_short_ref) || new URLSearchParams(location.search).get('event') || 'TN2025';
+  const category = localStorage.getItem("race_category");
+  const divLetter = (function(cat){
+    const m = { men_open: 'M', ladies_open: 'L', mixed_open: 'X', mixed_corporate: 'C' };
+    return m[String(cat || '').trim()] || null;
+  })(category);
   try {
     // Build consolidated payload from localStorage (pages 1–4). We'll refine once DDL arrives.
     const payload = {
       eventShortRef,
-      category: localStorage.getItem("race_category"),
+      category,
+      division_code: divLetter,
       season: window.__CONFIG?.event?.season, // prefer config
       org_name: localStorage.getItem("org_name"),
       org_address: localStorage.getItem("org_address"),
+      counts: {
+        num_teams: Number(localStorage.getItem("num_teams")) || 0,
+        num_teams_opt1: Number(localStorage.getItem("num_teams_opt1")) || 0,
+        num_teams_opt2: Number(localStorage.getItem("num_teams_opt2")) || 0
+      },
       team_names: JSON.parse(localStorage.getItem("team_names") || "[]"),
       team_options: JSON.parse(localStorage.getItem("team_options") || "[]"),
       managers: JSON.parse(localStorage.getItem("managers") || "[]"),
