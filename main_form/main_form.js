@@ -1,6 +1,19 @@
 import { loadEventConfig } from './configloader.js';
 import { sb } from './supabase_config.js'; // or wherever you create the client
 
+const money = (n) => (Number.isFinite(n) ? `HK$${Number(n).toLocaleString()}` : "");
+const catToLetter = (cat) => ({ men_open:"M", ladies_open:"L", mixed_open:"X", mixed_corporate:"C" }[String(cat||"").trim()] || null);
+const derivePackageCode = (category, opt) => {
+  const corp = category === "mixed_corporate";
+  const tier = opt === "opt1" ? "option_1" : "option_2";
+  return corp ? `${tier}_corp` : `${tier}_non_corp`;
+};
+const getUIText = (screen, key, fallback="") => {
+  const list = window.__CONFIG?.uiTexts || [];
+  const hit = list.find(t => t.screen===screen && t.key===key);
+  return hit?.text_en || fallback;
+};
+
 (async () => {
   const params = new URLSearchParams(location.search);
   const eventShortRef = params.get('event') || 'TN2025'; // pick your default
@@ -153,6 +166,32 @@ function initRaceCategoryPage() {
     const pkg = (window.__CONFIG?.packages || []).find(p => p.package_code === code);
     return pkg?.listed_unit_price ?? null;
   }
+  
+  // Helper functions for config binding
+  function derivePackageCode(category, option) {
+    return packageCodeFor(option, category);
+  }
+  function money(price) {
+    return price != null ? `HK$${price}` : '';
+  }
+  function updatePackageDisplay(category) {
+    const code1 = derivePackageCode(category, "opt1");
+    const code2 = derivePackageCode(category, "opt2");
+    const pkgs = window.__CONFIG?.packages || [];
+    const p1 = pkgs.find(p => p.package_code === code1);
+    const p2 = pkgs.find(p => p.package_code === code2);
+    
+    opt1PriceDisplay.textContent = p1 ? money(p1.listed_unit_price) : '';
+    opt2PriceDisplay.textContent = p2 ? money(p2.listed_unit_price) : '';
+    
+    // Update option labels if elements exist
+    const opt1Label = document.getElementById("opt1Label");
+    const opt2Label = document.getElementById("opt2Label");
+    if (opt1Label) opt1Label.textContent = p1?.title_en ?? "Option I";
+    if (opt2Label) opt2Label.textContent = p2?.title_en ?? "Option II";
+    
+    console.log("Page1:", p1 && p2 ? "live prices" : "fallback");
+  }
 
   // --- 🧠 Restore previous selections if available ---
   const savedCategory = localStorage.getItem("race_category");
@@ -162,10 +201,7 @@ function initRaceCategoryPage() {
 
   if (savedCategory) {
     categorySelect.value = savedCategory;
-    const p1 = getPackagePrice('opt1', savedCategory);
-    const p2 = getPackagePrice('opt2', savedCategory);
-    opt1PriceDisplay.textContent = (p1 != null) ? `HK$${p1}` : '';
-    opt2PriceDisplay.textContent = (p2 != null) ? `HK$${p2}` : '';
+    updatePackageDisplay(savedCategory);
     entryOptionsSection.hidden = false;
   }
 
@@ -178,10 +214,7 @@ function initRaceCategoryPage() {
     const cat = categorySelect.value;
 
     if (cat) {
-      const p1 = getPackagePrice('opt1', cat);
-      const p2 = getPackagePrice('opt2', cat);
-      opt1PriceDisplay.textContent = (p1 != null) ? `HK$${p1}` : '';
-      opt2PriceDisplay.textContent = (p2 != null) ? `HK$${p2}` : '';
+      updatePackageDisplay(cat);
       entryOptionsSection.hidden = false;
     } else {
       entryOptionsSection.hidden = true;
@@ -241,6 +274,29 @@ function initRaceCategoryPage() {
    PAGE 2: Team Info (with de‑dup + entry option)
 ------------------------- */
 function initTeamInfoPage() {
+  // UI text binding from config
+  const uiTexts = window.__CONFIG?.uiTexts || [];
+  const getUIText = (screen, key, fallback) => {
+    const text = uiTexts.find(t => t.screen === screen && t.key === key);
+    return text?.text_en || fallback;
+  };
+  
+  // Update labels and title from config
+  const orgNameLabel = document.querySelector('label[for="orgName"]');
+  if (orgNameLabel) {
+    orgNameLabel.textContent = getUIText('p2_teaminfo', 'label_org_name', 'Organization / Group Name');
+  }
+  
+  const addressLabel = document.querySelector('label[for="mailingAddress"]');
+  if (addressLabel) {
+    addressLabel.textContent = getUIText('p2_teaminfo', 'label_address', 'Mailing Address');
+  }
+  
+  const titleEl = document.querySelector('#p2_title');
+  if (titleEl) {
+    titleEl.textContent = getUIText('p2_teaminfo', 'title', 'Team & Organization Info');
+  }
+
   const form = document.getElementById("teamInfoForm");
   const container = document.getElementById("teamNameFields");
   const managerContainer = document.getElementById("managerFields");
@@ -376,21 +432,21 @@ function initTeamInfoPage() {
     const nameInput = document.createElement("input");
     nameInput.type = "text";
     nameInput.name = `manager${i}_name`;
-    nameInput.placeholder = "Full Name";
+    nameInput.placeholder = getUIText('p2_teaminfo', 'placeholder_name', 'Full Name');
     nameInput.required = i < 3;
     nameInput.value = savedManagers[i - 1]?.name || "";
 
     const mobileInput = document.createElement("input");
     mobileInput.type = "tel";
     mobileInput.name = `manager${i}_mobile`;
-    mobileInput.placeholder = "Mobile Number";
+    mobileInput.placeholder = getUIText('p2_teaminfo', 'placeholder_mobile', 'Mobile Number');
     mobileInput.required = i < 3;
     mobileInput.value = savedManagers[i - 1]?.mobile || "";
 
     const emailInput = document.createElement("input");
     emailInput.type = "email";
     emailInput.name = `manager${i}_email`;
-    emailInput.placeholder = "Email Address";
+    emailInput.placeholder = getUIText('p2_teaminfo', 'placeholder_email', 'Email Address');
     emailInput.required = i < 3;
     emailInput.value = savedManagers[i - 1]?.email || "";
 
@@ -474,6 +530,42 @@ function initRaceDayPage() {
   const form = document.getElementById("raceDayForm");
   const msg = document.getElementById("formMsg");
 
+  // Config binding for race day items
+  const items = window.__CONFIG?.raceDay || [];
+  const getItem = (code) => items.find(i => i.item_code === code);
+  
+  const boundItems = [];
+  const fallbackItems = [];
+
+  // Update race day items with config data
+  const updateRaceDayItem = (itemCode, titleId, priceId, qtyId) => {
+    const item = getItem(itemCode);
+    if (item) {
+      const titleEl = document.getElementById(titleId);
+      const priceEl = document.getElementById(priceId);
+      const qtyEl = document.getElementById(qtyId);
+      
+      if (titleEl) titleEl.textContent = item.title_en || titleEl.textContent;
+      if (priceEl) priceEl.textContent = item.listed_unit_price ? `HK$${item.listed_unit_price}` : priceEl.textContent;
+      if (qtyEl) {
+        if (item.min_qty != null) qtyEl.min = item.min_qty;
+        if (item.max_qty != null) qtyEl.max = item.max_qty;
+      }
+      boundItems.push(itemCode);
+    } else {
+      fallbackItems.push(itemCode);
+    }
+  };
+
+  // Bind each race day item
+  updateRaceDayItem('rd_marquee', 'marqueeTitle', 'marqueePrice', 'marqueeQty');
+  updateRaceDayItem('rd_steerer', 'steerWithTitle', 'steerWithPrice', 'steerWithQty');
+  updateRaceDayItem('rd_steerer_no_practice', 'steerWithoutTitle', 'steerWithoutPrice', 'steerWithoutQty');
+  updateRaceDayItem('rd_junk', 'junkTitle', 'junkPrice', 'junkBoatQty');
+  updateRaceDayItem('rd_speedboat', 'speedTitle', 'speedPrice', 'speedboatQty');
+  
+  console.log("RaceDay items bound:", boundItems, "fallback:", fallbackItems);
+
   // Back button
   document.getElementById("backBtn").addEventListener("click", () => {
     window.location.href = "2_teaminfo.html";
@@ -507,6 +599,78 @@ function initRaceDayPage() {
    PAGE 4: Practice Booking (stores compact practiceData)
 ------------------------- */
 function initBookingPage() {
+  // Config binding for practice booking
+  const start = window.__CONFIG?.event?.practice_start_date;
+  const end = window.__CONFIG?.event?.practice_end_date;
+  const slots = window.__CONFIG?.timeslots || [];
+  const pi = window.__CONFIG?.practiceItems || [];
+  
+  let configStatus = "fallback";
+  
+  // Update practice window header if dates available
+  if (start && end) {
+    try {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      const startStr = startDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      const endStr = endDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      const headerEl = document.querySelector('h2');
+      if (headerEl && headerEl.textContent.includes('Practice Booking')) {
+        headerEl.textContent = `🛶 Practice Booking (${startStr}–${endStr})`;
+      }
+    } catch (e) {
+      console.warn('Invalid practice dates in config:', e);
+    }
+  }
+  
+  // Helper to fill timeslot selects
+  const fill = (selectEl, hours) => {
+    if (!selectEl) return;
+    const filteredSlots = slots.filter(s => s.duration_hours === hours);
+    if (filteredSlots.length > 0) {
+      const currentValue = selectEl.value;
+      selectEl.innerHTML = '<option value="">-- Select --</option>';
+      filteredSlots.forEach(slot => {
+        const option = document.createElement('option');
+        option.value = slot.slot_code;
+        option.textContent = slot.label;
+        selectEl.appendChild(option);
+      });
+      if (currentValue) selectEl.value = currentValue;
+    }
+  };
+  
+  // Fill timeslot selects
+  const timeslotSelects = [
+    'slotPref2h_1', 'slotPref2h_2', 'slotPref2h_3',
+    'slotPref1h_1', 'slotPref1h_2', 'slotPref1h_3'
+  ];
+  timeslotSelects.forEach(id => {
+    const selectEl = document.getElementById(id);
+    const hours = id.includes('2h') ? 2 : 1;
+    fill(selectEl, hours);
+  });
+  
+  // Update practice prices
+  const updatePrice = (itemCode, elementId) => {
+    const item = pi.find(p => p.item_code === itemCode);
+    const priceEl = document.getElementById(elementId);
+    if (item && priceEl) {
+      priceEl.textContent = item.listed_unit_price ? `HK$${item.listed_unit_price}` : priceEl.textContent;
+    }
+  };
+  
+  updatePrice('extra_practice_hr_regular', 'priceExtraStd');
+  updatePrice('extra_practice_sb_hr_regular', 'priceExtraSB');
+  updatePrice('practice_trainer', 'priceTrainer');
+  updatePrice('practice_steerer', 'priceSteersman');
+  
+  // Determine config status
+  if (slots.length > 0 || pi.length > 0 || (start && end)) {
+    configStatus = "live prices/timeslots";
+  }
+  console.log("Page4:", configStatus);
+
   const PRACTICE_YEAR = (function() {
     const ev = window.__CONFIG?.event || {};
     if (ev.practice_start_date) {
@@ -884,6 +1048,14 @@ function renderSummary() {
   // 🧾 Team Summary
   // ------------------------
   const optMap = { opt1: "Option 1", opt2: "Option 2" };
+  
+  // Helper function for package code derivation (same as Page 1)
+  const derivePackageCode = (category, option) => {
+    const corp = String(category || '').trim() === 'mixed_corporate';
+    if (option === 'opt1') return corp ? 'option_1_corp' : 'option_1_non_corp';
+    if (option === 'opt2') return corp ? 'option_2_corp' : 'option_2_non_corp';
+    return null;
+  };
 
   const teamsTbody = document.getElementById("teamsTbody");
   if (teamsTbody) {
@@ -893,9 +1065,12 @@ function renderSummary() {
     } else {
       teamNamesArr.forEach((name, idx) => {
         const cleanName = (name || "").trim().replace(/\s+/g, " ");
-        const option = optMap[teamOptionsArr[idx]] || "Option 1";
+        const optKey = teamOptionsArr[idx];
+        const code = derivePackageCode(category, optKey);
+        const pkg = (window.__CONFIG?.packages || []).find(p => p.package_code === code);
+        const optionLabel = pkg?.title_en || (optKey === 'opt1' ? 'Option I' : 'Option II');
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${idx + 1}</td><td>${cleanName || "—"}</td><td>${option}</td>`;
+        tr.innerHTML = `<td>${idx + 1}</td><td>${cleanName || "—"}</td><td>${optionLabel}</td>`;
         teamsTbody.appendChild(tr);
       });
     }

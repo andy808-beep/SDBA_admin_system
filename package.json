@@ -1,0 +1,24 @@
+{
+  "name": "sdba_admin_system",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "supabase_config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andy808-beep/SDBA_admin_system.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/andy808-beep/SDBA_admin_system/issues"
+  },
+  "homepage": "https://github.com/andy808-beep/SDBA_admin_system#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.75.1"
+  }
+}
