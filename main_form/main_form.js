@@ -42,14 +42,21 @@ import { sb } from './supabase_config.js'; // or wherever you create the client
 
     // Feature flag: form disabled
     if (window.__CONFIG?.event?.form_enabled === false) {
-      const msg =
-        window.__CONFIG?.event?.disabled_message ||
-        'This form is not accepting submissions at the moment.';
+      const msg = window.__CONFIG?.event?.banner_text_en
+               || window.__CONFIG?.event?.disabled_message
+               || 'This form is not accepting submissions at the moment.';
       disableInteractive(msg);
-      // Still emit config:ready so pages can show read-only UI if they want
       document.dispatchEvent(new CustomEvent('config:ready', { detail: { eventShortRef, disabled: true } }));
       return;
     }
+    if (window.__CONFIG?.event?.event_colour_code_hex) {
+      const hex = window.__CONFIG.event.event_colour_code_hex;
+      document.documentElement.style.setProperty('--event-accent', hex);
+      let meta = document.querySelector('meta[name="theme-color"]');
+      if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
+      meta.content = `#${hex.replace(/^#/, '')}`;
+    }
+    
 
     // Config OK and form enabled → notify pages to initialize
     document.dispatchEvent(new CustomEvent('config:ready', { detail: { eventShortRef, disabled: false } }));
@@ -862,7 +869,8 @@ function renderSummary() {
   // 📦 Basic Info
   // ------------------------
   const numTeams = parseInt(localStorage.getItem("num_teams") || "1");
-  const season   = Number(window.__CONFIG?.event?.season);
+  const _season  = Number(window.__CONFIG?.event?.season);
+  const season   = Number.isFinite(_season) ? _season : "—";
   const category = localStorage.getItem("race_category") || "—";
   const org      = localStorage.getItem("org_name") || "—";
   const addr     = localStorage.getItem("org_address") || "—";
@@ -942,7 +950,9 @@ function renderSummary() {
   let totalHours = 0;
   let totalTrainer = 0;
   let totalSteersman = 0;
-  if (!container || teamNames.length === 0) {
+  if (!container) {
+    // No target container on page; nothing to render
+  } else if (teamNames.length === 0) {
     container.innerHTML = `<p class="muted">No teams found.</p>`;
   } else {
     container.innerHTML = "";
@@ -1154,6 +1164,7 @@ async function insertPracticeSessionsAfterTeams(userId) {
 // Final click handler: teams -> (later) race-day -> practices
 async function onFinalSubmit() {
   const msgEl = document.getElementById("formMsg");
+  const btnEl = document.getElementById("submitBtn");
   const eventShortRef = (window.__CONFIG?.event?.event_short_ref) || new URLSearchParams(location.search).get('event') || 'TN2025';
   const category = localStorage.getItem("race_category");
   const divLetter = (function(cat){
@@ -1161,6 +1172,16 @@ async function onFinalSubmit() {
     return m[String(cat || '').trim()] || null;
   })(category);
   try {
+    // Respect feature flag at submit time (defense in depth)
+    if (window.__CONFIG?.event?.form_enabled === false) {
+      const m = window.__CONFIG?.event?.banner_text_en || "This form is not accepting submissions at the moment.";
+      if (msgEl) { msgEl.textContent = m; msgEl.style.color = "red"; }
+      return;
+    }
+
+    // Prevent double submit
+    if (btnEl) btnEl.disabled = true;
+
     // Build consolidated payload from localStorage (pages 1–4). We'll refine once DDL arrives.
     const payload = {
       eventShortRef,
@@ -1196,8 +1217,19 @@ async function onFinalSubmit() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    if (!resp.ok) throw new Error(`Submit failed (${resp.status})`);
-    const result = await resp.json(); // { registration_id, team_codes: [...] }
+    const result = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const serverMsg = result?.error || result?.message || `Submit failed (${resp.status})`;
+      throw new Error(serverMsg);
+    }
+
+    // Persist for thank-you page / later use
+    if (result?.registration_id) {
+      localStorage.setItem("registration_id", String(result.registration_id));
+    }
+    if (Array.isArray(result?.team_codes)) {
+      localStorage.setItem("team_codes", JSON.stringify(result.team_codes));
+    }
 
     alert(`Submission complete! Team codes: ${Array.isArray(result?.team_codes) ? result.team_codes.join(', ') : 'TBD'}`);
     // (optional) route to a simple thank-you page
@@ -1206,5 +1238,7 @@ async function onFinalSubmit() {
     console.error(err);
     if (msgEl) { msgEl.textContent = err.message || "Submission failed."; msgEl.style.color = "red"; }
     else { alert(err.message || "Submission failed."); }
+  } finally {
+    if (btnEl) btnEl.disabled = false;
   }
 }
