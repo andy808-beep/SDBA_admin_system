@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Database Connection Test</title>
+</head>
+<body>
+  <h1>Database Connection Test</h1>
+  <div id="status">Testing connection...</div>
+  
+  <script src="env.js"></script>
+  <script type="module">
+    import { sb } from './supabase_config.js';
+    
+    async function testConnection() {
+      try {
+        console.log('🧪 Testing database connection...');
+        const { data, error } = await sb
+          .from('annual_event_config')
+          .select('event_short_ref, event_long_name_en')
+          .limit(1);
+        
+        if (error) {
+          console.error('🧪 Database error:', error);
+          document.getElementById('status').innerHTML = `❌ Database Error: ${error.message}`;
+        } else {
+          console.log('🧪 Database success:', data);
+          document.getElementById('status').innerHTML = `✅ Database Connected! Found ${data.length} events`;
+        }
+      } catch (err) {
+        console.error('🧪 Connection failed:', err);
+        document.getElementById('status').innerHTML = `❌ Connection Failed: ${err.message}`;
+      }
+    }
+    
+    testConnection();
+  </script>
+</body>
+</html>

@@ -2,95 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Application Summary</title>
-  <link rel="stylesheet" href="main_form.css" />
-  <style>
-    /* lightweight extras; keep or move to main_form.css */
-    .wrap { max-width: 900px; margin: 24px auto; padding: 16px; }
-    .section { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:16px; margin-bottom:16px; }
-    .section h2 { margin:0 0 8px; font-size:1.1rem; }
-    .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-    .kv { display:flex; gap:8px; }
-    .kv .k { width:160px; color:#555; }
-    table.summary { width:100%; border-collapse: collapse; }
-    table.summary th, table.summary td { border-bottom:1px solid #eee; padding:8px; text-align:left; }
-    .muted { color:#777; }
-    .actions { display:flex; justify-content:space-between; gap:8px; margin-top:16px; }
-    .msg { margin-top:8px; }
-  </style>
+  <meta http-equiv="refresh" content="0;url=../public/register.html?e=tn" />
+  <title>Redirecting…</title>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Application Summary</h1>
-
-    <div class="section" id="secBasics">
-      <h2>Basics</h2>
-      <div class="grid-2">
-        <div class="kv"><div class="k">Season</div><div class="v" id="sumSeason">—</div></div>
-        <div class="kv"><div class="k">Category</div><div class="v" id="sumCategory">—</div></div>
-        <div class="kv"><div class="k">Organization</div><div class="v" id="sumOrg">—</div></div>
-        <div class="kv"><div class="k">Mailing Address</div><div class="v" id="sumAddress">—</div></div>
-      </div>
-    </div>
-
-    <div class="section" id="secTeams">
-      <h2>Teams</h2>
-      <table class="summary" id="teamsTable">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Team Name</th>
-            <th>Entry Option</th>
-          </tr>
-        </thead>
-        <tbody id="teamsTbody"><tr><td colspan="3" class="muted">No teams</td></tr></tbody>
-      </table>
-      <div class="muted" style="margin-top:6px;">(Team codes are assigned at submit time.)</div>
-    </div>
-
-    <div class="section" id="secManagers">
-      <h2>Team Managers</h2>
-      <table class="summary" id="managersTable">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Name</th>
-            <th>Mobile</th>
-            <th>Email</th>
-          </tr>
-        </thead>
-        <tbody id="managersTbody"><tr><td colspan="4" class="muted">No manager information</td></tr></tbody>
-      </table>
-    </div>
-
-    <div class="section" id="secRaceDay">
-      <h2>Race Day Arrangement</h2>
-      <div class="grid-2" id="raceDayGrid">
-        <div class="kv"><div class="k">Marquee Qty</div><div class="v" id="sumMarquee">—</div></div>
-        <div class="kv"><div class="k">Steersman (with boat)</div><div class="v" id="sumSteerWith">—</div></div>
-        <div class="kv"><div class="k">Steersman (no boat)</div><div class="v" id="sumSteerWithout">—</div></div>
-        <div class="kv"><div class="k">Junk Boat # / Qty</div><div class="v" id="sumJunk">—</div></div>
-        <div class="kv"><div class="k">Speed Boat # / Qty</div><div class="v" id="sumSpeed">—</div></div>
-      </div>
-      <div class="muted" style="margin-top:6px;">(Race day supply submission happens after we add that table.)</div>
-    </div>
-
-    <div class="section" id="secPractice">
-      <h2>Practice Booking (per Team)</h2>
-      <div id="perTeamPracticeSummary">
-        <p class="muted">No practice booking data.</p>
-      </div>
-    </div>
-
-
-    <p class="msg" id="formMsg"></p>
-    <div class="actions">
-      <button type="button" id="backBtn">← Back</button>
-      <button id="submitBtn">Submit Application</button>
-    </div>
-  </div>
-
-  <script type="module" src="main_form.js" defer></script>
+  <script>location.replace('../public/register.html?e=tn');</script>
+  <noscript>
+    <p>This page has moved. Continue here: <a href="../public/register.html?e=tn">Universal Registration Form</a></p>
+  </noscript>
 </body>
 </html>

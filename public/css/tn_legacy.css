@@ -1,0 +1,461 @@
+/* ========== TN LEGACY CSS - SCOPED TO #tnScope ========== */
+/* This file contains legacy styles scoped to TN wizard only */
+/* All selectors are prefixed with #tnScope to prevent style leakage to WU/SC */
+
+/* ========== GLOBAL PAGE STYLES ========== */
+
+#tnScope body {
+  margin: 0;
+  padding: 0;
+  background: #f2f5f9;
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-y: auto;
+}
+
+/* ========== CARD CONTAINER ========== */
+
+#tnScope .card {
+  max-width: 1000px;
+  width: 90%;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ========== TYPOGRAPHY ========== */
+
+#tnScope h2, 
+#tnScope h3 {
+  margin-bottom: 1rem;
+  color: #0f6ec7;
+}
+
+#tnScope label {
+  font-weight: bold;
+  margin-top: 1rem;
+  display: block;
+}
+
+#tnScope input, 
+#tnScope select {
+  width: 100%;
+  padding: 0.6rem;
+  margin-top: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* ========== ENTRY OPTIONS (IF USED) ========== */
+
+#tnScope .entry-option {
+  background-color: #f9f9f9;
+  padding: 1rem;
+  margin: 1rem 0;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+#tnScope .entry-option ul {
+  list-style-type: disc;
+  padding-left: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ========== BUTTONS ========== */
+
+#tnScope button {
+  margin-top: 1.5rem;
+  padding: 0.7rem;
+  border: none;
+  border-radius: 4px;
+  background: #0f6ec7;
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#tnScope button:hover {
+  background: #0c5aa3;
+}
+
+/* ========== DUPLICATE ERROR ========== */
+
+#tnScope input.dup-error { 
+  border-color: #c00; 
+  background: #fff6f6; 
+}
+
+#tnScope .small-hint { 
+  font-size: .85rem; 
+  color: #c00; 
+  margin-top: .25rem; 
+}
+
+/* ========== MESSAGE STYLES ========== */
+
+#tnScope .msg {
+  font-size: 0.9rem;
+  text-align: center;
+  margin-top: 1rem;
+  color: #c00;
+}
+
+/* ========== CALENDAR LAYOUT ========== */
+
+#tnScope .calendar-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* ========== CALENDAR CONTAINER ========== */
+
+#tnScope #calendarContainer {
+  min-height: 280px;
+}
+
+/* ========== MONTH BLOCKS ========== */
+
+#tnScope .month-block {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 1rem;
+  background: #f9f9f9;
+}
+
+#tnScope .month-toggle {
+  cursor: pointer;
+  background: #0f6ec7;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  display: inline-block;
+}
+
+#tnScope .month-content.hide {
+  display: none;
+}
+
+#tnScope .weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  font-weight: bold;
+  font-size: 0.8rem;
+  color: #444;
+  padding: 0.2rem 0.3rem;
+  text-align: center;
+  margin-bottom: 0.3rem;
+}
+
+#tnScope .month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+
+/* ========== INDIVIDUAL DAY CELLS ========== */
+
+#tnScope .calendar-day {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 0.4rem;
+  background: #fff;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 0.4rem;
+  min-height: 90px;
+}
+
+#tnScope .calendar-day label {
+  font-weight: bold;
+  font-size: 0.85rem;
+  display: block;
+  width: 100%;
+  line-height: 1.2;
+}
+
+#tnScope .calendar-day input[type="checkbox"] {
+  margin-right: 0.3rem;
+}
+
+#tnScope .calendar-day select {
+  width: 100%;
+  padding: 0.3rem;
+  font-size: 0.85rem;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  background: #f0f0f0;
+}
+
+#tnScope .calendar-day.empty {
+  background: transparent;
+  border: none;
+  min-height: 90px;
+  pointer-events: none;
+}
+
+/* ========== DROPDOWNS INSIDE DAY ========== */
+
+#tnScope .dropdowns {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+#tnScope .dropdowns.hide {
+  display: none;
+}
+
+/* ========== PRACTICE SUMMARY BOX ========== */
+
+#tnScope .summary-box {
+  margin-top: 2rem;
+  padding: 1.2rem;
+  border: 1px solid #ccc;
+  background: #eef6ff;
+  border-radius: 6px;
+}
+
+#tnScope .summary-box h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  color: #0f6ec7;
+}
+
+#tnScope .summary-box p {
+  margin: 0.4rem 0;
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+
+/* ========== NAVIGATION BUTTONS ========== */
+
+#tnScope .nav-buttons {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+#tnScope .nav-buttons button {
+  padding: 0.7rem 1.2rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 5px;
+  background-color: #0f6ec7;
+  color: #fff;
+  cursor: pointer;
+}
+
+#tnScope .nav-buttons button:hover {
+  background-color: #0c5aa3;
+}
+
+/* ========== UTILITY CLASSES ========== */
+
+#tnScope .hide {
+  display: none !important;
+}
+
+/* ========== TN-SPECIFIC SUMMARY PAGE STYLES ========== */
+/* Additional styles from 5_summary.html that need scoping */
+
+#tnScope .wrap { 
+  max-width: 900px; 
+  margin: 24px auto; 
+  padding: 16px; 
+}
+
+#tnScope .section { 
+  background: #fff; 
+  border: 1px solid #e5e7eb; 
+  border-radius: 8px; 
+  padding: 16px; 
+  margin-bottom: 16px; 
+}
+
+#tnScope .section h2 { 
+  margin: 0 0 8px; 
+  font-size: 1.1rem; 
+}
+
+#tnScope .grid-2 { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 12px; 
+}
+
+#tnScope .kv { 
+  display: flex; 
+  gap: 8px; 
+}
+
+#tnScope .kv .k { 
+  width: 160px; 
+  color: #555; 
+}
+
+#tnScope table.summary { 
+  width: 100%; 
+  border-collapse: collapse; 
+}
+
+#tnScope table.summary th, 
+#tnScope table.summary td { 
+  border-bottom: 1px solid #eee; 
+  padding: 8px; 
+  text-align: left; 
+}
+
+#tnScope .muted { 
+  color: #777; 
+}
+
+#tnScope .actions { 
+  display: flex; 
+  justify-content: space-between; 
+  gap: 8px; 
+  margin-top: 16px; 
+}
+
+#tnScope .msg { 
+  margin-top: 8px; 
+}
+
+/* ========== FORM GROUP STYLES ========== */
+
+#tnScope .form-group {
+  margin-bottom: 1rem;
+}
+
+#tnScope .form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+#tnScope .form-group input,
+#tnScope .form-group textarea,
+#tnScope .form-group select {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+#tnScope .form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* ========== SECTION STYLES ========== */
+
+#tnScope .section {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #f9f9f9;
+}
+
+#tnScope .section h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #0f6ec7;
+}
+
+/* ========== LINE ROW STYLES ========== */
+
+#tnScope .line-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+#tnScope .line-row label {
+  margin: 0;
+  font-weight: normal;
+  display: inline;
+}
+
+#tnScope .line-row input[type="number"] {
+  width: 80px;
+  margin: 0;
+}
+
+#tnScope .line-row input[type="text"] {
+  width: 120px;
+  margin: 0;
+}
+
+/* ========== TEAM SELECTOR STYLES ========== */
+
+#tnScope .team-selector {
+  margin-bottom: 1rem;
+}
+
+#tnScope .team-selector label {
+  margin-right: 0.5rem;
+  font-weight: bold;
+}
+
+#tnScope .team-selector select {
+  width: auto;
+  min-width: 150px;
+}
+
+/* ========== SLOT PREFERENCES STYLES ========== */
+
+#tnScope .slot-preferences {
+  margin-top: 2rem;
+}
+
+#tnScope .slot-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+#tnScope .slot-table th,
+#tnScope .slot-table td {
+  border: 1px solid #ccc;
+  padding: 0.5rem;
+  text-align: left;
+}
+
+#tnScope .slot-table th {
+  background: #f0f0f0;
+  font-weight: bold;
+}
+
+#tnScope .slot-table select {
+  width: 100%;
+  margin: 0;
+}
+
+/* ========== COPY FROM TEAM 1 STYLES ========== */
+
+#tnScope .copy-from-team1 {
+  margin-top: 0.5rem;
+}
+
+#tnScope .copy-from-team1 button {
+  background: #28a745;
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+}
+
+#tnScope .copy-from-team1 button:hover {
+  background: #218838;
+}

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Race Registration</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- TN Legacy CSS - loaded conditionally when event='tn' -->
+  <link rel="stylesheet" href="css/tn_legacy.css" id="tnLegacyCSS" disabled />
+  <style>
+    /* Universal form specific styles */
+    .form-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    .form-section {
+      background: white;
+      border-radius: 8px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .form-section h2 {
+      margin-top: 0;
+      color: #333;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 0.5rem;
+    }
+    
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #555;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    }
+    
+    .btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.3s ease;
+    }
+    
+    .btn:hover {
+      background: #0056b3;
+    }
+    
+    .btn:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #6c757d;
+    }
+    
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 1rem;
+      border-radius: 4px;
+      margin: 1rem 0;
+    }
+    
+    .success {
+      background: #d4edda;
+      color: #155724;
+      padding: 1rem;
+      border-radius: 4px;
+      margin: 1rem 0;
+    }
+    
+    /* Event picker styles */
+    .event-picker {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 2rem;
+    }
+    
+    .event-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+    
+    .event-card {
+      background: white;
+      border: 2px solid #e9ecef;
+      border-radius: 12px;
+      padding: 2rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    
+    .event-card:hover {
+      border-color: #007bff;
+      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+      transform: translateY(-2px);
+    }
+    
+    .event-card h3 {
+      margin: 0 0 0.5rem 0;
+      color: #007bff;
+    }
+    
+    .event-card p {
+      margin: 0;
+      color: #6c757d;
+    }
+    
+    .event-card .description {
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #495057;
+    }
+    
+    /* TN Wizard specific styles */
+    #tnScope[hidden] {
+      display: none;
+    }
+    
+    #tnScope .stepper-container {
+      background: white;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    #tnScope .stepper-steps {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    #tnScope .step {
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      background: #e9ecef;
+      color: #6c757d;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+    
+    #tnScope .step.active {
+      background: #007bff;
+      color: white;
+    }
+    
+    #tnScope .step.completed {
+      background: #28a745;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <!-- Event Picker Section -->
+    <div id="eventPicker" class="event-picker">
+      <h2 id="formTitle">Race Registration</h2>
+      <p id="formSubtitle">Please select the race you would like to register for:</p>
+      <div id="eventGrid" class="event-grid">
+        <!-- Events will be loaded dynamically -->
+      </div>
+      <div class="loading" id="eventLoading">
+        <div>Loading available events...</div>
+      </div>
+    </div>
+
+    <!-- Universal Form Container -->
+    <div id="formContainer" class="form-container" style="display: none;">
+      <!-- TN Wizard Container (scoped for legacy styles) -->
+      <div id="tnScope" hidden>
+        <!-- TN Stepper Navigation -->
+        <div id="stepper"></div>
+        
+        <!-- TN Wizard Mount Point -->
+        <div id="wizardMount"></div>
+      </div>
+      
+      <!-- WU/SC Single Page Form Sections -->
+      <div id="wuScContainer" hidden>
+        <div id="contactSection" class="form-section">
+          <h2>Contact Information</h2>
+          <div id="contactFields"></div>
+        </div>
+        
+        <div id="teamSection" class="form-section">
+          <h2>Team Information</h2>
+          <div id="teamFields"></div>
+        </div>
+        
+        <div id="raceDaySection" class="form-section">
+          <h2>Race Day Arrangements</h2>
+          <div id="raceDayFields"></div>
+        </div>
+        
+        <div id="practiceSection" class="form-section">
+          <h2>Practice Booking</h2>
+          <div id="practiceFields"></div>
+        </div>
+        
+        <div id="summarySection" class="form-section">
+          <h2>Summary</h2>
+          <div id="summaryFields"></div>
+        </div>
+        
+        <div class="form-section">
+          <button type="submit" id="submitBtn" class="btn">Submit Registration</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="env.js"></script>
+  <script type="module" src="./supabase_config.js"></script>
+  <script type="module" src="./js/config_loader.js"></script>
+  <script type="module" src="./js/ui_bindings.js"></script>
+  <script type="module" src="./js/totals.js"></script>
+  <script type="module" src="./js/submit.js"></script>
+  <script type="module" src="./js/event_bootstrap.js"></script>
+  <script type="module" src="./js/tn_wizard.js"></script>
+  <script src="./js/tn_verification.js"></script>
+  
+  <!-- TN Legacy CSS Scoping Script -->
+  <script>
+    // Set up TN legacy CSS scoping based on event parameter
+    (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const eventShortRef = urlParams.get('e');
+      
+      if (eventShortRef === 'tn') {
+        // Set body dataset for TN legacy CSS scoping
+        document.body.dataset.event = 'tn';
+        
+        // Show TN legacy CSS
+        const tnLegacyCSS = document.getElementById('tnLegacyCSS');
+        if (tnLegacyCSS) {
+          tnLegacyCSS.disabled = false;
+        }
+        
+        // Show TN scope container, hide WU/SC container
+        const tnScope = document.getElementById('tnScope');
+        const wuScContainer = document.getElementById('wuScContainer');
+        
+        if (tnScope) tnScope.hidden = false;
+        if (wuScContainer) wuScContainer.hidden = true;
+      } else {
+        // For WU/SC events, show WU/SC container, hide TN scope
+        const tnScope = document.getElementById('tnScope');
+        const wuScContainer = document.getElementById('wuScContainer');
+        
+        if (tnScope) tnScope.hidden = true;
+        if (wuScContainer) wuScContainer.hidden = false;
+      }
+    })();
+  </script>
+</body>
+</html>

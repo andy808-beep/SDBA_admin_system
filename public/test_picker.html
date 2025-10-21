@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Event Picker Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .event-picker { border: 1px solid #ccc; padding: 20px; margin: 20px 0; }
+    .event-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .event-card { border: 1px solid #ddd; padding: 15px; cursor: pointer; }
+    .event-card:hover { background-color: #f5f5f5; }
+    .loading { text-align: center; padding: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Event Picker Test</h1>
+  <div id="status">Testing event picker...</div>
+  
+  <!-- Event Picker -->
+  <div id="eventPicker" class="event-picker" style="display: none;">
+    <h2 id="formTitle">Race Registration</h2>
+    <p id="formSubtitle">Please select the race you would like to register for:</p>
+    <div id="eventGrid" class="event-grid"></div>
+    <div class="loading" id="eventLoading">
+      <div>Loading available events...</div>
+    </div>
+  </div>
+  
+  <script src="env.js"></script>
+  <script type="module">
+    // Simple test of event picker functionality
+    function q(id) { return document.getElementById(id); }
+    
+    function showPicker(message) {
+      console.log('🎯 showPicker: Showing event picker');
+      const picker = q('eventPicker');
+      
+      console.log('🎯 showPicker: Picker element found:', !!picker);
+      
+      if (picker) {
+        picker.style.display = 'block';
+        console.log('🎯 showPicker: Picker shown');
+        console.log('🎯 showPicker: Picker display style:', picker.style.display);
+      } else {
+        console.error('🎯 showPicker: Picker element not found!');
+      }
+    }
+    
+    function renderEventCards(events) {
+      console.log('🎯 renderEventCards: Starting to render', events.length, 'events');
+      const grid = q('eventGrid');
+      const loading = q('eventLoading');
+      
+      console.log('🎯 renderEventCards: Grid element found:', !!grid);
+      console.log('🎯 renderEventCards: Loading element found:', !!loading);
+      
+      if (loading) {
+        loading.style.display = 'none';
+        console.log('🎯 renderEventCards: Loading indicator hidden');
+      }
+      if (!grid) {
+        console.error('🎯 renderEventCards: Grid element not found!');
+        return;
+      }
+      
+      grid.innerHTML = '';
+      console.log('🎯 renderEventCards: Grid cleared');
+      
+      events.forEach((event, index) => {
+        console.log(`🎯 renderEventCards: Creating card ${index + 1} for ${event.name}`);
+        const card = document.createElement('div');
+        card.className = 'event-card';
+        card.onclick = () => {
+          console.log('🎯 Card clicked:', event.ref);
+          document.getElementById('status').innerHTML = `Selected: ${event.name}`;
+        };
+        
+        card.innerHTML = `
+          <h3>${event.name}</h3>
+          <p>${event.description}</p>
+          <div class="description">${event.details}</div>
+        `;
+        
+        grid.appendChild(card);
+      });
+      
+      console.log('🎯 renderEventCards: All cards rendered, grid children count:', grid.children.length);
+    }
+    
+    async function loadPicker() {
+      try {
+        console.log('🎯 loadPicker: Starting event picker loading');
+        const loading = q('eventLoading');
+        if (loading) {
+          loading.style.display = 'block';
+          console.log('🎯 loadPicker: Loading indicator shown');
+        }
+        
+        // Create static event options
+        const events = [
+          {
+            ref: 'tn',
+            name: 'TN Dragon Boat Race',
+            description: 'Traditional Dragon Boat Race',
+            details: 'Multi-step registration form with practice booking calendar. Includes team registration, race day arrangements, and practice scheduling.'
+          },
+          {
+            ref: 'wu',
+            name: 'WU Dragon Boat Race', 
+            description: 'Water University Dragon Boat Race',
+            details: 'Modern single-page registration form with configurable options. Streamlined registration process with dynamic form fields.'
+          },
+          {
+            ref: 'sc',
+            name: 'SC Dragon Boat Race',
+            description: 'Sports Club Dragon Boat Race', 
+            details: 'Modern single-page registration form with configurable options. Streamlined registration process with dynamic form fields.'
+          }
+        ];
+        
+        console.log('🎯 loadPicker: Created', events.length, 'events');
+        renderEventCards(events);
+      } catch (err) {
+        console.error('🎯 loadPicker failed:', err);
+        document.getElementById('status').innerHTML = `Error: ${err.message}`;
+      }
+    }
+    
+    // Test the event picker
+    async function testPicker() {
+      console.log('🧪 Testing event picker...');
+      showPicker();
+      await loadPicker();
+      document.getElementById('status').innerHTML = 'Event picker test completed. Check console for details.';
+    }
+    
+    testPicker();
+  </script>
+</body>
+</html>

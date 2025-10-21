@@ -81,11 +81,6 @@ const getUIText = (screen, key, fallback="") => {
 })();
 
 
-
-// ---------- Supabase client ----------
-// import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-// import { SUPABASE_URL, SUPABASE_KEY } from "./supabase_config.js";
-
 // ---------- Auth helper ----------
 export async function requireAuth() {
   const { data, error } = await sb.auth.getUser();
@@ -1220,149 +1215,86 @@ function normalizeNameSummary(s) {
     .toLowerCase();
 }
 
-/* DEV-ONLY (disabled): direct table writes replaced by Edge Function submit_registration.
-   This guard prevents accidental client-side inserts during MVP.
-   If you truly need to test direct writes later, set ALLOW_DIRECT_WRITES = true temporarily. */
-   const ALLOW_DIRECT_WRITES = false;
-
-   async function insertTeamsToSupabaseMeta() {
-     if (!ALLOW_DIRECT_WRITES) {
-       throw new Error("Direct writes disabled. Use the submit_registration Edge Function.");
-     }
-   
-     // --- If you flip the flag above, the legacy code path remains here for debugging only ---
-     const user = await requireAuth();
-   
-     const category       = localStorage.getItem("race_category");
-    const season         = Number(window.__CONFIG?.event?.season);
-     const orgName        = localStorage.getItem("org_name") || "";
-     const address        = localStorage.getItem("org_address") || "";
-     const teamNamesObj   = JSON.parse(localStorage.getItem("team_names")   || "{}");
-     const teamOptionsObj = JSON.parse(localStorage.getItem("team_options") || "{}");
-     const managers       = JSON.parse(localStorage.getItem("managers")     || "[]");
-   
-     if (!category) throw new Error("Missing category. Please go back to Page 1.");
-     const teamKeys = Object.keys(teamNamesObj).sort();
-     if (teamKeys.length === 0) throw new Error("No team names found. Please go back to Page 2.");
-   
-     // NOTE: team_code now assigned by DB trigger; do not compute on client.
-     const m1 = managers[0] || {}, m2 = managers[1] || {}, m3 = managers[2] || {};
-     const optMap = { opt1: "Option 1", opt2: "Option 2" };
-   
-     // Local duplicate guard
-     const seen = new Map();
-     for (const k of teamKeys) {
-       const display = (teamNamesObj[k] || "").trim().replace(/\s+/g, " ");
-       const norm = normalizeNameSummary(display);
-       if (seen.has(norm)) throw new Error(`Duplicate team names detected: “${seen.get(norm)}” and “${display}”.`);
-       seen.set(norm, display);
-     }
-   
-     const rows = teamKeys.map((teamKey) => {
-       const teamName = (teamNamesObj[teamKey] || "").trim().replace(/\s+/g, " ");
-       const option   = optMap[teamOptionsObj[teamKey]] || "Option 1";
-       return {
-         user_id: user.id,
-         season,
-         category,
-         option_choice: option,
-         team_name: teamName,
-         // NOTE: These two will be mapped on the server once DDL is confirmed.
-         organization_name: orgName, // likely -> org_name
-         address: address,           // likely -> org_address
-         team_manager_1: m1.name   || "",
-         mobile_1:       m1.mobile || "",
-         email_1:        m1.email  || "",
-         team_manager_2: m2.name   || "",
-         mobile_2:       m2.mobile || "",
-         email_2:        m2.email  || "",
-         team_manager_3: m3.name   || "",
-         mobile_3:       m3.mobile || "",
-         email_3:        m3.email  || ""
-       };
-     });
-   
-     const { data, error } = await sb.from("team_meta").insert(rows).select();
-     if (error) throw error;
-   
-     localStorage.setItem("inserted_team_meta", JSON.stringify(data));
-     return data;
-   }
-   
-
-// Practice insert (only runs on Summary)
-async function insertPracticeSessionsAfterTeams(userId) {
-  if (typeof ALLOW_DIRECT_WRITES !== 'undefined' && !ALLOW_DIRECT_WRITES) {
-    throw new Error("Direct writes disabled. Use the submit_registration Edge Function.");
-  }
-  const season   = Number(window.__CONFIG?.event?.season);
-  const teamMeta = JSON.parse(localStorage.getItem("inserted_team_meta") || "[]");
-
-  if (!Array.isArray(teamMeta) || teamMeta.length === 0) {
-    throw new Error("Missing inserted team metadata.");
-  }
-
-  const allRows = [];
-
-  for (let i = 0; i < teamMeta.length; i++) {
-    const team = teamMeta[i];
-    const practice = JSON.parse(localStorage.getItem(`practiceData_team${i}`) || "null");
-
-    if (!practice || !Array.isArray(practice.dates)) continue;
-
-    const { slotPrefs_1hr = {}, slotPrefs_2hr = {} } = practice;
-
-    for (const { date, hours, helpers } of practice.dates) {
-      const slotSet = hours === 2 ? slotPrefs_2hr : slotPrefs_1hr;
-
-      allRows.push({
-        team_id: team.id,
-        practice_date: date,
-        duration_hours: Number(hours),
-        helpers_code: helpers || "",
-        slot_pref_1: slotSet.slot_pref_1 || "",
-        slot_pref_2: slotSet.slot_pref_2 || "",
-        slot_pref_3: slotSet.slot_pref_3 || ""
-      });
-    }
-  }
-
-  if (allRows.length === 0) return { skipped: true };
-
-  const { error } = await sb.from("practice_preferences").insert(allRows);
-  if (error) throw error;
-
-  return { inserted: allRows.length };
-}
+// Direct table writes removed - all data submission now goes through submit_registration Edge Function
 
 
-// Final click handler: teams -> (later) race-day -> practices
-async function onFinalSubmit() {
-  const msgEl = document.getElementById("formMsg");
-  const btnEl = document.getElementById("submitBtn");
-  const eventShortRef = (window.__CONFIG?.event?.event_short_ref) || new URLSearchParams(location.search).get('event') || 'TN2025';
+// ---------- Submit flow with idempotency, confirmation, receipt ----------
+// LEGACY BLOCKED: This legacy submit flow is not used by the universal form.
+// Kept for reference but disabled at runtime to avoid double-binding.
+const __LEGACY_BLOCKED__ = true;
+if (!__LEGACY_BLOCKED__) {
+
+// Constants
+const EDGE_URL = `${window.ENV?.SUPABASE_URL}/functions/v1/submit_registration`;
+const eventShortRef = window.__CONFIG?.event?.short_ref || new URLSearchParams(location.search).get('event') || 'TN2025';
+
+// Generate or retrieve client transaction ID for idempotency
+const getClientTxId = () =>
+  localStorage.getItem('raceApp:client_tx_id') || (()=>{
+    const id = crypto.randomUUID();
+    localStorage.setItem('raceApp:client_tx_id', id);
+    return id;
+  })();
+
+// Build submission payload
+const makePayload = () => {
   const category = localStorage.getItem("race_category");
-  const divLetter = (function(cat){
-    const m = { men_open: 'M', ladies_open: 'L', mixed_open: 'X', mixed_corporate: 'C' };
-    return m[String(cat || '').trim()] || null;
-  })(category);
-  try {
-    // Respect feature flag at submit time (defense in depth)
-    if (window.__CONFIG?.event?.form_enabled === false) {
-      const m = window.__CONFIG?.event?.banner_text_en || "This form is not accepting submissions at the moment.";
-      if (msgEl) { msgEl.textContent = m; msgEl.style.color = "red"; }
-      return;
+  const managers = JSON.parse(localStorage.getItem("managers") || "[]");
+  
+  // Extract contact info from first manager
+  const contact = managers.length > 0 ? {
+    name: managers[0]?.name || '',
+    email: managers[0]?.email || '',
+    phone: managers[0]?.mobile || ''
+  } : { name: '', email: '', phone: '' };
+
+  // Build teams array
+  const teamNames = JSON.parse(localStorage.getItem("team_names") || "[]");
+  const teamOptions = JSON.parse(localStorage.getItem("team_options") || "[]");
+  const teams = teamNames.map((name, index) => ({
+    name: name || `Team ${index + 1}`,
+    option: teamOptions[index] || 'opt1'
+  }));
+
+  // Build practice preferences
+  const practice_preferences = [];
+  const teamNamesArr = JSON.parse(localStorage.getItem("team_names") || "[]");
+  teamNamesArr.forEach((_, i) => {
+    const raw = localStorage.getItem(`practiceData_team${i}`);
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      if (data.dates) {
+        data.dates.forEach(dateInfo => {
+          practice_preferences.push({
+            team_index: i,
+            date: dateInfo.date,
+            hours: dateInfo.hours,
+            helpers: dateInfo.helpers
+          });
+        });
+      }
+    } catch (e) {
+      console.error(`Error parsing practice data for team ${i}:`, e);
     }
+  });
 
-    // Prevent double submit
-    if (btnEl) btnEl.disabled = true;
+  // Build race day requests
+  const race_day_requests = [];
+  const raceDayData = JSON.parse(localStorage.getItem("race_day_arrangement") || "null");
+  if (raceDayData) {
+    if (raceDayData.marqueeQty > 0) race_day_requests.push({ item: 'marquee', qty: raceDayData.marqueeQty });
+    if (raceDayData.steerWithQty > 0) race_day_requests.push({ item: 'steer_with', qty: raceDayData.steerWithQty });
+    if (raceDayData.steerWithoutQty > 0) race_day_requests.push({ item: 'steer_without', qty: raceDayData.steerWithoutQty });
+    if (raceDayData.junkBoatQty > 0) race_day_requests.push({ item: 'junk_boat', qty: raceDayData.junkBoatQty, boat_no: raceDayData.junkBoatNo });
+    if (raceDayData.speedboatQty > 0) race_day_requests.push({ item: 'speed_boat', qty: raceDayData.speedboatQty, boat_no: raceDayData.speedBoatNo });
+  }
 
-    // Build consolidated payload from localStorage (pages 1–4). We'll refine once DDL arrives.
-    const payload = {
-      eventShortRef,
+  return {
+    client_tx_id: getClientTxId(),
+    event_short_ref: eventShortRef,
       category,
-      division_code: divLetter,
-      season: window.__CONFIG?.event?.season, // prefer config
+    season: window.__CONFIG?.event?.season,
       org_name: localStorage.getItem("org_name"),
       org_address: localStorage.getItem("org_address"),
       counts: {
@@ -1370,50 +1302,186 @@ async function onFinalSubmit() {
         num_teams_opt1: Number(localStorage.getItem("num_teams_opt1")) || 0,
         num_teams_opt2: Number(localStorage.getItem("num_teams_opt2")) || 0
       },
-      team_names: JSON.parse(localStorage.getItem("team_names") || "[]"),
-      team_options: JSON.parse(localStorage.getItem("team_options") || "[]"),
-      managers: JSON.parse(localStorage.getItem("managers") || "[]"),
-      race_day: JSON.parse(localStorage.getItem("race_day_arrangement") || "null"),
-      practice: (function () {
-        const out = [];
-        const teams = JSON.parse(localStorage.getItem("team_names") || "[]");
-        teams.forEach((_, i) => {
-          const raw = localStorage.getItem(`practiceData_team${i}`);
-          if (!raw) return;
-          try { out.push({ team_index: i, ...JSON.parse(raw) }); } catch {}
-        });
-        return out;
-      })()
-    };
+    contact,
+    teams,
+    practice_preferences,
+    race_day_requests,
+    hp: document.getElementById('website_hp')?.value || "" // honeypot
+  };
+};
 
-    // Edge Function (server-side transaction + team code trigger)
-    const resp = await fetch('/functions/v1/submit_registration', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
-      const serverMsg = result?.error || result?.message || `Submit failed (${resp.status})`;
-      throw new Error(serverMsg);
-    }
+// HTTP helper
+async function postJSON(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(()=>({}));
+  return { ok: res.ok, status: res.status, data };
+}
 
-    // Persist for thank-you page / later use
-    if (result?.registration_id) {
-      localStorage.setItem("registration_id", String(result.registration_id));
-    }
-    if (Array.isArray(result?.team_codes)) {
-      localStorage.setItem("team_codes", JSON.stringify(result.team_codes));
-    }
+// Save receipt to localStorage
+function saveReceipt({ registration_id, team_codes, email }) {
+  const receipt = {
+    registration_id,
+    team_codes,
+    event_short_ref: eventShortRef,
+    email: email || '',
+    ts: Date.now(),
+    version: 1
+  };
+  localStorage.setItem(`raceApp:receipt:${registration_id}`, JSON.stringify(receipt));
+  localStorage.setItem(`raceApp:last_receipt`, JSON.stringify(receipt));
+  return receipt;
+}
 
-    alert(`Submission complete! Team codes: ${Array.isArray(result?.team_codes) ? result.team_codes.join(', ') : 'TBD'}`);
-    // (optional) route to a simple thank-you page
-    window.location.href = "thankyou.html";
-  } catch (err) {
-    console.error(err);
-    if (msgEl) { msgEl.textContent = err.message || "Submission failed."; msgEl.style.color = "red"; }
-    else { alert(err.message || "Submission failed."); }
-  } finally {
-    if (btnEl) btnEl.disabled = false;
+// Error mapping
+function mapError(code) {
+  const M = {
+    'E.EVENT_DISABLED': 'This event is currently not accepting registrations.',
+    'E.DIVISION_INACTIVE': 'That division is not open.',
+    'E.PACKAGE_INACTIVE': 'Selected package is unavailable.',
+    'E.QTY_LIMIT': 'Quantity exceeds the allowed limit.',
+    'E.PRACTICE_WINDOW': 'Selected practice date is outside the allowed window.',
+    'E.SLOT_INVALID': 'Selected practice time slot is invalid.',
+    'E.DUPLICATE': 'A submission with the same details already exists.',
+    'E.HONEYPOT': 'Submission blocked. Please try again.',
+    'E.RATE_LIMIT': 'Too many attempts. Please wait a minute and try again.',
+    'E.BAD_PAYLOAD': 'Your submission looks incomplete. Please review and resubmit.',
+    'E.UNKNOWN': 'Something went wrong. Please try again.'
+  };
+  return M[code] || M['E.UNKNOWN'];
+}
+
+// Show confirmation UI
+function showConfirmation({ registration_id, team_codes }) {
+  const confirmationEl = document.getElementById('confirmation');
+  if (!confirmationEl) {
+    console.error('Confirmation element not found');
+    return;
+  }
+  
+  confirmationEl.innerHTML = `
+    <h2>Registration Confirmed</h2>
+    <p><strong>Registration ID:</strong> ${registration_id}</p>
+    <div><strong>Team Codes:</strong> ${team_codes.join(', ')}</div>
+    <div style="margin-top:12px;">
+      <button id="copyBtn" style="margin-right:8px;padding:8px 16px;background:#007bff;color:white;border:none;border-radius:4px;cursor:pointer;">Copy</button>
+      <button id="shareBtn" style="padding:8px 16px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;">Share</button>
+    </div>
+  `;
+  confirmationEl.style.display = 'block';
+
+  const msg = `Registration ${registration_id}\nTeam Codes: ${team_codes.join(', ')}`;
+  
+  document.getElementById('copyBtn').onclick = async () => {
+    try { 
+      await navigator.clipboard.writeText(msg); 
+      alert('Copied to clipboard!'); 
+    } catch (e) {
+      console.error('Copy failed:', e);
+    }
+  };
+  
+  document.getElementById('shareBtn').onclick = async () => {
+    if (navigator.share) {
+      try { 
+        await navigator.share({ title: 'Registration Confirmation', text: msg }); 
+      } catch (e) {
+        console.error('Share failed:', e);
+      }
+    } else {
+      alert('Sharing not supported. Copied to clipboard instead.');
+      try { 
+        await navigator.clipboard.writeText(msg); 
+          } catch (e) {
+        console.error('Copy failed:', e);
+      }
+    }
+  };
+}
+
+// Show error UI
+function showError(message, details) {
+  const msgEl = document.getElementById("formMsg");
+      if (msgEl) { 
+    msgEl.textContent = message;
+        msgEl.style.color = "red"; 
+    msgEl.innerHTML = `<div>${message}</div><div style="font-size:12px;color:#666;">Details: ${JSON.stringify(details)}</div>`;
+  } else {
+    alert(message);
   }
 }
+
+// Final click handler: teams -> (later) race-day -> practices
+async function onFinalSubmit(e) {
+  e.preventDefault?.();
+
+  const msgEl = document.getElementById("formMsg");
+  const submitBtn = document.getElementById("submitBtn");
+  
+  // Double-click guard
+  if (submitBtn.dataset.busy === '1') return;
+  submitBtn.dataset.busy = '1';
+  submitBtn.disabled = true;
+
+  try {
+    // Respect feature flag at submit time (defense in depth)
+    if (window.__CONFIG?.event?.form_enabled === false) {
+      const m = window.__CONFIG?.event?.banner_text_en || "This form is not accepting submissions at the moment.";
+      showError(m);
+      return;
+    }
+
+    const payload = makePayload();
+    console.log('Submitting payload:', JSON.stringify(payload, null, 2));
+
+    const { ok, status, data } = await postJSON(EDGE_URL, payload);
+
+    if (ok) {
+      const { registration_id, team_codes, email } = data;
+      const receipt = saveReceipt({ registration_id, team_codes, email });
+      showConfirmation(receipt);
+      
+      // Hide the form sections and show confirmation
+      document.querySelectorAll('.section').forEach(section => section.style.display = 'none');
+      document.querySelector('.actions').style.display = 'none';
+    } else {
+      const code = data?.error_code || (status === 429 ? 'E.RATE_LIMIT' : 'E.UNKNOWN');
+      showError(mapError(code), {
+        eventShortRef,
+        client_tx_id: payload.client_tx_id,
+        ts: new Date().toISOString()
+      });
+      // Allow retry
+      submitBtn.dataset.busy = '0';
+      submitBtn.disabled = false;
+    }
+  } catch (err) {
+    console.error('Submit error:', err);
+    showError('Something went wrong. Please try again.', { error: err.message });
+    // Allow retry
+    submitBtn.dataset.busy = '0';
+    submitBtn.disabled = false;
+  }
+}
+
+// "Revisit confirmation" page loader
+(function bootRevisit() {
+  const mount = document.getElementById('revisit');
+  if (!mount) return;
+  const raw = localStorage.getItem('raceApp:last_receipt');
+  if (!raw) { 
+    mount.textContent = 'No recent confirmation found.'; 
+    return; 
+  }
+  try { 
+    const receipt = JSON.parse(raw);
+    showConfirmation(receipt);
+  } catch (e) { 
+    mount.textContent = 'Unable to load receipt.'; 
+  }
+})();
+
+} // end legacy blocked

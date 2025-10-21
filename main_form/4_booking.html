@@ -2,83 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Practice Booking</title>
-  <link rel="stylesheet" href="main_form.css" />
+  <meta http-equiv="refresh" content="0;url=../public/register.html?e=tn" />
+  <title>Redirecting…</title>
 </head>
 <body>
-  <div class="card">
-
-    <h2>🛶 Practice Booking (Jan–Jul 2026)</h2> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-
-    <!-- 🧑‍🤝‍🧑 Team Selection -->
-    <div class="team-selector">
-      <label for="teamSelect">Select Team:</label>
-      <select id="teamSelect"></select>
-    </div>
-    <div id="teamNameFields"></div>
-
-    <div class="copy-from-team1" style="margin-top: 0.5rem;">
-      <button type="button" id="copyFromTeam1Btn">📋 Copy from Team 1</button>
-    </div>
-
-
-    <!-- 🗓️ Calendar Container -->
-    <div id="calendarContainer" class="calendar-wrapper"></div>
-
-    <!-- 🧩 Time Slot Preference -->
-    <div class="slot-preferences">
-      <h3>Time Slot Preference Ranking</h3>
-
-      <table class="slot-table">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>2-Hour Session</th>
-            <th>1-Hour Session</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>1st Choice</td>
-            <td><select id="slotPref2h_1" required><option value="">-- Select --</option></select></td>
-            <td><select id="slotPref1h_1"><option value="">-- Select --</option></select></td>
-          </tr>
-          <tr>
-            <td>2nd Choice</td>
-            <td><select id="slotPref2h_2"><option value="">-- Select --</option></select></td>
-            <td><select id="slotPref1h_2"><option value="">-- Select --</option></select></td>
-          </tr>
-          <tr>
-            <td>3rd Choice</td>
-            <td><select id="slotPref2h_3"><option value="">-- Select --</option></select></td>
-            <td><select id="slotPref1h_3"><option value="">-- Select --</option></select></td>
-          </tr>
-        </tbody>
-      </table>
-      <!-- Options populated from config; fallback if config not loaded -->
-    </div>
-
-
-
-
-    <!-- 📊 Practice Summary (Combined) -->
-    <div id="practiceSummary" class="summary-box">
-      <h3>Practice Booking Summary</h3>
-      <p>Total Hours Selected: <span id="totalHours">0</span> / 12</p>
-      <p>Extra Practice Sessions (<span id="priceExtraStd">HK$600</span>): <span id="extraPracticeQty">0</span></p> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-      <p>Trainer Sessions (<span id="priceTrainer">HK$550</span>): <span id="trainerQty">0</span></p> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-      <p>Steersman Sessions (<span id="priceSteersman">HK$350</span>): <span id="steersmanQty">0</span></p> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-    </div>
-
-    <!-- 🔄 Navigation -->
-    <div class="nav-buttons">
-      <button type="button" id="backBtn">← Back</button>
-      <button type="submit" id="nextBtn">Next →</button>
-    </div>
-
-  </div>
-
-  <script type="module" src="main_form.js" defer></script>
+  <script>location.replace('../public/register.html?e=tn');</script>
+  <noscript>
+    <p>This page has moved. Continue here: <a href="../public/register.html?e=tn">Universal Registration Form</a></p>
+  </noscript>
 </body>
 </html>

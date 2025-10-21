@@ -2,66 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Race Day Arrangement</title>
-  <link rel="stylesheet" href="main_form.css" />
+  <meta http-equiv="refresh" content="0;url=../public/register.html?e=tn" />
+  <title>Redirecting…</title>
 </head>
 <body>
-  <div class="card">
-    <form id="raceDayForm">
-      <h2>Race Day Arrangement</h2>
-
-      <div class="section">
-        <h3>Athlete Marquee</h3>
-        <div class="line-row">
-          <span id="marqueePrice">Unit Price: HK$2,000</span> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-          <input type="number" id="marqueeQty" name="marqueeQty" min="0" value="0" />
-        </div>
-      </div>
-
-      <div class="section">
-        <h3>Official Steersman</h3>
-        <p>Teams hired Official Steersman during practice</p>
-        <div class="line-row">
-          <span id="steerWithPrice">Unit Price: HK$800</span> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-          <input type="number" id="steerWithQty" name="steerWithQty" min="0" value="0" />
-        </div>
-        <p>Teams DID NOT hire Official Steersman during practice</p>
-        <div class="line-row">
-          <span id="steerWithoutPrice">Unit Price: HK$1,500</span> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-          <input type="number" id="steerWithoutQty" name="steerWithoutQty" min="0" value="0" />
-        </div>
-      </div>
-
-      <div class="section">
-        <h3>Junk Registration</h3>
-        <div class="line-row">
-          <label for="junkBoatNo">Pleasure Boat No.:</label>
-          <input type="text" id="junkBoatNo" name="junkBoatNo" />
-          <span id="junkPrice">HK$2,500</span> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-          <input type="number" id="junkBoatQty" name="junkBoatQty" min="0" value="0"/>
-        </div>
-      </div>
-
-      <div class="section">
-        <h3>Speed Boat Registration</h3>
-        <div class="line-row">
-          <label for="speedBoatNo">Speed Boat No.:</label>
-          <input type="text" id="speedBoatNo" name="speedBoatNo" />
-          <span id="speedPrice">HK$1,500</span> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-          <input type="number" id="speedboatQty" name="speedboatQty" min="0" value="0"/>
-        </div>
-      </div>
-
-      <p class="msg" id="formMsg"></p>
-      <!-- 🔄 Navigation -->
-      <div class="nav-buttons">
-        <button type="button" id="backBtn">← Back</button>
-        <button type="submit" id="nextBtn">Next →</button>
-      </div>
-    </form>
-  </div>
-
-  <script type="module" src="main_form.js" defer></script>
+  <script>location.replace('../public/register.html?e=tn');</script>
+  <noscript>
+    <p>This page has moved. Continue here: <a href="../public/register.html?e=tn">Universal Registration Form</a></p>
+  </noscript>
 </body>
 </html>

@@ -1,0 +1,302 @@
+<!-- TN Legacy Templates - Extracted from main_form/1_category.html through 5_summary.html -->
+<!-- These templates preserve the exact markup, IDs, and classes from the legacy forms -->
+
+<template id="tn-step-1">
+  <div class="card">
+    <form id="categoryForm">
+      <h2>Select Race Category</h2>
+
+      <label for="raceCategory">Choose category:</label>
+      <select id="raceCategory" required>
+        <option value="">-- Please choose --</option>
+        <option value="men_open">Men Open</option>
+        <option value="ladies_open">Ladies Open</option>
+        <option value="mixed_open">Mixed Open</option>
+        <option value="mixed_corporate">Mixed Corporate</option>
+      </select>
+
+      <label for="teamCount">How many teams will you register?</label>
+      <input type="number" id="teamCount" min="1" placeholder="e.g. 2" required />
+
+      <hr />
+
+      <div id="entryOptions" hidden>
+        <h3>Entry Options</h3>
+
+        <div class="entry-option">
+          <strong id="opt1Label">Option 1</strong> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+          <ul>
+            <li>Entry Fee</li>
+            <li>Practice with equipment x12hrs</li>
+            <li>Souvenir Tee x20 pieces</li>
+            <li>20L Dry Bag x1</li>
+            <li><u>Padded Shorts x20 pieces</u></li>
+            <li><span id="opt1Price"></span> per team</li>
+          </ul>
+          <label>How many teams choose Option 1:
+            <input type="number" id="opt1Count" min="0" value="0" required />
+          </label>
+        </div>
+
+        <div class="entry-option">
+          <strong id="opt2Label">Option 2</strong> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+          <ul>
+            <li>Entry Fee</li>
+            <li>Practice with equipment x12hrs</li>
+            <li>Souvenir Tee x20 pieces</li>
+            <li>20L Dry Bag x1</li>
+            <li><s>Padded Shorts x20 pieces</s></li>
+            <li><span id="opt2Price"></span> per team</li>
+          </ul>
+          <label>How many teams choose Option 2:
+            <input type="number" id="opt2Count" min="0" value="0" required />
+          </label>
+        </div>
+      </div>
+
+      <!-- Honeypot field -->
+      <input type="text" name="website" id="website_hp" autocomplete="off" tabindex="-1" style="position:absolute;left:-9999px;" />
+
+      <p class="msg" id="formMsg"></p>
+      <!-- 🔄 Navigation -->
+      <div class="nav-buttons">
+        <button type="submit" id="nextBtn">Next →</button>
+      </div>
+    </form>
+  </div>
+</template>
+
+<template id="tn-step-2">
+  <div class="card">
+    <form id="teamInfoForm">
+      <h2>Team Information</h2>
+
+      <div id="teamNameFields"></div>
+      <div class="form-group">
+        <label for="orgName">Organization / Group Name</label>
+        <input type="text" id="orgName" name="orgName" placeholder="" required />
+      </div>
+      <div class="form-group">
+        <label for="mailingAddress">Mailing Address</label>
+        <textarea id="mailingAddress" name="mailingAddress" rows="3" placeholder="Room/Floor, Building Name, Street, District, City" required></textarea>
+      </div>
+      <h3>Team Manager Contact</h3>
+      <div id="managerFields"></div>
+
+      <p class="msg" id="formMsg"></p>
+      <!-- 🔄 Navigation -->
+      <div class="nav-buttons">
+        <button type="button" id="backBtn">← Back</button>
+        <button type="submit" id="nextBtn">Next →</button>
+      </div>
+    </form>
+  </div>
+</template>
+
+<template id="tn-step-3">
+  <div class="card">
+    <form id="raceDayForm">
+      <h2>Race Day Arrangement</h2>
+
+      <div class="section">
+        <h3>Athlete Marquee</h3>
+        <div class="line-row">
+          <span id="marqueePrice">Unit Price: HK$2,000</span> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+          <input type="number" id="marqueeQty" name="marqueeQty" min="0" value="0" />
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Official Steersman</h3>
+        <p>Teams hired Official Steersman during practice</p>
+        <div class="line-row">
+          <span id="steerWithPrice">Unit Price: HK$800</span> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+          <input type="number" id="steerWithQty" name="steerWithQty" min="0" value="0" />
+        </div>
+        <p>Teams DID NOT hire Official Steersman during practice</p>
+        <div class="line-row">
+          <span id="steerWithoutPrice">Unit Price: HK$1,500</span> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+          <input type="number" id="steerWithoutQty" name="steerWithoutQty" min="0" value="0" />
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Junk Registration</h3>
+        <div class="line-row">
+          <label for="junkBoatNo">Pleasure Boat No.:</label>
+          <input type="text" id="junkBoatNo" name="junkBoatNo" />
+          <span id="junkPrice">HK$2,500</span> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+          <input type="number" id="junkBoatQty" name="junkBoatQty" min="0" value="0"/>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Speed Boat Registration</h3>
+        <div class="line-row">
+          <label for="speedBoatNo">Speed Boat No.:</label>
+          <input type="text" id="speedBoatNo" name="speedBoatNo" />
+          <span id="speedPrice">HK$1,500</span> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+          <input type="number" id="speedboatQty" name="speedboatQty" min="0" value="0"/>
+        </div>
+      </div>
+
+      <p class="msg" id="formMsg"></p>
+      <!-- 🔄 Navigation -->
+      <div class="nav-buttons">
+        <button type="button" id="backBtn">← Back</button>
+        <button type="submit" id="nextBtn">Next →</button>
+      </div>
+    </form>
+  </div>
+</template>
+
+<template id="tn-step-4">
+  <div class="card">
+
+    <h2>🛶 Practice Booking (Jan–Jul 2026)</h2> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+
+    <!-- 🧑‍🤝‍🧑 Team Selection -->
+    <div class="team-selector">
+      <label for="teamSelect">Select Team:</label>
+      <select id="teamSelect"></select>
+    </div>
+    <div id="teamNameFields"></div>
+
+    <div class="copy-from-team1" style="margin-top: 0.5rem;">
+      <button type="button" id="copyFromTeam1Btn">📋 Copy from Team 1</button>
+    </div>
+
+
+    <!-- 🗓️ Calendar Container -->
+    <div id="calendarContainer" class="calendar-wrapper"></div>
+
+    <!-- 🧩 Time Slot Preference -->
+    <div class="slot-preferences">
+      <h3>Time Slot Preference Ranking</h3>
+
+      <table class="slot-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>2-Hour Session</th>
+            <th>1-Hour Session</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1st Choice</td>
+            <td><select id="slotPref2h_1" required><option value="">-- Select --</option></select></td>
+            <td><select id="slotPref1h_1"><option value="">-- Select --</option></select></td>
+          </tr>
+          <tr>
+            <td>2nd Choice</td>
+            <td><select id="slotPref2h_2"><option value="">-- Select --</option></select></td>
+            <td><select id="slotPref1h_2"><option value="">-- Select --</option></select></td>
+          </tr>
+          <tr>
+            <td>3rd Choice</td>
+            <td><select id="slotPref2h_3"><option value="">-- Select --</option></select></td>
+            <td><select id="slotPref1h_3"><option value="">-- Select --</option></select></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+
+
+
+    <!-- 📊 Practice Summary (Combined) -->
+    <div id="practiceSummary" class="summary-box">
+      <h3>Practice Booking Summary</h3>
+      <p>Total Hours Selected: <span id="totalHours">0</span> / 12</p>
+      <p>Extra Practice Sessions (<span id="priceExtraStd">HK$600</span>): <span id="extraPracticeQty">0</span></p> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+      <p>Trainer Sessions (<span id="priceTrainer">HK$550</span>): <span id="trainerQty">0</span></p> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+      <p>Steersman Sessions (<span id="priceSteersman">HK$350</span>): <span id="steersmanQty">0</span></p> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+    </div>
+
+    <!-- 🔄 Navigation -->
+    <div class="nav-buttons">
+      <button type="button" id="backBtn">← Back</button>
+      <button type="submit" id="nextBtn">Next →</button>
+    </div>
+
+  </div>
+</template>
+
+<template id="tn-step-5">
+  <div class="wrap">
+    <h1>Application Summary</h1>
+
+    <div class="section" id="secBasics">
+      <h2>Basics</h2>
+      <div class="grid-2">
+        <div class="kv"><div class="k">Season</div><div class="v" id="sumSeason">—</div></div>
+        <div class="kv"><div class="k">Category</div><div class="v" id="sumCategory">—</div></div>
+        <div class="kv"><div class="k">Organization</div><div class="v" id="sumOrg">—</div></div>
+        <div class="kv"><div class="k">Mailing Address</div><div class="v" id="sumAddress">—</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="secTeams">
+      <h2>Teams</h2>
+      <table class="summary" id="teamsTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Team Name</th>
+            <th>Entry Option</th>
+          </tr>
+        </thead>
+        <tbody id="teamsTbody"><tr><td colspan="3" class="muted">No teams</td></tr></tbody>
+      </table>
+      <div class="muted" style="margin-top:6px;">(Team codes are assigned at submit time.)</div>
+    </div>
+
+    <div class="section" id="secManagers">
+      <h2>Team Managers</h2>
+      <table class="summary" id="managersTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Mobile</th>
+            <th>Email</th>
+          </tr>
+        </thead>
+        <tbody id="managersTbody"><tr><td colspan="4" class="muted">No manager information</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="secRaceDay">
+      <h2>Race Day Arrangement</h2>
+      <div class="grid-2" id="raceDayGrid">
+        <div class="kv"><div class="k">Marquee Qty</div><div class="v" id="sumMarquee">—</div></div>
+        <div class="kv"><div class="k">Steersman (with boat)</div><div class="v" id="sumSteerWith">—</div></div>
+        <div class="kv"><div class="k">Steersman (no boat)</div><div class="v" id="sumSteerWithout">—</div></div>
+        <div class="kv"><div class="k">Junk Boat # / Qty</div><div class="v" id="sumJunk">—</div></div>
+        <div class="kv"><div class="k">Speed Boat # / Qty</div><div class="v" id="sumSpeed">—</div></div>
+      </div>
+      <div class="muted" style="margin-top:6px;">(Race day supply submission happens after we add that table.)</div>
+    </div>
+
+    <div class="section" id="secPractice">
+      <h2>Practice Booking (per Team)</h2>
+      <div id="perTeamPracticeSummary">
+        <p class="muted">No practice booking data.</p>
+      </div>
+    </div>
+
+
+    <p class="msg" id="formMsg"></p>
+    <div class="actions">
+      <button type="button" id="backBtn">← Back</button>
+      <button id="submitBtn">Submit Application</button>
+    </div>
+    
+    <!-- Confirmation section (hidden by default) -->
+    <div id="confirmation" style="display:none;"></div>
+    
+    <!-- Revisit confirmation section -->
+    <div id="revisit"></div>
+  </div>
+</template>
