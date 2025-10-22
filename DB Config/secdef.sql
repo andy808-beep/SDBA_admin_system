@@ -12,7 +12,7 @@ REVOKE ALL ON FUNCTION public.rpc_load_event_config(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.rpc_load_event_config(text) TO anon, authenticated;
 
 -- 4) Deny direct reads on the public views if you want RPC-only access
-REVOKE SELECT ON
+GRANT SELECT ON
   public.v_event_config_public,
   public.v_divisions_public,
   public.v_packages_public,
@@ -20,7 +20,7 @@ REVOKE SELECT ON
   public.v_practice_items_public,
   public.v_timeslots_public,
   public.v_ui_texts_public
-FROM PUBLIC, anon, authenticated;
+TO anon, authenticated;
 
 -- 5) Enable RLS on base tables (if not already) and ensure there are no permissive policies
 -- (Views don’t have RLS; base tables do. The postgres owner bypasses RLS when executing the function.)
