@@ -40,6 +40,12 @@ function setupDebugFunctions() {
   window.__DBG_TN.testCalendarData = testCalendarDataCollection;
   window.testCalendarData = testCalendarDataCollection;
   
+  // Add TN store debug functions
+  window.__DBG_TN.readTeamRows = readTeamRows;
+  window.__DBG_TN.readTeamRanks = readTeamRanks;
+  window.__DBG_TN.writeTeamRows = writeTeamRows;
+  window.__DBG_TN.writeTeamRanks = writeTeamRanks;
+  
   console.log('🎯 Debug functions available:');
   console.log('  - previewStep4() - Load step 4 with sample data');
   console.log('  - clearStep4() - Clear all step 4 data');
@@ -47,6 +53,8 @@ function setupDebugFunctions() {
   console.log('  - testCopyButton() - Test copy button functionality');
   console.log('  - saveCurrentTeam() - Manually save current team data');
   console.log('  - testCalendarData() - Test calendar data collection');
+  console.log('  - readTeamRows(key) - Read team practice rows');
+  console.log('  - readTeamRanks(key) - Read team slot rankings');
 }
 
 // TN Wizard State
@@ -2976,17 +2984,9 @@ function previewStep4WithSampleData() {
   writeTeamRows('t1', samplePracticeRows1);
   writeTeamRanks('t1', sampleSlotRanks1);
   
-  // Create sample practice data for Team 2
-  const samplePracticeRows2 = [
-    { pref_date: '2025-01-16', duration_hours: 2, helper: 'ST' }
-  ];
-  
-  const sampleSlotRanks2 = [
-    { rank: 1, slot_code: 'SUN2_0900_1100' }
-  ];
-  
-  writeTeamRows('t2', samplePracticeRows2);
-  writeTeamRanks('t2', sampleSlotRanks2);
+  // Clear Team 2 data to test empty state
+  writeTeamRows('t2', []);
+  writeTeamRanks('t2', []);
   
   // Navigate to step 4
   loadStep(4);
@@ -3200,18 +3200,16 @@ function handleCopyFromTeam1() {
   
   console.log(`🎯 handleCopyFromTeam1: Copying Team 1 data to Team ${currentTeamIndex + 1}`);
   
-  // Use new copyPractice function
+  const currentIdx = getCurrentTeamIndex(); // 0-based
   const fromKey = 't1';
-  const toKey = `t${currentTeamIndex + 1}`;
-  const cfg = window.__CONFIG || {};
-  
-  copyPractice(fromKey, toKey, 'replace', cfg);
-  
-  // Update UI to show copied data with a small delay to ensure DOM is ready
-  setTimeout(() => {
-    updateCalendarForTeam(currentTeamIndex);
-    updateSlotPreferencesForTeam(currentTeamIndex);
-  }, 100);
+  const toKey = `t${currentIdx + 1}`;
+  const srcRows  = readTeamRows(fromKey) || [];
+  const srcRanks = readTeamRanks?.(fromKey) || [];
+  writeTeamRows(toKey, srcRows.slice());
+  writeTeamRanks?.(toKey, srcRanks.slice(0,3));
+  updateCalendarForTeam(currentIdx);
+  updateSlotPreferencesForTeam(currentIdx);
+  console.log(`🎯 Copied ${srcRows.length} rows & ${srcRanks.length||0} ranks from ${fromKey} → ${toKey}`);
   
   console.log(`🎯 handleCopyFromTeam1: Copied Team 1 data to Team ${currentTeamIndex + 1}`);
 }
@@ -3277,34 +3275,17 @@ function saveCurrentTeamPracticeData() {
  * Returns error message if validation fails, null if valid
  */
 function validatePracticeRequired() {
-  const currentTeamKey = getCurrentTeamKey();
-  const rows = readTeamRows(currentTeamKey);
-  
-  if (!rows || rows.length === 0) {
-    return 'No practice data found for current team';
-  }
-  
-  const practiceData = rows[0];
-  if (!practiceData.rows || practiceData.rows.length === 0) {
-    return 'No practice dates selected';
-  }
-  
-  // Check each practice date for required fields
-  for (const row of practiceData.rows) {
-    if (!row.pref_date) {
-      return 'Practice date is required';
-    }
-    
-    if (!row.duration_hours || row.duration_hours < 1) {
-      return 'Practice duration must be at least 1 hour';
-    }
-    
-    if (!row.helper) {
-      return 'Helper selection is required for each practice date';
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  for (let i=0;i<teamCount;i++) {
+    const key = `t${i+1}`;
+    const rows = readTeamRows(key) || [];
+    for (const r of rows) {
+      if (!r.pref_date) return 'Select a date for each row';
+      if (![1,2].includes(Number(r.duration_hours))) return 'Each date needs 1h or 2h';
+      if (!['NONE','S','T','ST'].includes(r.helper)) return 'Each date needs a helper choice';
     }
   }
-  
-  return null; // Valid
+  return null;
 }
 
 /**
@@ -3473,52 +3454,77 @@ function updateCalendarForTeam(teamIndex) {
  * Update slot preferences for specific team
  */
 function updateSlotPreferencesForTeam(teamIndex) {
-  const teamData = getTeamPracticeData(teamIndex);
-  console.log(`🎯 updateSlotPreferencesForTeam: Updating slot preferences for team ${teamIndex}`);
+  const teamKey = `t${teamIndex + 1}`;
+  console.log(`🎯 updateSlotPreferencesForTeam: loading ranks for ${teamKey}`);
   
-  // First, repopulate the slot options to ensure they're available
-  populateSlotPreferences();
-  
-  // Then set the values for this team
-  // Update 2-hour slot preferences
-  if (teamData.slotPrefs_2hr) {
-    const slot2h1 = document.getElementById('slotPref2h_1');
-    const slot2h2 = document.getElementById('slotPref2h_2');
-    const slot2h3 = document.getElementById('slotPref2h_3');
-    
-    if (slot2h1 && teamData.slotPrefs_2hr.slot_pref_1) {
-      slot2h1.value = teamData.slotPrefs_2hr.slot_pref_1;
-      console.log(`🎯 updateSlotPreferencesForTeam: Set slotPref2h_1 to ${teamData.slotPrefs_2hr.slot_pref_1}`);
-    }
-    if (slot2h2 && teamData.slotPrefs_2hr.slot_pref_2) {
-      slot2h2.value = teamData.slotPrefs_2hr.slot_pref_2;
-      console.log(`🎯 updateSlotPreferencesForTeam: Set slotPref2h_2 to ${teamData.slotPrefs_2hr.slot_pref_2}`);
-    }
-    if (slot2h3 && teamData.slotPrefs_2hr.slot_pref_3) {
-      slot2h3.value = teamData.slotPrefs_2hr.slot_pref_3;
-      console.log(`🎯 updateSlotPreferencesForTeam: Set slotPref2h_3 to ${teamData.slotPrefs_2hr.slot_pref_3}`);
-    }
+  // 1) Ensure options exist (in case switching teams before init)
+  if (typeof populateSlotPreferences === 'function') {
+    populateSlotPreferences();
   }
-  
-  // Update 1-hour slot preferences
-  if (teamData.slotPrefs_1hr) {
-    const slot1h1 = document.getElementById('slotPref1h_1');
-    const slot1h2 = document.getElementById('slotPref1h_2');
-    const slot1h3 = document.getElementById('slotPref1h_3');
-    
-    if (slot1h1 && teamData.slotPrefs_1hr.slot_pref_1) {
-      slot1h1.value = teamData.slotPrefs_1hr.slot_pref_1;
-      console.log(`🎯 updateSlotPreferencesForTeam: Set slotPref1h_1 to ${teamData.slotPrefs_1hr.slot_pref_1}`);
+
+  // 2) Clear all rank selects before populating (prevents bleed from previous team)
+  const ids2 = ['slotPref2h_1','slotPref2h_2','slotPref2h_3'];
+  const ids1 = ['slotPref1h_1','slotPref1h_2','slotPref1h_3'];
+  [...ids2, ...ids1].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.selectedIndex = 0; // Reset to first option (usually blank)
+      el.value = el.options[0]?.value || ''; // Ensure value matches first option
     }
-    if (slot1h2 && teamData.slotPrefs_1hr.slot_pref_2) {
-      slot1h2.value = teamData.slotPrefs_1hr.slot_pref_2;
-      console.log(`🎯 updateSlotPreferencesForTeam: Set slotPref1h_2 to ${teamData.slotPrefs_1hr.slot_pref_2}`);
-    }
-    if (slot1h3 && teamData.slotPrefs_1hr.slot_pref_3) {
-      slot1h3.value = teamData.slotPrefs_1hr.slot_pref_3;
-      console.log(`🎯 updateSlotPreferencesForTeam: Set slotPref1h_3 to ${teamData.slotPrefs_1hr.slot_pref_3}`);
-    }
+  });
+
+  // 3) Read ranks for THIS team
+  const ranks = (typeof readTeamRanks === 'function' ? readTeamRanks(teamKey) : []) || [];
+  console.log(`🎯 updateSlotPreferencesForTeam: Found ${ranks.length} ranks for ${teamKey}:`, ranks);
+  if (!Array.isArray(ranks) || ranks.length === 0) {
+    console.debug(`🎯 updateSlotPreferencesForTeam: no ranks for ${teamKey} - all selects should be cleared`);
+    if (typeof setupSlotDuplicatePrevention === 'function') setupSlotDuplicatePrevention();
+    return;
   }
+
+  // Helper: find which select to target for a slot_code
+  function resolveSelectIdForSlot(slot_code, rank) {
+    // Prefer an official resolver if available
+    if (typeof getTimeslotByCode === 'function' && window.__CONFIG) {
+      const ts = getTimeslotByCode(window.__CONFIG, slot_code);
+      if (ts && Number(ts.duration_hours) === 2) return `slotPref2h_${rank}`;
+      if (ts && Number(ts.duration_hours) === 1) return `slotPref1h_${rank}`;
+    }
+    // Fallback heuristics if no resolver present
+    const code = String(slot_code || '');
+    const looks2h = /(^|_)2h(_|$)/i.test(code) || /(^|_)2(_\d{2,4}_\d{2,4}|$)/i.test(code);
+    const looks1h = /(^|_)1h(_|$)/i.test(code) || /(^|_)1(_\d{2,4}_\d{2,4}|$)/i.test(code);
+    if (looks2h) return `slotPref2h_${rank}`;
+    if (looks1h) return `slotPref1h_${rank}`;
+    // Default to 2h bucket if unknown (keeps behavior consistent with prior usage)
+    return `slotPref2h_${rank}`;
+  }
+
+  // 4) Populate selects for this team's ranks
+  ranks.forEach(item => {
+    // item can be { rank, slot_code } or similar
+    const rank = Number(item.rank) || 0;
+    const slot = item.slot_code || '';
+    console.log(`🎯 updateSlotPreferencesForTeam: Processing rank ${rank} with slot ${slot}`);
+    if (rank >= 1 && rank <= 3 && slot) {
+      const selectId = resolveSelectIdForSlot(slot, rank);
+      const el = document.getElementById(selectId);
+      console.log(`🎯 updateSlotPreferencesForTeam: Setting ${selectId} to ${slot}`);
+      if (el) {
+        el.value = slot;
+        console.log(`🎯 updateSlotPreferencesForTeam: Successfully set ${selectId} to ${slot}`);
+      } else {
+        console.warn(`🎯 updateSlotPreferencesForTeam: Element ${selectId} not found`);
+      }
+    }
+  });
+
+  // 5) Re-apply duplicate-prevention constraints after setting values
+  if (typeof setupSlotDuplicatePrevention === 'function') {
+    setupSlotDuplicatePrevention();
+  }
+
+  console.log(`🎯 updateSlotPreferencesForTeam: applied ${ranks.length} ranks for ${teamKey}`);
 }
 
 
@@ -3552,7 +3558,7 @@ function clearCalendarSelections() {
       totalHoursEl.textContent = '0';
     }
     
-    console.log('🎯 clearCalendarSelections: Cleared', selectedDates.length, 'selected dates');
+    console.log('🎯 clearCalendarSelections: Cleared calendar selections');
   }
 }
 

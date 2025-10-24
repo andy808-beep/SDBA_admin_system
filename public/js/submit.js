@@ -69,18 +69,21 @@ function makePayload() {
 	};
 	
 	if (window.__PRACTICE_ENABLED) {
-		const teams = base.teams || buildTNTeamsFromUI();
+		const teams = (base.teams || []).map((t,i) => ({ key: t.key || `t${i+1}`, name: t.name, index: i }));
 		payload.practice = {
 			teams: teams.map(t => ({
-				team_key: t.key || t.name || String(t.index || 0),
-				dates: (readTeamRows(t.key) || []).map(r => ({
+				team_key: t.key,
+				dates: (readTeamRows(t.key)||[]).map(r => ({
 					pref_date: r.pref_date,
 					duration_hours: Number(r.duration_hours||1),
 					helper: r.helper || 'NONE'
 				})),
-				slot_ranks: (readTeamRanks(t.key) || []).map(x => ({ rank: Number(x.rank), slot_code: x.slot_code }))
+				slot_ranks: (readTeamRanks?.(t.key)||[]).map(x => ({ rank: Number(x.rank), slot_code: x.slot_code }))
 			}))
 		};
+	} else {
+		// For WU/SC events, send no practice data
+		payload.practice = [];
 	}
 	
 	return payload;
