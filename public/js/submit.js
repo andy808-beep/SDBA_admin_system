@@ -8,6 +8,7 @@
 // - Redirects: legacy URLs land on register.html?e=<ref>
 
 import { collectStateFromForm } from './ui_bindings.js';
+import { readTeamRows, readTeamRanks } from './tn_practice_store.js';
 
 const EDGE_URL = `${window.ENV?.SUPABASE_URL || ''}/functions/v1/submit_registration`;
 
@@ -31,18 +32,58 @@ function readHoneypot() {
 	return hp ? (hp.value || '') : '';
 }
 
+function buildTNTeamsFromUI() {
+	// Build teams array from TN wizard UI
+	const teams = [];
+	const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+	
+	for (let i = 1; i <= teamCount; i++) {
+		const teamName = sessionStorage.getItem(`tn_team_name_${i}`);
+		const teamCategory = sessionStorage.getItem(`tn_team_category_${i}`);
+		const teamOption = sessionStorage.getItem(`tn_team_option_${i}`);
+		
+		if (teamName) {
+			teams.push({
+				key: `t${i}`,
+				name: teamName,
+				category: teamCategory,
+				option: teamOption,
+				index: i - 1
+			});
+		}
+	}
+	
+	return teams;
+}
+
 function makePayload() {
 	const base = collectStateFromForm();
-	return {
+	const payload = {
 		client_tx_id: getClientTxId(),
 		event_short_ref: base.event_short_ref || getEventShortRef(),
 		contact: base.contact || {},
 		teams: base.teams || [],
 		race_day: base.race_day || [],
-		practice: base.practice || [],
 		packages: base.packages || [],
 		hp: readHoneypot()
 	};
+	
+	if (window.__PRACTICE_ENABLED) {
+		const teams = base.teams || buildTNTeamsFromUI();
+		payload.practice = {
+			teams: teams.map(t => ({
+				team_key: t.key || t.name || String(t.index || 0),
+				dates: (readTeamRows(t.key) || []).map(r => ({
+					pref_date: r.pref_date,
+					duration_hours: Number(r.duration_hours||1),
+					helper: r.helper || 'NONE'
+				})),
+				slot_ranks: (readTeamRanks(t.key) || []).map(x => ({ rank: Number(x.rank), slot_code: x.slot_code }))
+			}))
+		};
+	}
+	
+	return payload;
 }
 
 async function postJSON(url, body) {

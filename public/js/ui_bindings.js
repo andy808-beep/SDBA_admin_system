@@ -375,6 +375,8 @@ function renderPracticeSection(cfg) {
 	// Skip rendering for TN mode - TN uses legacy templates
 	if (isTNMode()) return;
 	
+	if (!window.__PRACTICE_ENABLED) return;
+	
 	const mount = dom.q('#practiceSection');
 	if (!mount) return;
 

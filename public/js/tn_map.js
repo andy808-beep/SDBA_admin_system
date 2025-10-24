@@ -250,24 +250,28 @@ export function collectCompleteTNState() {
     state.race_day = raceDayItems;
   }
   
-  // Add practice data from localStorage
-  const practicePreferences = [];
-  teamNames.forEach((_, teamIndex) => {
-    const practiceData = getPracticeDataFromStorage(teamIndex);
-    if (practiceData && practiceData.dates) {
-      practiceData.dates.forEach(dateInfo => {
-        practicePreferences.push({
-          team_index: teamIndex,
-          date: dateInfo.date,
-          hours: dateInfo.hours,
-          helpers: dateInfo.helpers
-        });
-      });
-    }
-  });
+  // Add practice data from sessionStorage (new team-specific approach)
+  const allTeamPracticeData = JSON.parse(sessionStorage.getItem('tn_practice_all_teams') || '[]');
   
-  if (practicePreferences.length > 0) {
-    state.practice = practicePreferences;
+  if (allTeamPracticeData && allTeamPracticeData.length > 0) {
+    const practicePreferences = [];
+    
+    allTeamPracticeData.forEach(teamPractice => {
+      if (teamPractice.dates && teamPractice.dates.length > 0) {
+        teamPractice.dates.forEach(dateInfo => {
+          practicePreferences.push({
+            team_index: teamPractice.team_index,
+            date: dateInfo.date,
+            hours: dateInfo.hours,
+            helpers: dateInfo.helpers
+          });
+        });
+      }
+    });
+    
+    if (practicePreferences.length > 0) {
+      state.practice = practicePreferences;
+    }
   }
   
   return state;

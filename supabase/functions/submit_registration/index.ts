@@ -56,6 +56,24 @@ type PracticeBlock = {
   slotPrefs_2hr?: { slot_pref_1?: string; slot_pref_2?: string; slot_pref_3?: string };
 };
 
+// TN Practice Data Structure
+type TNPracticeDate = {
+  pref_date: string;
+  duration_hours: number;
+  helper: string;
+};
+
+type TNSlotRank = {
+  rank: number;
+  slot_code: string;
+};
+
+type TNPracticeTeam = {
+  team_key: string;
+  dates: TNPracticeDate[];
+  slot_ranks: TNSlotRank[];
+};
+
 type Payload = {
   eventShortRef: string;
   category: "men_open" | "ladies_open" | "mixed_open" | "mixed_corporate";
@@ -70,7 +88,8 @@ type Payload = {
     marqueeQty?: number; steerWithQty?: number; steerWithoutQty?: number;
     junkBoatNo?: string; junkBoatQty?: number; speedBoatNo?: string; speedboatQty?: number;
   } | null;
-  practice?: PracticeBlock[];
+  practice?: PracticeBlock[] | { teams: TNPracticeTeam[] };
+  client_tx_id?: string;
 };
 
 // ---------------- Helpers ----------------
@@ -111,7 +130,7 @@ Deno.serve(async (req) => {
 
   const {
     eventShortRef, category, season, org_name, org_address,
-    counts, team_names = [], team_options = [], managers = [], race_day = null, practice = [],
+    counts, team_names = [], team_options = [], managers = [], race_day = null, practice: initialPractice = [],
   } = payload ?? {} as Payload;
 
   if (!eventShortRef) return bad(req, "eventShortRef is required");
@@ -187,15 +206,122 @@ Deno.serve(async (req) => {
       for (const code of pkgCodes) if (!ok.has(code)) throw new Error(`Package not available: ${code}`);
     }
 
-    // 4) Practice window & slot validation (COMPLETELY DISABLED FOR TESTING)
-    console.log('Practice data received:', practice.length, 'blocks');
-    // ALL PRACTICE VALIDATION DISABLED FOR TESTING
+    // 4) Practice validation - only for TN events
+    let practice = initialPractice;
+    if (eventShortRef === 'tn') {
+      console.log('Practice data received for TN:', Array.isArray(practice) ? practice.length : 'teams structure');
+      
+      // Validate practice data for TN events
+      if (practice && typeof practice === 'object' && 'teams' in practice) {
+        const tnPractice = practice as { teams: TNPracticeTeam[] };
+        const { data: eventConfig } = await admin
+          .from('v_event_config_public')
+          .select('practice_start_date, practice_end_date, allowed_weekdays')
+          .eq('event_short_ref', eventShortRef)
+          .single();
+        
+        const practiceStart = eventConfig?.practice_start_date;
+        const practiceEnd = eventConfig?.practice_end_date;
+        const allowedWeekdays = eventConfig?.allowed_weekdays || [];
+        
+        for (const team of tnPractice.teams) {
+          if (!team.team_key || !Array.isArray(team.dates)) {
+            throw new Error('Invalid practice team data structure');
+          }
+          
+          // Validate dates
+          for (const dateEntry of team.dates) {
+            if (!dateEntry.pref_date) {
+              throw new Error('E.PRACTICE_WINDOW: Practice date is required');
+            }
+            
+            const practiceDate = new Date(dateEntry.pref_date);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Check practice window
+            if (practiceStart && practiceDate < new Date(practiceStart)) {
+              throw new Error('E.PRACTICE_WINDOW: Practice date is before allowed window');
+            }
+            if (practiceEnd && practiceDate > new Date(practiceEnd)) {
+              throw new Error('E.PRACTICE_WINDOW: Practice date is after allowed window');
+            }
+            
+            // Check allowed weekdays
+            if (Array.isArray(allowedWeekdays) && allowedWeekdays.length > 0) {
+              const dayOfWeek = practiceDate.getDay();
+              if (!allowedWeekdays.includes(dayOfWeek)) {
+                throw new Error('E.PRACTICE_WEEKDAY: Practice date is not on an allowed weekday');
+              }
+            }
+            
+            // Validate duration
+            const duration = Number(dateEntry.duration_hours);
+            if (!duration || duration < 1 || duration > 8) {
+              throw new Error('E.PRACTICE_DURATION: Practice duration must be between 1-8 hours');
+            }
+            
+            // Validate helper
+            const validHelpers = ['NONE', 'S', 'T', 'ST'];
+            if (!validHelpers.includes(dateEntry.helper)) {
+              throw new Error('E.PRACTICE_HELPER: Invalid helper selection');
+            }
+          }
+          
+          // Validate slot ranks
+          if (Array.isArray(team.slot_ranks)) {
+            if (team.slot_ranks.length > 3) {
+              throw new Error('E.SLOT_RANK_COUNT: Maximum 3 slot rankings allowed');
+            }
+            
+            // Check for duplicate ranks
+            const ranks = team.slot_ranks.map(r => r.rank);
+            const uniqueRanks = new Set(ranks);
+            if (ranks.length !== uniqueRanks.size) {
+              throw new Error('E.SLOT_RANK_DUP: Duplicate slot rankings not allowed');
+            }
+            
+            // Check for duplicate slot codes
+            const slotCodes = team.slot_ranks.map(r => r.slot_code);
+            const uniqueSlotCodes = new Set(slotCodes);
+            if (slotCodes.length !== uniqueSlotCodes.size) {
+              throw new Error('E.SLOT_RANK_DUP: Duplicate slot codes not allowed');
+            }
+            
+            // Validate slot codes exist
+            for (const rank of team.slot_ranks) {
+              if (!rank.slot_code) {
+                throw new Error('E.SLOT_INVALID: Slot code is required');
+              }
+              
+              // Check if slot exists in timeslot catalog
+              const { data: slotExists } = await admin
+                .from('timeslot_catalog')
+                .select('slot_code')
+                .eq('slot_code', rank.slot_code)
+                .eq('is_active', true)
+                .single();
+              
+              if (!slotExists) {
+                throw new Error('E.SLOT_INVALID: Invalid slot code');
+              }
+            }
+          }
+        }
+      }
+    } else {
+      // For non-TN events, clear practice data
+      practice = [];
+      console.log('Practice disabled for non-TN event:', eventShortRef);
+    }
 
     // 5) registration_meta
     const managers_json = JSON.stringify(mgrs);
     const { data: regData, error: regError } = await admin
       .from('registration_meta')
       .insert({
+        event_short_ref: eventShortRef,
+        client_tx_id: payload.client_tx_id,
         race_category: category,
         num_teams,
         num_teams_opt1,
@@ -319,7 +445,7 @@ Deno.serve(async (req) => {
       debug: {
         eventShortRef: payload?.eventShortRef,
         category: payload?.category,
-        practiceCount: payload?.practice?.length || 0
+        practiceCount: Array.isArray(payload?.practice) ? payload.practice.length : (payload?.practice && 'teams' in payload.practice ? (payload.practice as { teams: TNPracticeTeam[] }).teams.length : 0)
       }
     }, 400);
   }

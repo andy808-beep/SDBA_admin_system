@@ -70,23 +70,13 @@ export function recomputeTotals() {
 	// Practice
 	const rules = getPracticeRules(cfg);
 	let practiceUsed = false;
-	if (Array.isArray(state.practice)) {
+	if (window.__PRACTICE_ENABLED && Array.isArray(state.practice)) {
 		for (const pr of state.practice) {
-			// Per-hour charge via slot
-			if (pr.slot_code) {
-				const slot = getTimeslotByCode(cfg, pr.slot_code);
-				const hours = Number(pr.duration_hours || slot?.duration_hours || 0);
+			// TN practice data structure: pref_date, duration_hours, helper
+			if (pr.pref_date && pr.duration_hours) {
+				const hours = Number(pr.duration_hours || 0);
 				if (hours > 0 && typeof rules.per_hour === 'number') {
 					total += rules.per_hour * hours;
-					practiceUsed = true;
-				}
-			}
-			// Item charges (qty * price)
-			if (pr.item_code) {
-				const item = findByCode(cfg.practice, ['item_code', 'code', 'id'], pr.item_code);
-				const qty = Number(pr.qty || 0);
-				if (item && typeof item.listed_unit_price === 'number' && qty > 0) {
-					total += item.listed_unit_price * qty;
 					practiceUsed = true;
 				}
 			}

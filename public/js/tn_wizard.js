@@ -5,6 +5,49 @@
 
 import { TN_SELECTORS, collectCompleteTNState, validateTNState } from './tn_map.js';
 import { sb } from '../supabase_config.js';
+import { getCurrentTeamKey, setCurrentTeamKey, readTeamRows, writeTeamRows, readTeamRanks, writeTeamRanks } from './tn_practice_store.js';
+
+/**
+ * Set up debug functions for testing
+ */
+function setupDebugFunctions() {
+  console.log('🎯 setupDebugFunctions: Setting up debug functions');
+  
+  // Create debug namespace
+  window.__DBG_TN = window.__DBG_TN || {};
+  
+  // Add preview function
+  window.__DBG_TN.previewStep4 = previewStep4WithSampleData;
+  window.previewStep4 = previewStep4WithSampleData;
+  
+  // Add clear function
+  window.__DBG_TN.clearStep4 = clearStep4Data;
+  window.clearStep4 = clearStep4Data;
+  
+  // Add team switch test function
+  window.__DBG_TN.testTeamSwitch = testTeamSwitchFunction;
+  window.testTeamSwitch = testTeamSwitchFunction;
+  
+  // Add copy button test function
+  window.__DBG_TN.testCopyButton = testCopyButton;
+  window.testCopyButton = testCopyButton;
+  
+  // Add manual save function
+  window.__DBG_TN.saveCurrentTeam = saveCurrentTeamPracticeData;
+  window.saveCurrentTeam = saveCurrentTeamPracticeData;
+  
+  // Add debug function to test calendar data collection
+  window.__DBG_TN.testCalendarData = testCalendarDataCollection;
+  window.testCalendarData = testCalendarDataCollection;
+  
+  console.log('🎯 Debug functions available:');
+  console.log('  - previewStep4() - Load step 4 with sample data');
+  console.log('  - clearStep4() - Clear all step 4 data');
+  console.log('  - testTeamSwitch() - Test team switching');
+  console.log('  - testCopyButton() - Test copy button functionality');
+  console.log('  - saveCurrentTeam() - Manually save current team data');
+  console.log('  - testCalendarData() - Test calendar data collection');
+}
 
 // TN Wizard State
 let currentStep = 1;
@@ -35,6 +78,9 @@ export function initTNWizard() {
     return;
   }
   
+  // Initialize debug functions globally
+  setupDebugFunctions();
+  
   // Initialize step navigation
   initStepNavigation();
   
@@ -63,11 +109,11 @@ function initStepNavigation() {
       <div class="stepper-steps">
         <div class="step" data-step="1">
           <div class="step-number">1</div>
-          <div class="step-label">Category</div>
+          <div class="step-label">Teams</div>
         </div>
         <div class="step" data-step="2">
           <div class="step-number">2</div>
-          <div class="step-label">Team Info</div>
+          <div class="step-label">Organization</div>
         </div>
         <div class="step" data-step="3">
           <div class="step-number">3</div>
@@ -268,6 +314,9 @@ async function loadStepContent(step) {
   
   // Set up navigation
   setupStepNavigation();
+  
+  // Update stepper to reflect current step
+  updateStepper();
 }
 
 /**
@@ -376,8 +425,9 @@ function setupTeamCountHandler() {
       
       // Validate all team information before proceeding
       if (validateStep1()) {
-        console.log('🎯 initStep1: Validation passed, proceeding to step 2');
-        loadStepContent(2);
+        console.log('🎯 initStep1: Validation passed, saving data and proceeding to step 2');
+        saveStep1Data();
+        loadStep(2);
       } else {
         console.log('🎯 initStep1: Validation failed, staying on step 1');
       }
@@ -843,7 +893,7 @@ async function initStep2() {
   const teamCount = sessionStorage.getItem('tn_team_count');
   if (!teamCount) {
     console.warn('🎯 initStep2: No team count found, redirecting to step 1');
-    loadStepContent(1);
+    loadStep(1);
     return;
   }
   
@@ -974,7 +1024,7 @@ function setupStep2Navigation() {
   if (backBtn) {
     backBtn.addEventListener('click', () => {
       console.log('🎯 initStep2: Back button clicked, going to step 1');
-      loadStepContent(1);
+      loadStep(1);
     });
   }
   
@@ -985,8 +1035,9 @@ function setupStep2Navigation() {
       console.log('🎯 initStep2: Next button clicked, validating step 2');
       
       if (validateStep2()) {
-        console.log('🎯 initStep2: Validation passed, proceeding to step 3');
-        loadStepContent(3);
+        console.log('🎯 initStep2: Validation passed, saving data and proceeding to step 3');
+        saveStep2Data();
+        loadStep(3);
       } else {
         console.log('🎯 initStep2: Validation failed, staying on step 2');
       }
@@ -1271,7 +1322,7 @@ function setupStep3Navigation() {
   if (backBtn) {
     backBtn.addEventListener('click', () => {
       console.log('🎯 initStep3: Back button clicked, going to step 2');
-      loadStepContent(2);
+      loadStep(2);
     });
   }
   
@@ -1282,8 +1333,9 @@ function setupStep3Navigation() {
       console.log('🎯 initStep3: Next button clicked, validating step 3');
       
       if (validateStep3()) {
-        console.log('🎯 initStep3: Validation passed, proceeding to step 4');
-        loadStepContent(4);
+        console.log('🎯 initStep3: Validation passed, saving data and proceeding to step 4');
+        saveStep3Data();
+        loadStep(4);
       } else {
         console.log('🎯 initStep3: Validation failed, staying on step 3');
       }
@@ -1350,8 +1402,21 @@ function initStep4() {
   // Set up duplicate prevention
   setupSlotDuplicatePrevention();
   
+  // Set up slot preference change handlers
+  setupSlotPreferenceHandlers();
+  
   // Load team selector
   initTeamSelector();
+  
+  
+  // Set up navigation
+  setupStep4Navigation();
+  
+  // Set up copy from Team 1 button
+  setupCopyFromTeam1Button();
+  
+  // Initialize copy button visibility (hidden for Team 1)
+  hideCopyFromTeam1Option();
   
   const endTime = performance.now();
   console.log(`🎯 initStep4: Completed in ${(endTime - startTime).toFixed(2)}ms`);
@@ -1428,9 +1493,9 @@ function initCalendarContainer() {
     const p = window.__CONFIG?.practice || {};
     initTNCalendar({
       mount: '#calendarContainer',
-      windowStart: p.practice_start_date || p.window_start,
-      windowEnd:   p.practice_end_date   || p.window_end,
-      allowedWeekdays: p.allowed_weekdays || [1,2,3,4,5,6,0]
+      windowStart: p.practice_start_date ?? p.window_start ?? null,
+      windowEnd:   p.practice_end_date   ?? p.window_end   ?? null,
+      allowedWeekdays: Array.isArray(p.allowed_weekdays) ? p.allowed_weekdays : [0,1,2,3,4,5,6]
     });
   }
   
@@ -1484,11 +1549,23 @@ function createTNCalendar(container, options = {}) {
   const practiceConfig = window.__CONFIG?.practice || {};
   
   // Use options or fallback to config
-  const startDate = options.windowStart || practiceConfig.practice_start_date;
-  const endDate = options.windowEnd || practiceConfig.practice_end_date;
-  const allowedWeekdays = options.allowedWeekdays || practiceConfig.allowed_weekdays || [1,2,3,4,5,6,0];
+  const startDate = options.windowStart || practiceConfig.practice_start_date || practiceConfig.window_start;
+  const endDate = options.windowEnd || practiceConfig.practice_end_date || practiceConfig.window_end;
+  const allowedWeekdays = options.allowedWeekdays || practiceConfig.allowed_weekdays || [0,1,2,3,4,5,6];
+  
+  // Guard logs for missing dates
+  if (!startDate) console.warn('TN calendar: windowStart missing from config');
+  if (!endDate) console.warn('TN calendar: windowEnd missing from config');
   
   console.log('createTNCalendar: Using dates:', { startDate, endDate, allowedWeekdays });
+  
+  // Store constraints globally for use in date validation
+  window.__PRACTICE_CONSTRAINTS = {
+    startDate: startDate,
+    endDate: endDate,
+    allowedWeekdays: allowedWeekdays,
+    maxDatesPerTeam: practiceConfig.max_dates_per_team || 3
+  };
   
   // Default to current year if no dates in config
   const currentYear = new Date().getFullYear();
@@ -1520,6 +1597,21 @@ function createTNCalendar(container, options = {}) {
     console.log('createTNCalendar: First checkbox:', checkboxes[0]);
     console.log('createTNCalendar: Checkbox visibility:', window.getComputedStyle(checkboxes[0]).display);
   }
+  
+  // Set up event listeners for calendar interactions
+  setupCalendarEventListeners(container);
+  
+  // Debug: Test if event listeners are working
+  console.log('🎯 createTNCalendar: Setting up debug test for calendar interactions');
+  setTimeout(() => {
+    const testCheckbox = container.querySelector('input[type="checkbox"]');
+    if (testCheckbox) {
+      console.log('🎯 createTNCalendar: Found test checkbox:', testCheckbox);
+      console.log('🎯 createTNCalendar: Checkbox parent:', testCheckbox.closest('[data-date]'));
+    } else {
+      console.warn('🎯 createTNCalendar: No checkboxes found in calendar!');
+    }
+  }, 100);
   
   // Add calendar styles if not already present
   if (!document.getElementById('tn-calendar-styles')) {
@@ -1670,9 +1762,21 @@ function createMonthBlock(monthData, allowedWeekdays = [1,2,3,4,5,6,0]) {
  */
 function createDayContent(day) {
   const dateStr = day.date.toISOString().split('T')[0];
+  const constraints = window.__PRACTICE_CONSTRAINTS || {};
+  
+  // Check if date is within practice window
+  const isWithinWindow = !constraints.startDate || !constraints.endDate || 
+    (day.date >= new Date(constraints.startDate) && day.date <= new Date(constraints.endDate));
+  
+  // Check if date is on allowed weekday
+  const dayOfWeek = day.date.getDay(); // 0=Sunday, 1=Monday, etc.
+  const isAllowedWeekday = constraints.allowedWeekdays && constraints.allowedWeekdays.includes(dayOfWeek);
+  
+  const isDisabled = !isWithinWindow || !isAllowedWeekday;
+  
   const html = `
     <label class="day-checkbox">
-      <input type="checkbox" data-date="${dateStr}" />
+      <input type="checkbox" data-date="${dateStr}" ${isDisabled ? 'disabled' : ''} />
       <span class="day-number">${day.day}</span>
     </label>
     <div class="dropdowns hide">
@@ -1681,14 +1785,14 @@ function createDayContent(day) {
         <option value="2">2h</option>
       </select>
       <select class="helpers">
-        <option value="">No helpers</option>
+        <option value="NONE">NONE</option>
         <option value="S">S</option>
         <option value="T">T</option>
         <option value="ST">ST</option>
       </select>
     </div>
   `;
-  console.log(`createDayContent: Generated HTML for day ${day.day}:`, html);
+  console.log(`createDayContent: Generated HTML for day ${day.day} (disabled: ${isDisabled}):`, html);
   return html;
 }
 
@@ -1712,11 +1816,16 @@ function addCalendarEventHandlers(container) {
     if (event.target.type === 'checkbox' && event.target.hasAttribute('data-date')) {
       const checkbox = event.target;
       const dropdowns = checkbox.closest('.calendar-day').querySelector('.dropdowns');
+      const dateStr = checkbox.getAttribute('data-date');
       
       if (checkbox.checked) {
         dropdowns.classList.remove('hide');
+        // Add date to current team's practice data
+        addDateToCurrentTeam(dateStr);
       } else {
         dropdowns.classList.add('hide');
+        // Remove date from current team's practice data
+        removeDateFromCurrentTeam(dateStr);
         // Clear dropdown values when unchecked
         dropdowns.querySelectorAll('select').forEach(select => {
           select.value = '';
@@ -1725,12 +1834,61 @@ function addCalendarEventHandlers(container) {
     }
   });
   
-  // Add event delegation for dropdown changes to update summary
+  // Add event delegation for dropdown changes to update summary and persist data
   container.addEventListener('change', (event) => {
     if (event.target.classList.contains('duration') || event.target.classList.contains('helpers')) {
       updatePracticeSummary();
+      // Persist the updated data
+      saveCurrentTeamPracticeData();
     }
   });
+}
+
+/**
+ * Add date to current team's practice data
+ */
+function addDateToCurrentTeam(dateStr) {
+  const currentTeamKey = getCurrentTeamKey();
+  const rows = readTeamRows(currentTeamKey);
+  const constraints = window.__PRACTICE_CONSTRAINTS || {};
+  
+  // Check if date already exists
+  const existingIndex = rows.findIndex(row => row.pref_date === dateStr);
+  if (existingIndex >= 0) {
+    console.log(`🎯 addDateToCurrentTeam: Date ${dateStr} already exists for team ${currentTeamKey}`);
+    return;
+  }
+  
+  // Check max dates limit
+  if (rows.length >= (constraints.maxDatesPerTeam || 3)) {
+    console.warn(`🎯 addDateToCurrentTeam: Max dates limit reached for team ${currentTeamKey}`);
+    return;
+  }
+  
+  // Add new date with default values
+  const newRow = {
+    pref_date: dateStr,
+    duration_hours: 1,
+    helper: 'NONE'
+  };
+  
+  rows.push(newRow);
+  writeTeamRows(currentTeamKey, rows);
+  
+  console.log(`🎯 addDateToCurrentTeam: Added date ${dateStr} to team ${currentTeamKey}`);
+}
+
+/**
+ * Remove date from current team's practice data
+ */
+function removeDateFromCurrentTeam(dateStr) {
+  const currentTeamKey = getCurrentTeamKey();
+  const rows = readTeamRows(currentTeamKey);
+  
+  const filteredRows = rows.filter(row => row.pref_date !== dateStr);
+  writeTeamRows(currentTeamKey, filteredRows);
+  
+  console.log(`🎯 removeDateFromCurrentTeam: Removed date ${dateStr} from team ${currentTeamKey}`);
 }
 
 /**
@@ -2371,9 +2529,16 @@ function populateSlotPreferences() {
  * Populate slot selects with options
  */
 function populateSlotSelects(slots, selectIds) {
+  // Load saved ranks for current team
+  const currentTeamKey = getCurrentTeamKey();
+  const savedRanks = readTeamRanks(currentTeamKey);
+  
   selectIds.forEach(selectId => {
     const select = document.getElementById(selectId);
     if (!select) return;
+    
+    // Preserve current selection
+    const currentValue = select.value;
     
     // Clear existing options
     select.innerHTML = '<option value="">-- Select --</option>';
@@ -2405,6 +2570,20 @@ function populateSlotSelects(slots, selectIds) {
       
       select.appendChild(option);
     });
+    
+    // Try to restore from saved ranks first
+    const rankNumber = selectId.match(/_(\d+)$/)?.[1];
+    const is2h = selectId.includes('2h');
+    const savedRank = savedRanks.find(r => r.rank === parseInt(rankNumber) && 
+      (is2h ? r.slot_code.includes('2h') : r.slot_code.includes('1h')));
+    
+    if (savedRank && select.querySelector(`option[value="${savedRank.slot_code}"]`)) {
+      select.value = savedRank.slot_code;
+      console.log(`🎯 populateSlotSelects: Restored from saved ranks ${savedRank.slot_code} for ${selectId}`);
+    } else if (currentValue && select.querySelector(`option[value="${currentValue}"]`)) {
+      select.value = currentValue;
+      console.log(`🎯 populateSlotSelects: Restored selection ${currentValue} for ${selectId}`);
+    }
   });
 }
 
@@ -2570,14 +2749,884 @@ function initTeamSelector() {
     
     teamSelect.value = '0';
     teamNameFields.textContent = `Now scheduling: ${teamNames[0]}`;
+    
+    // Initialize current team key
+    setCurrentTeamKey('t1');
   }
   
   // Handle team selection change
   teamSelect.addEventListener('change', () => {
     const selectedIndex = parseInt(teamSelect.value, 10);
+    const teamKey = `t${selectedIndex + 1}`;
+    console.debug(`🎯 Team switch: idx=${selectedIndex} key=${teamKey}`);
+    setCurrentTeamKey(teamKey);
+    updateCalendarForTeam(selectedIndex);
+    updateSlotPreferencesForTeam(selectedIndex);
+    
     const teamName = teamNames[selectedIndex] || `Team ${selectedIndex + 1}`;
     teamNameFields.textContent = `Now scheduling: ${teamName}`;
+    
+    // If switching to Team 2 or later, show copy option
+    if (selectedIndex > 0) {
+      showCopyFromTeam1Option();
+    } else {
+      hideCopyFromTeam1Option();
+    }
   });
+}
+
+/**
+ * Set up slot preference change handlers
+ */
+function setupSlotPreferenceHandlers() {
+  // Get all slot preference selects
+  const slotSelects = [
+    'slotPref2h_1', 'slotPref2h_2', 'slotPref2h_3',
+    'slotPref1h_1', 'slotPref1h_2', 'slotPref1h_3'
+  ];
+  
+  slotSelects.forEach(selectId => {
+    const select = document.getElementById(selectId);
+    if (select) {
+      select.addEventListener('change', () => {
+        console.log(`🎯 Slot preference changed: ${selectId} = ${select.value}`);
+        
+        // Handle ranking validation and persistence
+        handleSlotRankingChange();
+        
+        // Save current team's data when slot preferences change
+        saveCurrentTeamPracticeData();
+        
+        // Update duplicate prevention
+        setupSlotDuplicatePrevention();
+      });
+    }
+  });
+}
+
+/**
+ * Handle slot ranking change - build ranks array and validate uniqueness
+ */
+function handleSlotRankingChange() {
+  const currentTeamKey = getCurrentTeamKey();
+  
+  // Build ranks array from dropdowns
+  const ranks = buildSlotRanks();
+  
+  // Validate uniqueness
+  const validationResult = validateSlotRankUniqueness(ranks);
+  
+  if (validationResult.isValid) {
+    // Clear any existing errors
+    clearSlotRankingErrors();
+    
+    // Persist the ranks
+    writeTeamRanks(currentTeamKey, ranks);
+    console.log(`🎯 handleSlotRankingChange: Saved ranks for team ${currentTeamKey}:`, ranks);
+  } else {
+    // Show error and revert
+    showSlotRankingError(validationResult.errorMessage);
+    revertSlotRankingToLastValid();
+  }
+}
+
+/**
+ * Build ranks array from dropdowns
+ */
+function buildSlotRanks() {
+  const ranks = [];
+  
+  // Get 2-hour slot preferences
+  const slot2h1 = document.getElementById('slotPref2h_1')?.value;
+  const slot2h2 = document.getElementById('slotPref2h_2')?.value;
+  const slot2h3 = document.getElementById('slotPref2h_3')?.value;
+  
+  // Get 1-hour slot preferences
+  const slot1h1 = document.getElementById('slotPref1h_1')?.value;
+  const slot1h2 = document.getElementById('slotPref1h_2')?.value;
+  const slot1h3 = document.getElementById('slotPref1h_3')?.value;
+  
+  // Add 2-hour ranks
+  if (slot2h1) ranks.push({ rank: 1, slot_code: slot2h1 });
+  if (slot2h2) ranks.push({ rank: 2, slot_code: slot2h2 });
+  if (slot2h3) ranks.push({ rank: 3, slot_code: slot2h3 });
+  
+  // Add 1-hour ranks
+  if (slot1h1) ranks.push({ rank: 1, slot_code: slot1h1 });
+  if (slot1h2) ranks.push({ rank: 2, slot_code: slot1h2 });
+  if (slot1h3) ranks.push({ rank: 3, slot_code: slot1h3 });
+  
+  return ranks;
+}
+
+/**
+ * Validate slot rank uniqueness
+ */
+function validateSlotRankUniqueness(ranks) {
+  const slotCodes = ranks.map(r => r.slot_code).filter(Boolean);
+  const uniqueSlotCodes = new Set(slotCodes);
+  
+  if (slotCodes.length !== uniqueSlotCodes.size) {
+    return {
+      isValid: false,
+      errorMessage: 'Duplicate slot selections are not allowed'
+    };
+  }
+  
+  return { isValid: true };
+}
+
+/**
+ * Show slot ranking error
+ */
+function showSlotRankingError(message) {
+  // Find or create error display element
+  let errorEl = document.getElementById('slotRankingError');
+  if (!errorEl) {
+    errorEl = document.createElement('div');
+    errorEl.id = 'slotRankingError';
+    errorEl.className = 'error-message';
+    errorEl.style.color = 'red';
+    errorEl.style.fontSize = '12px';
+    errorEl.style.marginTop = '5px';
+    
+    // Insert after slot preferences section
+    const slotPrefsSection = document.querySelector('.slot-preferences') || document.querySelector('#slotPrefs');
+    if (slotPrefsSection) {
+      slotPrefsSection.appendChild(errorEl);
+    }
+  }
+  
+  errorEl.textContent = message;
+  errorEl.style.display = 'block';
+}
+
+/**
+ * Clear slot ranking errors
+ */
+function clearSlotRankingErrors() {
+  const errorEl = document.getElementById('slotRankingError');
+  if (errorEl) {
+    errorEl.style.display = 'none';
+  }
+}
+
+/**
+ * Revert slot ranking to last valid state
+ */
+function revertSlotRankingToLastValid() {
+  const currentTeamKey = getCurrentTeamKey();
+  const lastValidRanks = readTeamRanks(currentTeamKey);
+  
+  // Revert dropdowns to last valid state
+  if (lastValidRanks && lastValidRanks.length > 0) {
+    // Clear all selects first
+    const slotSelects = [
+      'slotPref2h_1', 'slotPref2h_2', 'slotPref2h_3',
+      'slotPref1h_1', 'slotPref1h_2', 'slotPref1h_3'
+    ];
+    
+    slotSelects.forEach(selectId => {
+      const select = document.getElementById(selectId);
+      if (select) select.value = '';
+    });
+    
+    // Restore valid ranks
+    lastValidRanks.forEach(rank => {
+      const select = document.getElementById(`slotPref${rank.slot_code.includes('2h') ? '2h' : '1h'}_${rank.rank}`);
+      if (select) select.value = rank.slot_code;
+    });
+  }
+}
+
+/**
+ * Preview step 4 with sample data for testing
+ */
+function previewStep4WithSampleData() {
+  console.log('🎯 previewStep4WithSampleData: Creating sample data for step 4 preview');
+  
+  // Create sample team data
+  const sampleTeamCount = 3;
+  const sampleTeamNames = ['Team Alpha', 'Team Beta', 'Team Gamma'];
+  const sampleCategories = ['Men Open', 'Ladies Open', 'Mixed Open'];
+  const sampleOptions = ['opt1', 'opt2', 'opt1'];
+  
+  // Save sample data to sessionStorage
+  sessionStorage.setItem('tn_team_count', sampleTeamCount.toString());
+  
+  for (let i = 1; i <= sampleTeamCount; i++) {
+    sessionStorage.setItem(`tn_team_name_${i}`, sampleTeamNames[i-1]);
+    sessionStorage.setItem(`tn_team_category_${i}`, sampleCategories[i-1]);
+    sessionStorage.setItem(`tn_team_option_${i}`, sampleOptions[i-1]);
+  }
+  
+  // Create sample practice data for Team 1 using new TN store structure
+  const samplePracticeRows1 = [
+    { pref_date: '2025-01-15', duration_hours: 2, helper: 'S' },
+    { pref_date: '2025-01-17', duration_hours: 1, helper: 'T' }
+  ];
+  
+  const sampleSlotRanks1 = [
+    { rank: 1, slot_code: 'SAT2_0800_1000' },
+    { rank: 2, slot_code: 'SAT2_1000_1200' },
+    { rank: 3, slot_code: 'SAT2_1215_1415' }
+  ];
+  
+  // Save sample practice data using TN store
+  writeTeamRows('t1', samplePracticeRows1);
+  writeTeamRanks('t1', sampleSlotRanks1);
+  
+  // Create sample practice data for Team 2
+  const samplePracticeRows2 = [
+    { pref_date: '2025-01-16', duration_hours: 2, helper: 'ST' }
+  ];
+  
+  const sampleSlotRanks2 = [
+    { rank: 1, slot_code: 'SUN2_0900_1100' }
+  ];
+  
+  writeTeamRows('t2', samplePracticeRows2);
+  writeTeamRanks('t2', sampleSlotRanks2);
+  
+  // Navigate to step 4
+  loadStep(4);
+  
+  console.log('🎯 previewStep4WithSampleData: Sample data created and step 4 loaded');
+  console.log('🎯 Available debug functions:');
+  console.log('  - window.__DBG_TN.previewStep4() - Load step 4 with sample data');
+  console.log('  - window.__DBG_TN.clearStep4() - Clear all step 4 data');
+  console.log('  - window.__DBG_TN.testTeamSwitch() - Test team switching');
+}
+
+/**
+ * Clear step 4 data for testing
+ */
+function clearStep4Data() {
+  console.log('🎯 clearStep4: Clearing all step 4 data');
+  
+  // Clear sessionStorage
+  const keys = Object.keys(sessionStorage);
+  keys.forEach(key => {
+    if (key.startsWith('tn_team_') || key.startsWith('tn_practice_') || key.startsWith('tn_slot_ranks_')) {
+      sessionStorage.removeItem(key);
+    }
+  });
+  
+  // Clear calendar
+  clearCalendarSelections();
+  
+  // Reset slot preferences
+  const slotSelects = [
+    'slotPref2h_1', 'slotPref2h_2', 'slotPref2h_3',
+    'slotPref1h_1', 'slotPref1h_2', 'slotPref1h_3'
+  ];
+  
+  slotSelects.forEach(selectId => {
+    const select = document.getElementById(selectId);
+    if (select) {
+      select.value = '';
+    }
+  });
+  
+  console.log('🎯 clearStep4: All step 4 data cleared');
+};
+
+/**
+ * Test team switching functionality
+ */
+function testTeamSwitchFunction() {
+  console.log('🎯 testTeamSwitch: Testing team switching');
+  
+  const teamSelect = document.getElementById('teamSelect');
+  if (teamSelect) {
+    // Switch to Team 2
+    teamSelect.value = '1';
+    teamSelect.dispatchEvent(new Event('change'));
+    console.log('🎯 testTeamSwitch: Switched to Team 2');
+    
+    setTimeout(() => {
+      // Switch back to Team 1
+      teamSelect.value = '0';
+      teamSelect.dispatchEvent(new Event('change'));
+      console.log('🎯 testTeamSwitch: Switched back to Team 1');
+    }, 2000);
+  }
+};
+
+/**
+ * Test copy button functionality
+ */
+function testCopyButton() {
+  console.log('🎯 testCopyButton: Testing copy button');
+  
+  const copyBtn = document.getElementById('copyFromTeam1Btn');
+  if (copyBtn) {
+    console.log('🎯 testCopyButton: Copy button found, testing click');
+    copyBtn.click();
+  } else {
+    console.warn('🎯 testCopyButton: Copy button not found!');
+  }
+};
+
+/**
+ * Test calendar data collection
+ */
+function testCalendarDataCollection() {
+  console.log('🎯 testCalendarData: Testing calendar data collection');
+  
+  const calendarContainer = document.getElementById('calendarContainer');
+  if (!calendarContainer) {
+    console.warn('🎯 testCalendarData: No calendar container found!');
+    return;
+  }
+  
+  console.log('🎯 testCalendarData: Calendar container found');
+  
+  // Check for date elements
+  const dateElements = calendarContainer.querySelectorAll('[data-date]');
+  console.log(`🎯 testCalendarData: Found ${dateElements.length} date elements`);
+  
+  // Check for checkboxes
+  const checkboxes = calendarContainer.querySelectorAll('input[type="checkbox"]');
+  console.log(`🎯 testCalendarData: Found ${checkboxes.length} checkboxes`);
+  
+  // Check for checked checkboxes
+  const checkedBoxes = calendarContainer.querySelectorAll('input[type="checkbox"]:checked');
+  console.log(`🎯 testCalendarData: Found ${checkedBoxes.length} checked checkboxes`);
+  
+  // Test data collection
+  const collectedDates = getCurrentTeamDates();
+  console.log('🎯 testCalendarData: Collected dates:', collectedDates);
+  
+  // Test current team data
+  const currentTeamIndex = getCurrentTeamIndex();
+  const currentTeamData = getTeamPracticeData(currentTeamIndex);
+  console.log(`🎯 testCalendarData: Current team ${currentTeamIndex} data:`, currentTeamData);
+};
+
+/**
+ * Set up navigation for step 4
+ */
+function setupStep4Navigation() {
+  // Back button
+  const backBtn = document.getElementById('backBtn');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      console.log('🎯 initStep4: Back button clicked, going to step 3');
+      loadStep(3);
+    });
+  }
+  
+  // Next button
+  const nextBtn = document.getElementById('nextBtn');
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      console.log('🎯 initStep4: Next button clicked, validating step 4');
+      
+      if (validateStep4()) {
+        console.log('🎯 initStep4: Validation passed, saving data and proceeding to step 5');
+        saveStep4Data();
+        loadStep(5);
+      } else {
+        console.log('🎯 initStep4: Validation failed, staying on step 4');
+      }
+    });
+  }
+}
+
+/**
+ * Set up copy from Team 1 button
+ */
+function setupCopyFromTeam1Button() {
+  console.log('🎯 setupCopyFromTeam1Button: Setting up copy button');
+  const copyBtn = document.getElementById('copyFromTeam1Btn');
+  
+  if (copyBtn) {
+    console.log('🎯 setupCopyFromTeam1Button: Copy button found, adding event listener');
+    
+    // Remove any existing event listeners
+    copyBtn.removeEventListener('click', handleCopyFromTeam1);
+    
+    // Add new event listener
+    copyBtn.addEventListener('click', handleCopyFromTeam1);
+    
+    console.log('🎯 setupCopyFromTeam1Button: Event listener added successfully');
+  } else {
+    console.warn('🎯 setupCopyFromTeam1Button: Copy button not found!');
+  }
+}
+
+/**
+ * Copy practice data between teams with validation
+ */
+function copyPractice(fromKey, toKey, mode, cfg) {
+  const srcRows = readTeamRows(fromKey);
+  const srcRanks = readTeamRanks(fromKey);
+  const p = cfg.practice || {};
+  const min = p.practice_start_date || p.window_start;
+  const max = p.practice_end_date || p.window_end;
+  const wd  = p.allowed_weekdays;
+  const maxDates = cfg?.limits?.practice?.max_dates_per_team ?? 10;
+  const valid = (r) => {
+    if (!r.pref_date) return false;
+    const d = new Date(r.pref_date);
+    if (min && d < new Date(min)) return false;
+    if (max && d > new Date(max)) return false;
+    if (Array.isArray(wd) && wd.length && !wd.includes(d.getDay())) return false;
+    return true;
+  };
+  const cleaned = srcRows.filter(valid).map(r => ({ ...r }));
+  const dest = readTeamRows(toKey);
+  const nextRows = (mode === 'append')
+    ? dest.concat(cleaned).slice(0, maxDates)
+    : cleaned.slice(0, maxDates);
+  writeTeamRows(toKey, nextRows);
+  writeTeamRanks(toKey, Array.isArray(srcRanks) ? srcRanks.slice(0,3) : []);
+}
+
+/**
+ * Handle copy from Team 1 button click
+ */
+function handleCopyFromTeam1() {
+  console.log('🎯 handleCopyFromTeam1: Copy button clicked!');
+  
+  const currentTeamIndex = getCurrentTeamIndex();
+  console.log(`🎯 handleCopyFromTeam1: Current team index: ${currentTeamIndex}`);
+  
+  if (currentTeamIndex === 0) {
+    console.log('🎯 handleCopyFromTeam1: Already on Team 1, nothing to copy');
+    return;
+  }
+  
+  console.log(`🎯 handleCopyFromTeam1: Copying Team 1 data to Team ${currentTeamIndex + 1}`);
+  
+  // Use new copyPractice function
+  const fromKey = 't1';
+  const toKey = `t${currentTeamIndex + 1}`;
+  const cfg = window.__CONFIG || {};
+  
+  copyPractice(fromKey, toKey, 'replace', cfg);
+  
+  // Update UI to show copied data with a small delay to ensure DOM is ready
+  setTimeout(() => {
+    updateCalendarForTeam(currentTeamIndex);
+    updateSlotPreferencesForTeam(currentTeamIndex);
+  }, 100);
+  
+  console.log(`🎯 handleCopyFromTeam1: Copied Team 1 data to Team ${currentTeamIndex + 1}`);
+}
+
+/**
+ * Get current team index from selector
+ */
+function getCurrentTeamIndex() {
+  const teamSelect = document.getElementById('teamSelect');
+  return parseInt(teamSelect?.value || '0', 10);
+}
+
+/**
+ * Get team practice data from sessionStorage
+ */
+function getTeamPracticeData(teamIndex) {
+  const teamKey = `t${teamIndex + 1}`;
+  const rows = readTeamRows(teamKey);
+  return rows.length > 0 ? rows[0] : { 
+    dates: [], 
+    slotPrefs_2hr: { slot_pref_1: '', slot_pref_2: '', slot_pref_3: '' },
+    slotPrefs_1hr: { slot_pref_1: '', slot_pref_2: '', slot_pref_3: '' }
+  };
+}
+
+/**
+ * Save team practice data to sessionStorage
+ */
+function saveTeamPracticeData(teamIndex, data) {
+  const teamKey = `t${teamIndex + 1}`;
+  writeTeamRows(teamKey, [data]);
+  console.log(`🎯 saveTeamPracticeData: Saved data for team ${teamIndex}:`, data);
+}
+
+/**
+ * Save current team's practice data
+ */
+function saveCurrentTeamPracticeData() {
+  const currentTeamKey = getCurrentTeamKey();
+  const rows = [];
+  const checks = document.querySelectorAll('#calendarContainer input[type="checkbox"][data-date]:checked');
+  checks.forEach(cb => {
+    const dateStr = cb.getAttribute('data-date');
+    // dropdowns are the next sibling `.dropdowns` of the label wrapper
+    const label = cb.closest('label.day-checkbox');
+    const dropdowns = label?.parentElement?.querySelector('.dropdowns');
+    const durationSel = dropdowns?.querySelector('select.duration');
+    const helperSel = dropdowns?.querySelector('select.helpers');
+    if (dateStr && durationSel && helperSel) {
+      rows.push({
+        pref_date: dateStr,
+        duration_hours: Number(durationSel.value) || 1,
+        helper: helperSel.value || 'NONE'
+      });
+    }
+  });
+  writeTeamRows(currentTeamKey, rows);
+  console.log(`🎯 saveCurrentTeamPracticeData: Saved ${rows.length} rows for ${currentTeamKey}`);
+}
+
+/**
+ * Validate practice requirements
+ * Returns error message if validation fails, null if valid
+ */
+function validatePracticeRequired() {
+  const currentTeamKey = getCurrentTeamKey();
+  const rows = readTeamRows(currentTeamKey);
+  
+  if (!rows || rows.length === 0) {
+    return 'No practice data found for current team';
+  }
+  
+  const practiceData = rows[0];
+  if (!practiceData.rows || practiceData.rows.length === 0) {
+    return 'No practice dates selected';
+  }
+  
+  // Check each practice date for required fields
+  for (const row of practiceData.rows) {
+    if (!row.pref_date) {
+      return 'Practice date is required';
+    }
+    
+    if (!row.duration_hours || row.duration_hours < 1) {
+      return 'Practice duration must be at least 1 hour';
+    }
+    
+    if (!row.helper) {
+      return 'Helper selection is required for each practice date';
+    }
+  }
+  
+  return null; // Valid
+}
+
+/**
+ * Set up event listeners for calendar interactions
+ */
+function setupCalendarEventListeners(container) {
+  console.log('🎯 setupCalendarEventListeners: Setting up calendar event listeners');
+  
+  // Use event delegation for checkboxes and dropdowns
+  container.addEventListener('change', (event) => {
+    const target = event.target;
+    
+    // Handle checkbox changes
+    if (target.type === 'checkbox') {
+      const dateStr = target.getAttribute('data-date');
+      const dropdowns = target.closest('[data-date]')?.querySelector('.dropdowns');
+      const key = getCurrentTeamKey();
+      
+      if (target.checked) {
+        // add row if not present
+        const rows = readTeamRows(key) || [];
+        if (!rows.some(r => r.pref_date === dateStr)) {
+          rows.push({ pref_date: dateStr, duration_hours: 1, helper: 'NONE' });
+          writeTeamRows(key, rows);
+        }
+        dropdowns?.classList.remove('hide');
+      } else {
+        writeTeamRows(key, (readTeamRows(key)||[]).filter(r => r.pref_date !== dateStr));
+        dropdowns?.classList.add('hide');
+      }
+      saveCurrentTeamPracticeData(); // keep single save path
+    }
+    
+    // Handle dropdown changes (duration, helpers)
+    if (target.tagName === 'SELECT') {
+      const dateStr = target.closest('[data-date]')?.getAttribute('data-date');
+      const key = getCurrentTeamKey();
+      const rows = readTeamRows(key) || [];
+      const rowIndex = rows.findIndex(r => r.pref_date === dateStr);
+      
+      if (rowIndex >= 0) {
+        if (target.classList.contains('duration')) {
+          rows[rowIndex].duration_hours = Number(target.value) || 1;
+        } else if (target.classList.contains('helpers')) {
+          rows[rowIndex].helper = target.value || 'NONE';
+        }
+        writeTeamRows(key, rows);
+      }
+      saveCurrentTeamPracticeData();
+    }
+  });
+  
+  // Also listen for clicks on date elements
+  container.addEventListener('click', (event) => {
+    const dateElement = event.target.closest('[data-date]');
+    if (dateElement) {
+      console.log('🎯 Calendar date element clicked:', dateElement.getAttribute('data-date'));
+      // Small delay to allow checkbox state to update
+      setTimeout(() => {
+        saveCurrentTeamPracticeData();
+      }, 10);
+    }
+  });
+  
+  console.log('🎯 setupCalendarEventListeners: Event listeners set up successfully');
+}
+
+/**
+ * Get current team's selected dates from calendar
+ */
+function getCurrentTeamDates() {
+  console.log('🎯 getCurrentTeamDates: Collecting selected dates from calendar');
+  
+  const calendarContainer = document.getElementById('calendarContainer');
+  if (!calendarContainer) {
+    console.log('🎯 getCurrentTeamDates: No calendar container found');
+    return [];
+  }
+  
+  const selectedDates = [];
+  
+  // Find all checkboxes with data-date attributes
+  const checkboxes = calendarContainer.querySelectorAll('input[type="checkbox"][data-date]');
+  console.log(`🎯 getCurrentTeamDates: Found ${checkboxes.length} checkboxes with data-date`);
+  
+  checkboxes.forEach((checkbox, index) => {
+    console.log(`🎯 getCurrentTeamDates: Processing checkbox ${index}:`, {
+      isChecked: checkbox.checked,
+      date: checkbox.getAttribute('data-date')
+    });
+    
+    if (checkbox.checked) {
+      const date = checkbox.getAttribute('data-date');
+      
+      // Find the parent container that holds the dropdowns
+      const dateContainer = checkbox.closest('.day-checkbox')?.parentElement;
+      
+      // Look for duration and helper selects within the same date container
+      const durationSelect = dateContainer?.querySelector('select.duration');
+      const helperSelect = dateContainer?.querySelector('select.helpers');
+      
+      const hours = durationSelect ? parseInt(durationSelect.value, 10) || 0 : 0;
+      const helpers = helperSelect ? helperSelect.value : '';
+      
+      console.log(`🎯 getCurrentTeamDates: Processing date ${date}:`, {
+        checkbox: checkbox.checked,
+        durationSelect: durationSelect,
+        helperSelect: helperSelect,
+        hours: hours,
+        helpers: helpers,
+        dateContainerHTML: dateContainer?.outerHTML.substring(0, 200) + '...'
+      });
+      
+      if (date && hours > 0) {
+        selectedDates.push({
+          date: date,
+          hours: hours,
+          helpers: helpers
+        });
+        
+        console.log(`🎯 getCurrentTeamDates: Found selected date: ${date}, ${hours}h, ${helpers}`);
+      } else {
+        console.log(`🎯 getCurrentTeamDates: Skipping date ${date} - hours: ${hours}, helpers: ${helpers}`);
+      }
+    }
+  });
+  
+  console.log(`🎯 getCurrentTeamDates: Collected ${selectedDates.length} selected dates`);
+  return selectedDates;
+}
+
+/**
+ * Load team practice data and update UI
+ */
+function loadTeamPracticeData(teamIndex) {
+  const teamData = getTeamPracticeData(teamIndex);
+  console.log(`🎯 loadTeamPracticeData: Loading data for team ${teamIndex}:`, teamData);
+  
+  // This function is called from team switching handler
+  // The actual UI updates are handled by updateCalendarForTeam and updateSlotPreferencesForTeam
+  // which are called separately in the team switching logic
+}
+
+/**
+ * Update calendar display for specific team
+ */
+function updateCalendarForTeam(teamIndex) {
+  const teamKey = `t${teamIndex + 1}`;
+  const rows = readTeamRows(teamKey) || [];
+  clearCalendarSelections();
+  rows.forEach(row => {
+    const cb = document.querySelector(`#calendarContainer input[type="checkbox"][data-date="${row.pref_date}"]`);
+    if (!cb) return;
+    cb.checked = true;
+    const label = cb.closest('label.day-checkbox');
+    const dropdowns = label?.parentElement?.querySelector('.dropdowns');
+    const durationSel = dropdowns?.querySelector('select.duration');
+    const helperSel = dropdowns?.querySelector('select.helpers');
+    if (durationSel) durationSel.value = String(row.duration_hours || 1);
+    if (helperSel)  helperSel.value  = row.helper || 'NONE';
+    dropdowns?.classList.remove('hide');
+  });
+}
+
+/**
+ * Update slot preferences for specific team
+ */
+function updateSlotPreferencesForTeam(teamIndex) {
+  const teamData = getTeamPracticeData(teamIndex);
+  console.log(`🎯 updateSlotPreferencesForTeam: Updating slot preferences for team ${teamIndex}`);
+  
+  // First, repopulate the slot options to ensure they're available
+  populateSlotPreferences();
+  
+  // Then set the values for this team
+  // Update 2-hour slot preferences
+  if (teamData.slotPrefs_2hr) {
+    const slot2h1 = document.getElementById('slotPref2h_1');
+    const slot2h2 = document.getElementById('slotPref2h_2');
+    const slot2h3 = document.getElementById('slotPref2h_3');
+    
+    if (slot2h1 && teamData.slotPrefs_2hr.slot_pref_1) {
+      slot2h1.value = teamData.slotPrefs_2hr.slot_pref_1;
+      console.log(`🎯 updateSlotPreferencesForTeam: Set slotPref2h_1 to ${teamData.slotPrefs_2hr.slot_pref_1}`);
+    }
+    if (slot2h2 && teamData.slotPrefs_2hr.slot_pref_2) {
+      slot2h2.value = teamData.slotPrefs_2hr.slot_pref_2;
+      console.log(`🎯 updateSlotPreferencesForTeam: Set slotPref2h_2 to ${teamData.slotPrefs_2hr.slot_pref_2}`);
+    }
+    if (slot2h3 && teamData.slotPrefs_2hr.slot_pref_3) {
+      slot2h3.value = teamData.slotPrefs_2hr.slot_pref_3;
+      console.log(`🎯 updateSlotPreferencesForTeam: Set slotPref2h_3 to ${teamData.slotPrefs_2hr.slot_pref_3}`);
+    }
+  }
+  
+  // Update 1-hour slot preferences
+  if (teamData.slotPrefs_1hr) {
+    const slot1h1 = document.getElementById('slotPref1h_1');
+    const slot1h2 = document.getElementById('slotPref1h_2');
+    const slot1h3 = document.getElementById('slotPref1h_3');
+    
+    if (slot1h1 && teamData.slotPrefs_1hr.slot_pref_1) {
+      slot1h1.value = teamData.slotPrefs_1hr.slot_pref_1;
+      console.log(`🎯 updateSlotPreferencesForTeam: Set slotPref1h_1 to ${teamData.slotPrefs_1hr.slot_pref_1}`);
+    }
+    if (slot1h2 && teamData.slotPrefs_1hr.slot_pref_2) {
+      slot1h2.value = teamData.slotPrefs_1hr.slot_pref_2;
+      console.log(`🎯 updateSlotPreferencesForTeam: Set slotPref1h_2 to ${teamData.slotPrefs_1hr.slot_pref_2}`);
+    }
+    if (slot1h3 && teamData.slotPrefs_1hr.slot_pref_3) {
+      slot1h3.value = teamData.slotPrefs_1hr.slot_pref_3;
+      console.log(`🎯 updateSlotPreferencesForTeam: Set slotPref1h_3 to ${teamData.slotPrefs_1hr.slot_pref_3}`);
+    }
+  }
+}
+
+
+/**
+ * Clear all calendar selections
+ */
+function clearCalendarSelections() {
+  console.log('🎯 clearCalendarSelections: Clearing calendar selections');
+  
+  // Clear any selected dates on the calendar
+  const calendarContainer = document.getElementById('calendarContainer');
+  if (calendarContainer) {
+    // Clear any checkboxes that might be checked
+    const checkboxes = calendarContainer.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = false;
+    });
+    
+    // Hide all dropdowns and clear their values
+    const dropdowns = calendarContainer.querySelectorAll('.dropdowns');
+    dropdowns.forEach(dropdown => {
+      dropdown.classList.add('hide');
+      dropdown.querySelectorAll('select').forEach(select => {
+        select.value = '';
+      });
+    });
+    
+    // Clear summary total hours
+    const totalHoursEl = document.getElementById('totalHours');
+    if (totalHoursEl) {
+      totalHoursEl.textContent = '0';
+    }
+    
+    console.log('🎯 clearCalendarSelections: Cleared', selectedDates.length, 'selected dates');
+  }
+}
+
+/**
+ * Show copy from Team 1 option
+ */
+function showCopyFromTeam1Option() {
+  const copyContainer = document.querySelector('.copy-from-team1');
+  if (copyContainer) {
+    copyContainer.style.display = 'block';
+    console.log('🎯 showCopyFromTeam1Option: Showing copy option');
+  }
+}
+
+/**
+ * Hide copy from Team 1 option
+ */
+function hideCopyFromTeam1Option() {
+  const copyContainer = document.querySelector('.copy-from-team1');
+  if (copyContainer) {
+    copyContainer.style.display = 'none';
+    console.log('🎯 hideCopyFromTeam1Option: Hiding copy option');
+  }
+}
+
+/**
+ * Highlight date on calendar
+ */
+function highlightDateOnCalendar(date, hours, helpers) {
+  console.log(`🎯 highlightDateOnCalendar: Highlighting ${date} for ${hours}h with helpers ${helpers}`);
+  
+  const calendarContainer = document.getElementById('calendarContainer');
+  if (!calendarContainer) return;
+  
+  // Find the checkbox with the matching data-date
+  const checkbox = calendarContainer.querySelector(`input[type="checkbox"][data-date="${date}"]`);
+  if (!checkbox) {
+    console.log(`🎯 highlightDateOnCalendar: No checkbox found for date ${date}`);
+    return;
+  }
+  
+  // Check the checkbox
+  checkbox.checked = true;
+  console.log(`🎯 highlightDateOnCalendar: Checked checkbox for ${date}`);
+  
+  // Find the parent container that holds the dropdowns
+  const dateContainer = checkbox.closest('.day-checkbox')?.parentElement;
+  if (!dateContainer) {
+    console.log(`🎯 highlightDateOnCalendar: No date container found for ${date}`);
+    return;
+  }
+  
+  // Set duration dropdown
+  const durationSelect = dateContainer.querySelector('select.duration');
+  if (durationSelect) {
+    durationSelect.value = hours;
+    console.log(`🎯 highlightDateOnCalendar: Set duration to ${hours} for ${date}`);
+  } else {
+    console.log(`🎯 highlightDateOnCalendar: No duration select found for ${date}`);
+  }
+  
+  // Set helper dropdown
+  const helperSelect = dateContainer.querySelector('select.helpers');
+  if (helperSelect) {
+    helperSelect.value = helpers;
+    console.log(`🎯 highlightDateOnCalendar: Set helpers to ${helpers} for ${date}`);
+  } else {
+    console.log(`🎯 highlightDateOnCalendar: No helper select found for ${date}`);
+  }
+  
+  // Add highlighting classes to the date container
+  dateContainer.classList.add('selected', 'practiced');
+  
+  console.log(`🎯 highlightDateOnCalendar: Successfully highlighted ${date} with ${hours}h and ${helpers} helpers`);
 }
 
 /**
@@ -2972,7 +4021,14 @@ function validateStep4() {
   // Check for duplicate slot selections
   checkForDuplicates();
   
-  // Practice is optional, so always valid
+  // Validate practice requirements
+  const practiceError = validatePracticeRequired();
+  if (practiceError) {
+    console.log('🎯 validateStep4: Practice validation failed:', practiceError);
+    showError(practiceError);
+    return false;
+  }
+  
   return true;
 }
 
@@ -3104,23 +4160,49 @@ function saveStep3Data() {
 }
 
 /**
- * Save step 4 data
+ * Save step 4 data - collect all team practice data
  */
 function saveStep4Data() {
-  const practiceData = {
-    slotPrefs_2hr: {
-      slot_pref_1: document.getElementById('slotPref2h_1')?.value || '',
-      slot_pref_2: document.getElementById('slotPref2h_2')?.value || '',
-      slot_pref_3: document.getElementById('slotPref2h_3')?.value || ''
-    },
-    slotPrefs_1hr: {
-      slot_pref_1: document.getElementById('slotPref1h_1')?.value || '',
-      slot_pref_2: document.getElementById('slotPref1h_2')?.value || '',
-      slot_pref_3: document.getElementById('slotPref1h_3')?.value || ''
-    }
-  };
+  // Save current team's data before collecting all
+  saveCurrentTeamPracticeData();
   
-  sessionStorage.setItem('tn_practice', JSON.stringify(practiceData));
+  // Collect all team practice data
+  const allTeamPracticeData = collectAllTeamPracticeData();
+  
+  // Save aggregated data for submission
+  sessionStorage.setItem('tn_practice_all_teams', JSON.stringify(allTeamPracticeData));
+  
+  console.log('🎯 saveStep4Data: Saved practice data for all teams:', allTeamPracticeData);
+}
+
+/**
+ * Collect all team practice data for submission
+ */
+function collectAllTeamPracticeData() {
+  const allPracticeData = [];
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  
+  console.log(`🎯 collectAllTeamPracticeData: Collecting data for ${teamCount} teams`);
+  
+  for (let i = 0; i < teamCount; i++) {
+    const teamData = getTeamPracticeData(i);
+    
+    // Only include teams with practice data
+    if (teamData.dates && teamData.dates.length > 0) {
+      allPracticeData.push({
+        team_index: i,
+        dates: teamData.dates,
+        slotPrefs_2hr: teamData.slotPrefs_2hr || {},
+        slotPrefs_1hr: teamData.slotPrefs_1hr || {}
+      });
+      
+      console.log(`🎯 collectAllTeamPracticeData: Team ${i} has ${teamData.dates.length} practice dates`);
+    } else {
+      console.log(`🎯 collectAllTeamPracticeData: Team ${i} has no practice data`);
+    }
+  }
+  
+  return allPracticeData;
 }
 
 /**

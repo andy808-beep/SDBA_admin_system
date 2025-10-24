@@ -326,6 +326,7 @@ async function attemptLoad(ref) {
     
     // Sanity hooks (dev only)
     window.__MODE = (ref === 'tn') ? 'tn_wizard' : 'single_page';
+    window.__PRACTICE_ENABLED = (window.__MODE === 'tn_wizard');
     console.info('Boot → event=', ref, 'mode=', window.__MODE);
     
     // Boot rules: if e=tn → tn_wizard, if e=wu|sc → single_page
