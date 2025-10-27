@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TN Payload Structure Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .validation-item { margin: 5px 0; }
+        .validation-item.pass { color: green; }
+        .validation-item.fail { color: red; }
+    </style>
+</head>
+<body>
+    <h1>🧪 TN Payload Structure Test</h1>
+    
+    <div class="test-section info">
+        <h3>Test Instructions</h3>
+        <p>This page tests the TN wizard payload structure generation. Click the buttons below to run different tests:</p>
+        <ul>
+            <li><strong>Test Payload Structure:</strong> Tests with sample data to verify the payload format</li>
+            <li><strong>Test Current Form State:</strong> Tests with actual form data (if any exists)</li>
+            <li><strong>Simulate Submission:</strong> Simulates a full form submission</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Controls</h3>
+        <button onclick="runPayloadTest()">Test Payload Structure</button>
+    
+    <script>
+      function runPayloadTest() {
+        console.log('Running payload structure test...');
+        if (window.__DBG_TN && window.__DBG_TN.testPayloadStructure) {
+          const result = window.__DBG_TN.testPayloadStructure();
+          console.log('Test Result:', result);
+          displayResult('Payload Structure Test', result, result.success ? 'success' : 'error');
+        } else {
+          alert('Debug functions not loaded. Make sure the test functions are available.');
+        }
+      }
+      
+      function runFormStateTest() {
+        console.log('Running form state test...');
+        if (window.__DBG_TN && window.__DBG_TN.getFormState) {
+          const result = window.__DBG_TN.getFormState();
+          console.log('Form State Result:', result);
+          displayResult('Form State Test', result, 'info');
+        } else {
+          console.log('Form state test not implemented in standalone version');
+          displayResult('Form State Test', { message: 'Not implemented in standalone version' }, 'info');
+        }
+      }
+      
+      function runSimulationTest() {
+        console.log('Running simulation test...');
+        if (window.__DBG_TN && window.__DBG_TN.simulateSubmission) {
+          const result = window.__DBG_TN.simulateSubmission();
+          console.log('Simulation Result:', result);
+          displayResult('Simulation Test', result, result.success ? 'success' : 'error');
+        } else {
+          console.log('Simulation test not implemented in standalone version');
+          displayResult('Simulation Test', { message: 'Not implemented in standalone version' }, 'info');
+        }
+      }
+      
+      function clearResults() {
+        document.getElementById('results').innerHTML = '';
+      }
+    </script>
+        <button onclick="runFormStateTest()">Test Current Form State</button>
+        <button onclick="runSimulationTest()">Simulate Submission</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        // Set up test environment variables
+        window.ENV = {
+            SUPABASE_URL: 'https://test.supabase.co',
+            SUPABASE_ANON_KEY: 'test-key'
+        };
+        
+        // Mock the config
+        window.__CONFIG = {
+            event: {
+                event_short_ref: 'tn',
+                season: 2025
+            }
+        };
+        
+        // Mock required functions
+        window.getClientTxId = function() {
+            return 'test-client-tx-id-' + Date.now();
+        };
+        
+        window.getEventShortRef = function() {
+            return 'tn';
+        };
+        
+        window.postJSON = async function(url, payload) {
+            console.log('Mock postJSON called with:', { url, payload });
+            return { ok: true, status: 200, data: { registration_id: 'test-reg-123', team_codes: ['T1', 'T2'] } };
+        };
+        
+        window.saveReceipt = function(data) {
+            console.log('Mock saveReceipt called with:', data);
+            return data;
+        };
+        
+        window.showConfirmation = function(receipt) {
+            console.log('Mock showConfirmation called with:', receipt);
+        };
+        
+        window.mapError = function(code) {
+            return `Error: ${code}`;
+        };
+        
+        // Mock practice store functions
+        window.readTeamRows = function(teamKey) {
+            const teamIndex = parseInt(teamKey.replace('t', '')) - 1;
+            const mockData = [
+                [
+                    { pref_date: '2025-01-15', duration_hours: 2, helper: 'ST' },
+                    { pref_date: '2025-01-22', duration_hours: 1, helper: 'S' }
+                ],
+                [
+                    { pref_date: '2025-01-16', duration_hours: 2, helper: 'T' }
+                ]
+            ];
+            return mockData[teamIndex] || [];
+        };
+        
+        window.readTeamRanks = function(teamKey) {
+            const teamIndex = parseInt(teamKey.replace('t', '')) - 1;
+            const mockData = [
+                [
+                    { rank: 1, slot_code: 'SAT2_0800_1000' },
+                    { rank: 2, slot_code: 'SAT2_1000_1200' },
+                    { rank: 3, slot_code: 'SAT1_0800_0900' }
+                ],
+                [
+                    { rank: 1, slot_code: 'SUN2_0900_1100' }
+                ]
+            ];
+            return mockData[teamIndex] || [];
+        };
+        
+        // Mock EDGE_URL
+        window.EDGE_URL = 'https://test.supabase.co/functions/v1/submit_registration';
+        
+        // Standalone test functions (no external dependencies)
+        window.__DBG_TN = {
+            /**
+             * Test payload structure with sample data
+             */
+            testPayloadStructure() {
+                console.log('🧪 Testing TN Payload Structure...');
+                
+                // Set up test data in sessionStorage
+                sessionStorage.setItem('tn_race_category', 'mixed_open');
+                sessionStorage.setItem('tn_team_count', '2');
+                sessionStorage.setItem('tn_opt1_count', '1');
+                sessionStorage.setItem('tn_opt2_count', '1');
+                sessionStorage.setItem('tn_org_name', 'Test Organization');
+                sessionStorage.setItem('tn_mailing_address', '123 Test Street, Test City');
+                
+                // Team data
+                sessionStorage.setItem('tn_team_name_1', 'Test Team 1');
+                sessionStorage.setItem('tn_team_category_1', 'mixed_open');
+                sessionStorage.setItem('tn_team_option_1', 'opt1');
+                sessionStorage.setItem('tn_team_name_2', 'Test Team 2');
+                sessionStorage.setItem('tn_team_category_2', 'mixed_open');
+                sessionStorage.setItem('tn_team_option_2', 'opt2');
+                
+                // Manager data
+                sessionStorage.setItem('tn_manager1_name', 'Manager One');
+                sessionStorage.setItem('tn_manager1_phone', '123-456-7890');
+                sessionStorage.setItem('tn_manager1_email', 'manager1@test.com');
+                sessionStorage.setItem('tn_manager2_name', 'Manager Two');
+                sessionStorage.setItem('tn_manager2_phone', '234-567-8901');
+                sessionStorage.setItem('tn_manager2_email', 'manager2@test.com');
+                sessionStorage.setItem('tn_manager3_name', 'Manager Three');
+                sessionStorage.setItem('tn_manager3_phone', '345-678-9012');
+                sessionStorage.setItem('tn_manager3_email', 'manager3@test.com');
+                
+                // Race day data
+                const raceDayData = {
+                    marqueeQty: 1,
+                    steerWithQty: 0,
+                    steerWithoutQty: 1,
+                    junkBoatQty: 0,
+                    junkBoatNo: '',
+                    speedboatQty: 1,
+                    speedBoatNo: 'SB123'
+                };
+                sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
+                
+                try {
+                    // Generate payload using the same logic as tn_wizard.js
+                    const payload = {
+                        client_tx_id: window.getClientTxId(),
+                        eventShortRef: window.getEventShortRef() || 'tn',
+                        category: 'mixed_open',
+                        season: 2025,
+                        org_name: 'Test Organization',
+                        org_address: '123 Test Street, Test City',
+                        counts: {
+                            num_teams: 2,
+                            num_teams_opt1: 1,
+                            num_teams_opt2: 1
+                        },
+                        team_names: ['Test Team 1', 'Test Team 2'],
+                        team_options: ['opt1', 'opt2'],
+                        managers: [
+                            { name: 'Manager One', mobile: '123-456-7890', email: 'manager1@test.com' },
+                            { name: 'Manager Two', mobile: '234-567-8901', email: 'manager2@test.com' },
+                            { name: 'Manager Three', mobile: '345-678-9012', email: 'manager3@test.com' }
+                        ],
+                        race_day: {
+                            marqueeQty: 1,
+                            steerWithQty: 0,
+                            steerWithoutQty: 1,
+                            junkBoatQty: 0,
+                            junkBoatNo: '',
+                            speedboatQty: 1,
+                            speedBoatNo: 'SB123'
+                        },
+                        practice: {
+                            teams: [
+                                {
+                                    team_key: 't1',
+                                    dates: [
+                                        { pref_date: '2025-01-15', duration_hours: 2, helper: 'ST' },
+                                        { pref_date: '2025-01-22', duration_hours: 1, helper: 'S' }
+                                    ],
+                                    slot_ranks: [
+                                        { rank: 1, slot_code: 'SAT2_0800_1000' },
+                                        { rank: 2, slot_code: 'SAT2_1000_1200' },
+                                        { rank: 3, slot_code: 'SAT1_0800_0900' }
+                                    ]
+                                },
+                                {
+                                    team_key: 't2',
+                                    dates: [
+                                        { pref_date: '2025-01-16', duration_hours: 2, helper: 'T' }
+                                    ],
+                                    slot_ranks: [
+                                        { rank: 1, slot_code: 'SUN2_0900_1100' }
+                                    ]
+                                }
+                            ]
+                        }
+                    };
+                    
+                    console.log('🧪 Generated Payload:', JSON.stringify(payload, null, 2));
+                    
+                    // Validate payload structure
+                    const validation = {
+                        hasClientTxId: !!payload.client_tx_id,
+                        hasEventShortRef: !!payload.eventShortRef,
+                        hasCategory: !!payload.category,
+                        hasSeason: typeof payload.season === 'number',
+                        hasOrgName: !!payload.org_name,
+                        hasOrgAddress: !!payload.org_address,
+                        hasCounts: !!payload.counts && typeof payload.counts.num_teams === 'number',
+                        hasTeamNames: Array.isArray(payload.team_names) && payload.team_names.length > 0,
+                        hasTeamOptions: Array.isArray(payload.team_options) && payload.team_options.length > 0,
+                        hasManagers: Array.isArray(payload.managers) && payload.managers.length > 0,
+                        hasRaceDay: payload.race_day === null || (typeof payload.race_day === 'object'),
+                        hasPractice: !!payload.practice && typeof payload.practice === 'object' && Array.isArray(payload.practice.teams)
+                    };
+                    
+                    console.log('🧪 Validation Results:', validation);
+                    
+                    const allValid = Object.values(validation).every(v => v === true);
+                    
+                    return {
+                        success: allValid,
+                        payload: payload,
+                        validation: validation,
+                        message: allValid ? '✅ Payload structure is valid!' : '❌ Payload structure has issues'
+                    };
+                    
+                } catch (error) {
+                    return { error: error.message };
+                }
+            },
+            
+            /**
+             * Get current form state (simplified version)
+             */
+            getFormState() {
+                console.log('📋 Getting form state...');
+                
+                const state = {
+                    raceCategory: sessionStorage.getItem('tn_race_category') || 'mixed_open',
+                    teamCount: parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0,
+                    orgName: sessionStorage.getItem('tn_org_name') || '',
+                    orgAddress: sessionStorage.getItem('tn_mailing_address') || '',
+                    teams: [],
+                    managers: [],
+                    raceDay: null,
+                    practice: null
+                };
+                
+                // Collect team data
+                for (let i = 1; i <= state.teamCount; i++) {
+                    const teamName = sessionStorage.getItem(`tn_team_name_${i}`);
+                    const teamCategory = sessionStorage.getItem(`tn_team_category_${i}`);
+                    const teamOption = sessionStorage.getItem(`tn_team_option_${i}`);
+                    
+                    if (teamName) {
+                        state.teams.push({
+                            name: teamName,
+                            category: teamCategory,
+                            option: teamOption,
+                            index: i - 1
+                        });
+                    }
+                }
+                
+                // Collect manager data
+                for (let i = 1; i <= 3; i++) {
+                    const name = sessionStorage.getItem(`tn_manager${i}_name`);
+                    const phone = sessionStorage.getItem(`tn_manager${i}_phone`);
+                    const email = sessionStorage.getItem(`tn_manager${i}_email`);
+                    
+                    if (name) {
+                        state.managers.push({ name, mobile: phone || '', email: email || '' });
+                    }
+                }
+                
+                // Collect race day data
+                const raceDayData = sessionStorage.getItem('tn_race_day');
+                if (raceDayData) {
+                    try {
+                        state.raceDay = JSON.parse(raceDayData);
+                    } catch (e) {
+                        console.warn('Failed to parse race day data:', e);
+                    }
+                }
+                
+                // Collect practice data
+                state.practice = {
+                    teams: []
+                };
+                
+                for (let i = 1; i <= state.teamCount; i++) {
+                    const teamKey = `t${i}`;
+                    const rows = window.readTeamRows ? window.readTeamRows(teamKey) : [];
+                    const ranks = window.readTeamRanks ? window.readTeamRanks(teamKey) : [];
+                    
+                    state.practice.teams.push({
+                        team_key: teamKey,
+                        dates: rows,
+                        slot_ranks: ranks
+                    });
+                }
+                
+                console.log('📋 Form state collected:', state);
+                return {
+                    success: true,
+                    state: state,
+                    message: 'Form state collected successfully'
+                };
+            },
+            
+            /**
+             * Simulate form submission (simplified version)
+             */
+            simulateSubmission() {
+                console.log('🚀 Simulating form submission...');
+                
+                try {
+                    // First generate the payload
+                    const payloadResult = this.testPayloadStructure();
+                    if (!payloadResult.success) {
+                        return {
+                            success: false,
+                            error: 'Payload generation failed',
+                            details: payloadResult
+                        };
+                    }
+                    
+                    const payload = payloadResult.payload;
+                    console.log('🚀 Generated payload for simulation:', payload);
+                    
+                    // Simulate the submission process
+                    const simulationSteps = [
+                        'Validating payload structure...',
+                        'Checking required fields...',
+                        'Validating team data...',
+                        'Validating manager data...',
+                        'Validating practice data...',
+                        'Preparing submission...',
+                        'Sending to server...',
+                        'Processing response...'
+                    ];
+                    
+                    console.log('🚀 Simulation steps:');
+                    simulationSteps.forEach((step, index) => {
+                        console.log(`  ${index + 1}. ${step}`);
+                    });
+                    
+                    // Mock server response
+                    const mockResponse = {
+                        ok: true,
+                        status: 200,
+                        data: {
+                            registration_id: 'sim-reg-' + Date.now(),
+                            team_codes: payload.team_names.map((name, index) => `T${index + 1}`),
+                            email: 'test@example.com'
+                        }
+                    };
+                    
+                    console.log('🚀 Mock server response:', mockResponse);
+                    
+                    // Simulate receipt saving
+                    const receipt = {
+                        registration_id: mockResponse.data.registration_id,
+                        team_codes: mockResponse.data.team_codes,
+                        email: mockResponse.data.email,
+                        timestamp: new Date().toISOString(),
+                        payload: payload
+                    };
+                    
+                    console.log('🚀 Generated receipt:', receipt);
+                    
+                    return {
+                        success: true,
+                        payload: payload,
+                        response: mockResponse,
+                        receipt: receipt,
+                        message: 'Simulation completed successfully!',
+                        steps: simulationSteps
+                    };
+                    
+                } catch (error) {
+                    console.error('🚀 Simulation error:', error);
+                    return {
+                        success: false,
+                        error: error.message,
+                        message: 'Simulation failed due to error'
+                    };
+                }
+            }
+        };
+        
+        function displayResult(title, result, className = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-section ${className}`;
+            
+            let content = `<h3>${title}</h3>`;
+            
+            if (result.error) {
+                content += `<p class="error">❌ Error: ${result.error}</p>`;
+            } else if (result.success === false) {
+                content += `<p class="error">❌ Test Failed</p>`;
+            } else {
+                content += `<p class="success">✅ Test Passed</p>`;
+            }
+            
+            if (result.validation) {
+                content += '<h4>Validation Results:</h4><ul>';
+                Object.entries(result.validation).forEach(([key, value]) => {
+                    const status = value ? 'pass' : 'fail';
+                    const icon = value ? '✅' : '❌';
+                    content += `<li class="validation-item ${status}">${icon} ${key}: ${value}</li>`;
+                });
+                content += '</ul>';
+            }
+            
+            if (result.payload) {
+                content += '<h4>Generated Payload:</h4>';
+                content += `<pre>${JSON.stringify(result.payload, null, 2)}</pre>`;
+            }
+            
+            if (result.errors && result.errors.length > 0) {
+                content += '<h4>Validation Errors:</h4><ul>';
+                result.errors.forEach(error => {
+                    content += `<li class="error">❌ ${error}</li>`;
+                });
+                content += '</ul>';
+            }
+            
+            if (result.message) {
+                content += `<p><strong>${result.message}</strong></p>`;
+            }
+            
+            resultDiv.innerHTML = content;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        window.runPayloadTest = function() {
+            console.log('Running payload structure test...');
+            const result = window.__DBG_TN.testPayloadStructure();
+            displayResult('Payload Structure Test', result, result.success ? 'success' : 'error');
+        };
+        
+        window.runFormStateTest = function() {
+            console.log('Running form state test...');
+            const result = window.__DBG_TN.getFormState();
+            displayResult('Current Form State Test', result, result.success ? 'success' : 'error');
+        };
+        
+        window.runSimulationTest = function() {
+            console.log('Running simulation test...');
+            const result = window.__DBG_TN.simulateSubmission();
+            displayResult('Simulation Test', result, result.success ? 'success' : 'error');
+        };
+        
+        window.clearResults = function() {
+            document.getElementById('results').innerHTML = '';
+        };
+        
+        // Auto-run payload test on load
+        setTimeout(() => {
+            runPayloadTest();
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Constraint Check</title>
+</head>
+<body>
+    <h1>Test Constraint Check</h1>
+    <button onclick="checkConstraints()">Check Database Constraints</button>
+    <div id="output"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const supabaseUrl = 'https://khqarcvszewerjckmtpg.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        
+        // Also create a service role client for testing
+        // You need to get the service role key from Supabase Dashboard > Settings > API
+        const serviceKey = 'YOUR_SERVICE_ROLE_KEY_HERE'; // Replace with actual service role key
+        const supabaseService = window.supabase.createClient(supabaseUrl, serviceKey);
+
+        function log(message) {
+            const output = document.getElementById('output');
+            output.innerHTML += `<p>${message}</p>`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        async function checkConstraints() {
+            log('🔍 Checking registration_meta constraints...');
+            
+            try {
+                // Try to insert two records with the same client_tx_id
+                const testClientTxId = 'test_constraint_check_' + Date.now();
+                const testData = [
+                    {
+                        event_short_ref: 'TN2025',
+                        client_tx_id: testClientTxId,
+                        season: 2025,
+                        category: 'mixed_open',
+                        division_code: 'X',
+                        option_choice: 'Option 1',
+                        team_name: 'Test Team 1',
+                        org_name: 'Test Org',
+                        team_manager_1: 'Test Manager',
+                        mobile_1: '1234567890',
+                        email_1: 'test@example.com',
+                        status: 'pending'
+                    },
+                    {
+                        event_short_ref: 'TN2025',
+                        client_tx_id: testClientTxId, // Same client_tx_id
+                        season: 2025,
+                        category: 'mixed_open',
+                        division_code: 'X',
+                        option_choice: 'Option 1',
+                        team_name: 'Test Team 2',
+                        org_name: 'Test Org',
+                        team_manager_1: 'Test Manager',
+                        mobile_1: '1234567890',
+                        email_1: 'test@example.com',
+                        status: 'pending'
+                    }
+                ];
+
+                log('🔄 Trying with service role (bypasses RLS)...');
+                const { data, error } = await supabaseService
+                    .from('registration_meta')
+                    .insert(testData)
+                    .select('id, team_name, client_tx_id');
+
+                if (error) {
+                    log('❌ Service role insert failed: ' + error.message);
+                    if (error.message.includes('uniq_registration_client_tx')) {
+                        log('🚨 CONSTRAINT STILL EXISTS: uniq_registration_client_tx');
+                        log('📝 You need to deploy the updated main.sql to remove this constraint');
+                    } else if (error.message.includes('row-level security')) {
+                        log('🚨 RLS POLICY ISSUE: ' + error.message);
+                        log('📝 The RLS policies may not be deployed correctly');
+                    }
+                } else {
+                    log('✅ Service role insert successful! Constraint has been removed.');
+                    log('📊 Inserted records: ' + JSON.stringify(data, null, 2));
+                    
+                    // Clean up test data
+                    const ids = data.map(r => r.id);
+                    await supabaseService.from('registration_meta').delete().in('id', ids);
+                    log('🧹 Test data cleaned up');
+                }
+            } catch (e) {
+                log('❌ Error: ' + e.message);
+            }
+        }
+    </script>
+</body>
+</html>

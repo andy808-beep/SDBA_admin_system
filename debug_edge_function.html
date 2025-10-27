@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Edge Function</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Debug Edge Function</h1>
+    <button onclick="testMinimalPayload()">Test Minimal Payload</button>
+    <button onclick="testFullPayload()">Test Full Payload</button>
+    <button onclick="checkEdgeFunctionHealth()">Check Edge Function Health</button>
+    <div id="output"></div>
+
+    <script>
+        // Supabase configuration
+        const supabaseUrl = 'https://khqarcvszewerjckmtpg.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        function log(message) {
+            const output = document.getElementById('output');
+            output.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            console.log(message);
+        }
+
+        async function testMinimalPayload() {
+            log('🔍 Testing minimal payload...');
+            
+            const minimalPayload = {
+                eventShortRef: 'tn',
+                category: 'mixed_open',
+                org_name: 'Test Org',
+                counts: { num_teams: 1, num_teams_opt1: 1, num_teams_opt2: 0 },
+                team_names: ['Test Team'],
+                team_options: ['opt1'],
+                managers: [{ name: 'John Doe', mobile: '1234567890', email: 'john@test.com' }]
+            };
+
+            try {
+                const { data, error } = await supabase.functions.invoke('submit_registration', {
+                    body: minimalPayload
+                });
+
+                if (error) {
+                    log('❌ Minimal payload error: ' + JSON.stringify(error, null, 2));
+                } else {
+                    log('✅ Minimal payload success: ' + JSON.stringify(data, null, 2));
+                }
+            } catch (e) {
+                log('❌ Minimal payload exception: ' + e.message);
+            }
+        }
+
+        async function testFullPayload() {
+            log('🔍 Testing full payload...');
+            
+            const fullPayload = {
+                client_tx_id: 'debug_' + Date.now(),
+                eventShortRef: 'tn',
+                category: 'mixed_open',
+                season: 2025,
+                org_name: 'Test Organization',
+                org_address: '123 Test Street',
+                counts: { num_teams: 1, num_teams_opt1: 1, num_teams_opt2: 0 },
+                team_names: ['Test Team Alpha'],
+                team_options: ['opt1'],
+                managers: [
+                    { name: 'John Doe', mobile: '1234567890', email: 'john@test.com' },
+                    { name: 'Jane Smith', mobile: '0987654321', email: 'jane@test.com' }
+                ],
+                race_day: null,
+                practice: {
+                    teams: [{
+                        team_key: 't1',
+                        dates: [
+                            { pref_date: '2025-01-15', duration_hours: 2, helper: 'S' }
+                        ],
+                        slot_ranks: [
+                            { rank: 1, slot_code: 'SAT2_0800_1000' }
+                        ]
+                    }]
+                }
+            };
+
+            try {
+                const { data, error } = await supabase.functions.invoke('submit_registration', {
+                    body: fullPayload
+                });
+
+                if (error) {
+                    log('❌ Full payload error: ' + JSON.stringify(error, null, 2));
+                } else {
+                    log('✅ Full payload success: ' + JSON.stringify(data, null, 2));
+                }
+            } catch (e) {
+                log('❌ Full payload exception: ' + e.message);
+            }
+        }
+
+        async function checkEdgeFunctionHealth() {
+            log('🔍 Checking Edge Function health...');
+            
+            try {
+                // Test with a very simple payload
+                const healthPayload = {
+                    eventShortRef: 'tn',
+                    category: 'mixed_open',
+                    org_name: 'Health Check',
+                    counts: { num_teams: 1, num_teams_opt1: 1, num_teams_opt2: 0 },
+                    team_names: ['Health Team'],
+                    team_options: ['opt1'],
+                    managers: [{ name: 'Health', mobile: '0000000000', email: 'health@test.com' }]
+                };
+
+                log('📤 Sending health check payload...');
+                const response = await fetch('https://khqarcvszewerjckmtpg.supabase.co/functions/v1/submit_registration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${supabaseKey}`,
+                        'apikey': supabaseKey
+                    },
+                    body: JSON.stringify(healthPayload)
+                });
+
+                log('📥 Response status: ' + response.status);
+                log('📥 Response headers: ' + JSON.stringify([...response.headers.entries()]));
+
+                const responseText = await response.text();
+                log('📥 Response body: ' + responseText);
+
+                if (response.ok) {
+                    log('✅ Edge Function is healthy!');
+                } else {
+                    log('❌ Edge Function returned error: ' + response.status);
+                }
+
+            } catch (e) {
+                log('❌ Health check failed: ' + e.message);
+                log('❌ Error type: ' + e.constructor.name);
+                log('❌ Error stack: ' + e.stack);
+            }
+        }
+    </script>
+</body>
+</html>

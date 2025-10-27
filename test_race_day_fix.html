@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Race Day Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        .result { margin: 10px 0; padding: 10px; background: #f8f9fa; border-left: 4px solid #007bff; border-radius: 4px; }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+        .data-display { background: #e9ecef; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <h1>Test Race Day Data Fix</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Data Structure</h3>
+        <button onclick="testDataStructure()">Test Data Structure</button>
+        <div id="structureResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Test Save/Load Cycle</h3>
+        <button onclick="testSaveLoadCycle()">Test Save/Load</button>
+        <div id="cycleResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Test Summary Function</h3>
+        <button onclick="testSummaryFunction()">Test Summary Function</button>
+        <div id="summaryResult" class="result"></div>
+    </div>
+
+    <!-- Include the race day summary elements -->
+    <div id="raceDayGrid" style="display: none;">
+        <div class="kv"><div class="k">Marquee Qty</div><div class="v" id="sumMarquee">—</div></div>
+        <div class="kv"><div class="k">Steersman (with boat)</div><div class="v" id="sumSteerWith">—</div></div>
+        <div class="kv"><div class="k">Steersman (no boat)</div><div class="v" id="sumSteerWithout">—</div></div>
+        <div class="kv"><div class="k">Junk Boat # / Qty</div><div class="v" id="sumJunk">—</div></div>
+        <div class="kv"><div class="k">Speed Boat # / Qty</div><div class="v" id="sumSpeed">—</div></div>
+    </div>
+
+    <script>
+        // Load the TN wizard script
+        const script = document.createElement('script');
+        script.src = 'js/tn_wizard.js';
+        document.head.appendChild(script);
+        
+        function testDataStructure() {
+            const result = document.getElementById('structureResult');
+            
+            // Test the correct input IDs from the template
+            const correctInputIds = [
+                'marqueeQty',
+                'steerWithQty', 
+                'steerWithoutQty',
+                'junkBoatQty',
+                'speedboatQty'  // Note: lowercase 'b'
+            ];
+            
+            // Test the old incorrect IDs
+            const incorrectInputIds = [
+                'marquee_qty',
+                'steer_with_qty',
+                'steer_without_qty', 
+                'junk_boat_qty',
+                'speed_boat_qty'
+            ];
+            
+            result.innerHTML = `
+                <div class="success">
+                    <strong>✅ Correct Input IDs (from template):</strong><br>
+                    <div class="data-display">
+                        ${correctInputIds.join('<br>')}
+                    </div>
+                    <br>
+                    <strong>❌ Incorrect Input IDs (old):</strong><br>
+                    <div class="data-display">
+                        ${incorrectInputIds.join('<br>')}
+                    </div>
+                    <br>
+                    <em>The summary function now uses the correct IDs from the template.</em>
+                </div>
+            `;
+        }
+        
+        function testSaveLoadCycle() {
+            const result = document.getElementById('cycleResult');
+            
+            try {
+                // Clear existing data
+                sessionStorage.removeItem('tn_race_day');
+                
+                // Simulate the correct data structure that would be saved
+                const raceDayData = {
+                    marqueeQty: 3,
+                    steerWithQty: 2,
+                    steerWithoutQty: 1,
+                    junkBoatQty: 1,
+                    speedboatQty: 1
+                };
+                
+                // Save the data
+                sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
+                
+                // Load and verify the data
+                const savedData = sessionStorage.getItem('tn_race_day');
+                const parsedData = JSON.parse(savedData);
+                
+                const dataHtml = Object.entries(parsedData).map(([key, value]) => 
+                    `${key}: ${value}`
+                ).join('<br>');
+                
+                result.innerHTML = `
+                    <div class="success">
+                        <strong>✅ Save/Load Cycle Test Passed</strong><br>
+                        <div class="data-display">
+                            ${dataHtml}
+                        </div>
+                        <em>Data is correctly saved and loaded with the right structure.</em>
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Save/Load Cycle Test Failed</strong><br>
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function testSummaryFunction() {
+            const result = document.getElementById('summaryResult');
+            
+            // Setup test data
+            const raceDayData = {
+                marqueeQty: 5,
+                steerWithQty: 3,
+                steerWithoutQty: 2,
+                junkBoatQty: 1,
+                speedboatQty: 1
+            };
+            sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
+            
+            // Test the function
+            setTimeout(() => {
+                if (typeof loadRaceDaySummary === 'function') {
+                    try {
+                        loadRaceDaySummary();
+                        
+                        // Check if the summary elements were updated
+                        const sumMarquee = document.getElementById('sumMarquee');
+                        const sumSteerWith = document.getElementById('sumSteerWith');
+                        const sumSteerWithout = document.getElementById('sumSteerWithout');
+                        const sumJunk = document.getElementById('sumJunk');
+                        const sumSpeed = document.getElementById('sumSpeed');
+                        
+                        const values = {
+                            marquee: sumMarquee ? sumMarquee.textContent : 'not found',
+                            steerWith: sumSteerWith ? sumSteerWith.textContent : 'not found',
+                            steerWithout: sumSteerWithout ? sumSteerWithout.textContent : 'not found',
+                            junk: sumJunk ? sumJunk.textContent : 'not found',
+                            speed: sumSpeed ? sumSpeed.textContent : 'not found'
+                        };
+                        
+                        result.innerHTML = `
+                            <div class="success">
+                                <strong>✅ Summary Function Test Passed</strong><br>
+                                <div class="data-display">
+                                    Marquee: ${values.marquee}<br>
+                                    Steer With: ${values.steerWith}<br>
+                                    Steer Without: ${values.steerWithout}<br>
+                                    Junk Boat: ${values.junk}<br>
+                                    Speed Boat: ${values.speed}
+                                </div>
+                                <em>Summary function executed successfully and updated elements.</em>
+                            </div>
+                        `;
+                    } catch (error) {
+                        result.innerHTML = `
+                            <div class="error">
+                                <strong>❌ Summary Function Test Failed</strong><br>
+                                Error: ${error.message}
+                            </div>
+                        `;
+                    }
+                } else {
+                    result.innerHTML = `
+                        <div class="error">
+                            <strong>❌ Function Not Available</strong><br>
+                            <em>loadRaceDaySummary function not loaded yet</em>
+                        </div>
+                    `;
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

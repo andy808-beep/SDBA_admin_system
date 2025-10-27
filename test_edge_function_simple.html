@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Edge Function Test</title>
+</head>
+<body>
+    <h1>Simple Edge Function Test</h1>
+    <button onclick="testEdgeFunction()">Test Edge Function</button>
+    <div id="output"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const supabaseUrl = 'https://khqarcvszewerjckmtpg.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        function log(message) {
+            const output = document.getElementById('output');
+            output.innerHTML += `<p>${message}</p>`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        async function testEdgeFunction() {
+            log('🚀 Testing Edge Function with minimal payload...');
+            
+            const minimalPayload = {
+                client_tx_id: 'test_minimal_' + Date.now(),
+                eventShortRef: 'TN2025',
+                category: 'mixed_open',
+                season: 2025,
+                org_name: 'Test Org',
+                org_address: 'Test Address',
+                counts: {
+                    num_teams: 1,
+                    num_teams_opt1: 1,
+                    num_teams_opt2: 0
+                },
+                team_names: ['Test Team'],
+                team_options: ['opt1'],
+                managers: [
+                    {
+                        name: 'Test Manager',
+                        mobile: '1234567890',
+                        email: 'test@example.com'
+                    }
+                ],
+                race_day: {
+                    teams: [
+                        {
+                            team_key: 't1',
+                            equipment: 'basic',
+                            tshirt: 'M',
+                            shorts: 'M',
+                            dry_bag: '1'
+                        }
+                    ]
+                },
+                practice: {
+                    teams: [
+                        {
+                            team_key: 't1',
+                            dates: [
+                                { pref_date: '2025-10-29', duration_hours: 2, helper: 'S' }
+                            ],
+                            slot_ranks: [
+                                { rank: 1, slot_code: 'SAT2_0800_1000' }
+                            ]
+                        }
+                    ]
+                }
+            };
+
+            try {
+                log('📤 Sending payload...');
+                const startTime = Date.now();
+                
+                const { data, error } = await supabase.functions.invoke('submit_registration', {
+                    body: minimalPayload
+                });
+
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+                
+                log(`⏱️ Response time: ${duration}ms`);
+
+                if (error) {
+                    log('❌ Edge Function error: ' + JSON.stringify(error, null, 2));
+                } else {
+                    log('✅ Edge Function success: ' + JSON.stringify(data, null, 2));
+                }
+            } catch (e) {
+                log('❌ Exception: ' + e.message);
+                log('❌ Stack: ' + e.stack);
+            }
+        }
+    </script>
+</body>
+</html>

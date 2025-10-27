@@ -2,6 +2,21 @@
 create extension if not exists "pgcrypto";  -- gen_random_uuid()
 create extension if not exists "citext";    -- case-insensitive text
 
+-- =========================================================
+-- INCLUDE ALL REQUIRED TABLES AND VIEWS
+-- =========================================================
+
+-- Note: Other SQL files need to be run separately in Supabase SQL Editor
+-- DB Config/event.sql
+-- DB Config/annual.sql  
+-- DB Config/division.sql
+-- DB Config/order.sql
+-- DB Config/secdef.sql
+-- DB Config/ui_text.sql
+-- DB Config/unique_client_tx_id.sql
+-- DB Config/rpc.sql
+-- DB Config/view.sql
+
 -- ---------- DROP (safe order) ----------
 drop view  if exists public.men_open_team_list cascade;
 drop view  if exists public.ladies_open_team_list cascade;
@@ -414,32 +429,365 @@ before update on public.practice_preferences
 for each row execute function public.set_updated_at();
 
 -- =========================================================
--- REGISTRATION META (Page 1–2 header snapshot)
+-- REGISTRATION META (Individual team registrations for admin approval)
 -- =========================================================
+
+-- Backup existing data before migration (only if table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'registration_meta') THEN
+        DROP TABLE IF EXISTS public.registration_meta_backup;
+        CREATE TABLE public.registration_meta_backup AS 
+        SELECT * FROM public.registration_meta;
+    END IF;
+END $$;
+
+-- Drop existing registration_meta table and recreate with new structure
+DROP TABLE IF EXISTS public.registration_meta CASCADE;
+
 create table public.registration_meta (
   id uuid primary key default gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
 
-  -- Page 1
-  race_category text not null check (race_category in ('men_open','ladies_open','mixed_open','mixed_corporate')),
-  num_teams int not null check (num_teams >= 1),
-  num_teams_opt1 int not null default 0 check (num_teams_opt1 >= 0),
-  num_teams_opt2 int not null default 0 check (num_teams_opt2 >= 0),
-  season int not null check (season between 2000 and 2100),
+  season   int  NOT NULL CHECK (season BETWEEN 2000 AND 2100),
 
-  -- Page 2
-  org_name text not null,
+  -- legacy category kept for compatibility; prefer division_code going forward
+  category text,
+  division_code text,                -- e.g. 'M','L','X','C'
+
+  option_choice text NOT NULL CHECK (option_choice IN ('Option 1','Option 2')),
+  team_code     text NOT NULL,       -- assigned/validated by trigger
+  team_name     citext NOT NULL,
+
+  -- normalized for uniqueness (case/space insensitive)
+  team_name_normalized citext
+    GENERATED ALWAYS AS (
+      lower( regexp_replace(btrim(team_name::text), '\s+', ' ', 'g') )
+    ) STORED,
+
+  -- Org info (client uses organization_name/address via view)
+  org_name    text,
   org_address text,
-  managers_json jsonb,
 
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  -- Managers
+  team_manager_1 text NOT NULL,
+  mobile_1       text,
+  email_1        text,
+  team_manager_2 text NOT NULL,
+  mobile_2       text,
+  email_2        text,
+  team_manager_3 text,
+  mobile_3       text,
+  email_3        text,
+
+  -- Link back to header registration (optional)
+  registration_id uuid,
+
+  -- Admin approval workflow fields
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  admin_notes text,
+  approved_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  approved_at timestamptz,
+
+  -- Client transaction tracking
+  client_tx_id text,
+  event_short_ref text,
+
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+
+  -- Constraints
+  CONSTRAINT uniq_registration_teamcode_global UNIQUE (team_code),
+  CONSTRAINT uniq_registration_teamname_per_div_season_norm UNIQUE (season, division_code, team_name_normalized),
+  -- Removed uniq_registration_client_tx constraint to allow multiple teams per submission
+  CHECK (length(btrim(team_name::text)) > 0),
+  CHECK (length(btrim(team_code)) > 0)
 );
 
-create trigger trg_registration_meta_updated_at
-before update on public.registration_meta
-for each row execute function public.set_updated_at();
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_registration_meta_season_div ON public.registration_meta (season, division_code);
+CREATE INDEX IF NOT EXISTS idx_registration_meta_user ON public.registration_meta (user_id);
+CREATE INDEX IF NOT EXISTS idx_registration_meta_status ON public.registration_meta (status);
+CREATE INDEX IF NOT EXISTS idx_registration_meta_client_tx ON public.registration_meta (event_short_ref, client_tx_id);
+
+-- Triggers
+CREATE TRIGGER trg_registration_meta_updated_at
+BEFORE UPDATE ON public.registration_meta
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Team code assignment and normalization trigger (same as team_meta)
+CREATE OR REPLACE FUNCTION public.registration_meta_normalize_and_assign()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  cat_norm text;
+  yy text;
+  prefix text;
+  max_num int;
+  bucket_key int;
+  eff_letter text;
+BEGIN
+  -- normalize legacy category
+  IF NEW.category IS NOT NULL THEN
+    NEW.category := replace(lower(btrim(NEW.category)), ' ','_');
+  END IF;
+  cat_norm := NEW.category;
+
+  IF NEW.team_code IS NOT NULL THEN
+    NEW.team_code := upper(btrim(NEW.team_code));
+  END IF;
+
+  -- Prefer division_code → first letter; else map from category
+  IF NEW.division_code IS NOT NULL AND btrim(NEW.division_code) <> '' THEN
+    eff_letter := upper(substring(btrim(NEW.division_code) from 1 for 1));
+  ELSE
+    eff_letter := public._cat_letter(cat_norm);
+  END IF;
+
+  IF eff_letter IS NULL THEN
+    RAISE EXCEPTION 'Cannot derive division letter (division_code=%, category=%)',
+      NEW.division_code, NEW.category;
+  END IF;
+
+  yy := lpad((NEW.season % 100)::text, 2, '0');
+  prefix := 'S' || yy || '-' || eff_letter;
+
+  -- advisory lock per (season, letter)
+  bucket_key := ascii(eff_letter);
+  IF NEW.team_code IS NULL OR NEW.team_code = '' THEN
+    PERFORM pg_advisory_xact_lock(NEW.season, bucket_key);
+
+    SELECT COALESCE(MAX((substring(team_code from '^[S][0-9]{2}-[A-Z]([0-9]{3})$'))::int), 0)
+      INTO max_num
+    FROM public.registration_meta
+    WHERE season = NEW.season
+      AND team_code ~ ('^' || prefix || '[0-9]{3}$');
+
+    NEW.team_code := prefix || lpad((max_num + 1)::text, 3, '0');
+  END IF;
+
+  IF NEW.team_code !~ ('^' || prefix || '[0-9]{3}$') THEN
+    RAISE EXCEPTION 'team_code % does not match expected pattern %### for season %',
+      NEW.team_code, prefix, NEW.season;
+  END IF;
+
+  -- Normalize team name for uniqueness constraint
+  IF NEW.team_name IS NOT NULL THEN
+    NEW.team_name_normalized := upper(replace(replace(replace(btrim(NEW.team_name), ' ', ''), '-', ''), '_', ''));
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_registration_meta_before
+BEFORE INSERT OR UPDATE ON public.registration_meta
+FOR EACH ROW EXECUTE FUNCTION public.registration_meta_normalize_and_assign();
+
+-- =========================================================
+-- ADMIN VIEWS FOR REGISTRATION APPROVAL WORKFLOW
+-- =========================================================
+
+-- View for pending registrations
+CREATE OR REPLACE VIEW public.v_pending_registrations
+WITH (security_invoker = true) AS
+SELECT 
+  id,
+  user_id,
+  season,
+  category,
+  division_code,
+  option_choice,
+  team_code,
+  team_name,
+  team_name_normalized,
+  org_name,
+  org_address,
+  team_manager_1, mobile_1, email_1,
+  team_manager_2, mobile_2, email_2,
+  team_manager_3, mobile_3, email_3,
+  status,
+  admin_notes,
+  approved_by,
+  approved_at,
+  client_tx_id,
+  event_short_ref,
+  created_at,
+  updated_at
+FROM public.registration_meta
+WHERE status = 'pending'
+ORDER BY created_at DESC;
+
+-- View for approved registrations (ready to move to team_meta)
+CREATE OR REPLACE VIEW public.v_approved_registrations
+WITH (security_invoker = true) AS
+SELECT 
+  id,
+  user_id,
+  season,
+  category,
+  division_code,
+  option_choice,
+  team_code,
+  team_name,
+  team_name_normalized,
+  org_name,
+  org_address,
+  team_manager_1, mobile_1, email_1,
+  team_manager_2, mobile_2, email_2,
+  team_manager_3, mobile_3, email_3,
+  status,
+  admin_notes,
+  approved_by,
+  approved_at,
+  client_tx_id,
+  event_short_ref,
+  created_at,
+  updated_at
+FROM public.registration_meta
+WHERE status = 'approved'
+ORDER BY approved_at DESC;
+
+-- =========================================================
+-- HELPER FUNCTIONS FOR ADMIN WORKFLOW
+-- =========================================================
+
+-- Function to approve a registration (move to team_meta)
+CREATE OR REPLACE FUNCTION public.approve_registration(reg_id uuid, admin_user_id uuid, notes text DEFAULT NULL)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  reg_record public.registration_meta%ROWTYPE;
+  new_team_id uuid;
+BEGIN
+  -- Get the registration record
+  SELECT * INTO reg_record
+  FROM public.registration_meta
+  WHERE id = reg_id AND status = 'pending';
+  
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Registration not found or not pending: %', reg_id;
+  END IF;
+  
+  -- Insert into team_meta
+  INSERT INTO public.team_meta (
+    user_id, season, category, division_code, option_choice,
+    team_code, team_name, team_name_normalized, org_name, org_address,
+    team_manager_1, mobile_1, email_1,
+    team_manager_2, mobile_2, email_2,
+    team_manager_3, mobile_3, email_3,
+    registration_id
+  ) VALUES (
+    reg_record.user_id, reg_record.season, reg_record.category, reg_record.division_code, reg_record.option_choice,
+    reg_record.team_code, reg_record.team_name, reg_record.team_name_normalized, reg_record.org_name, reg_record.org_address,
+    reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
+    reg_record.team_manager_2, reg_record.mobile_2, reg_record.email_2,
+    reg_record.team_manager_3, reg_record.mobile_3, reg_record.email_3,
+    reg_record.id
+  ) RETURNING id INTO new_team_id;
+  
+  -- Update registration status
+  UPDATE public.registration_meta
+  SET 
+    status = 'approved',
+    admin_notes = notes,
+    approved_by = admin_user_id,
+    approved_at = now()
+  WHERE id = reg_id;
+  
+  RETURN new_team_id;
+END;
+$$;
+
+-- Function to reject a registration
+CREATE OR REPLACE FUNCTION public.reject_registration(reg_id uuid, admin_user_id uuid, notes text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE public.registration_meta
+  SET 
+    status = 'rejected',
+    admin_notes = notes,
+    approved_by = admin_user_id,
+    approved_at = now()
+  WHERE id = reg_id AND status = 'pending';
+  
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Registration not found or not pending: %', reg_id;
+  END IF;
+END;
+$$;
+
+-- Add comments for documentation
+COMMENT ON TABLE public.registration_meta IS 'Registration submissions awaiting admin approval. Identical structure to team_meta for seamless data transfer.';
+COMMENT ON COLUMN public.registration_meta.status IS 'Approval status: pending, approved, rejected';
+COMMENT ON COLUMN public.registration_meta.admin_notes IS 'Admin notes for approval/rejection';
+COMMENT ON COLUMN public.registration_meta.approved_by IS 'Admin user who approved/rejected';
+COMMENT ON COLUMN public.registration_meta.approved_at IS 'When the registration was approved/rejected';
+COMMENT ON COLUMN public.registration_meta.client_tx_id IS 'Client transaction ID for idempotency';
+COMMENT ON COLUMN public.registration_meta.event_short_ref IS 'Event reference for grouping';
+
+-- =========================================================
+-- ROW LEVEL SECURITY POLICIES FOR REGISTRATION_META
+-- =========================================================
+
+-- Enable RLS
+ALTER TABLE public.registration_meta ENABLE ROW LEVEL SECURITY;
+
+-- Policy for anonymous inserts (form submissions)
+CREATE POLICY "Allow anonymous inserts" ON public.registration_meta
+    FOR INSERT 
+    TO anon 
+    WITH CHECK (true);
+
+-- Policy for authenticated users to view their own registrations
+CREATE POLICY "Users can view own registrations" ON public.registration_meta
+    FOR SELECT 
+    TO authenticated 
+    USING (auth.uid() = user_id);
+
+-- Policy for service role to do everything (Edge Functions)
+CREATE POLICY "Service role full access" ON public.registration_meta
+    FOR ALL 
+    TO service_role 
+    USING (true) 
+    WITH CHECK (true);
+
+-- Policy for admins to view all registrations
+CREATE POLICY "Admins can view all registrations" ON public.registration_meta
+    FOR SELECT 
+    TO authenticated 
+    USING (
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND auth.users.raw_user_meta_data->>'role' = 'admin'
+        )
+    );
+
+-- Policy for admins to update registrations (approve/reject)
+CREATE POLICY "Admins can update registrations" ON public.registration_meta
+    FOR UPDATE 
+    TO authenticated 
+    USING (
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND auth.users.raw_user_meta_data->>'role' = 'admin'
+        )
+    );
 
 -- FK from team_meta.registration_id -> registration_meta(id)
+-- Drop existing constraint first (if it exists)
+ALTER TABLE public.team_meta DROP CONSTRAINT IF EXISTS team_meta_registration_id_fkey;
+
+-- Add the constraint back
 alter table public.team_meta
   add constraint team_meta_registration_id_fkey
   foreign key (registration_id) references public.registration_meta(id)

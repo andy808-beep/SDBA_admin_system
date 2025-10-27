@@ -221,6 +221,9 @@ export function bindSubmit() {
 	}
 }
 
+// Export shared utilities for TN wizard
+export { EDGE_URL, getClientTxId, getEventShortRef, postJSON, saveReceipt, showConfirmation, mapError };
+
 export default bindSubmit;
 
 

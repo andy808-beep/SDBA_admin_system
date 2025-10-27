@@ -6,6 +6,7 @@
 import { TN_SELECTORS, collectCompleteTNState, validateTNState } from './tn_map.js';
 import { sb } from '../supabase_config.js';
 import { getCurrentTeamKey, setCurrentTeamKey, readTeamRows, writeTeamRows, readTeamRanks, writeTeamRanks } from './tn_practice_store.js';
+import { EDGE_URL, getClientTxId, getEventShortRef, postJSON, saveReceipt, showConfirmation, mapError } from './submit.js';
 
 /**
  * Set up debug functions for testing
@@ -16,13 +17,23 @@ function setupDebugFunctions() {
   // Create debug namespace
   window.__DBG_TN = window.__DBG_TN || {};
   
-  // Add preview function
-  window.__DBG_TN.previewStep4 = previewStep4WithSampleData;
-  window.previewStep4 = previewStep4WithSampleData;
+  // Add test functions
+  window.__DBG_TN.fillSingleTeam = fillSingleTeamForSubmission;
+  window.__DBG_TN.fillMultipleTeams = fillMultipleTeamsForSubmission;
+  window.__DBG_TN.testSubmission = testSubmissionWithCurrentData;
+  window.__DBG_TN.generateFreshTxId = generateFreshClientTxId;
+  window.fillSingleTeam = fillSingleTeamForSubmission;
+  window.fillMultipleTeams = fillMultipleTeamsForSubmission;
+  window.testSubmission = testSubmissionWithCurrentData;
+  window.generateFreshTxId = generateFreshClientTxId;
   
-  // Add clear function
+  // Add clear functions
   window.__DBG_TN.clearStep4 = clearStep4Data;
+  window.__DBG_TN.clearStep5 = clearAllData;
+  window.__DBG_TN.startFresh = startFresh;
   window.clearStep4 = clearStep4Data;
+  window.clearStep5 = clearAllData;
+  window.startFresh = startFresh;
   
   // Add team switch test function
   window.__DBG_TN.testTeamSwitch = testTeamSwitchFunction;
@@ -46,15 +57,29 @@ function setupDebugFunctions() {
   window.__DBG_TN.writeTeamRows = writeTeamRows;
   window.__DBG_TN.writeTeamRanks = writeTeamRanks;
   
+  // Add data collection functions for testing
+  window.__DBG_TN.collectContactData = collectContactData;
+  window.__DBG_TN.collectTeamData = collectTeamData;
+  window.__DBG_TN.collectManagerData = collectManagerData;
+  window.__DBG_TN.collectRaceDayData = collectRaceDayData;
+  window.__DBG_TN.collectPackageData = collectPackageData;
+  window.__DBG_TN.buildTNPracticePayload = buildTNPracticePayload;
+  window.__DBG_TN.submitTNForm = submitTNForm;
+  
+  // Also expose them directly on window for easier access
+  window.collectContactData = collectContactData;
+  window.collectTeamData = collectTeamData;
+  window.collectManagerData = collectManagerData;
+  window.collectRaceDayData = collectRaceDayData;
+  window.collectPackageData = collectPackageData;
+  window.buildTNPracticePayload = buildTNPracticePayload;
+  window.submitTNForm = submitTNForm;
+  
   console.log('🎯 Debug functions available:');
-  console.log('  - previewStep4() - Load step 4 with sample data');
-  console.log('  - clearStep4() - Clear all step 4 data');
-  console.log('  - testTeamSwitch() - Test team switching');
-  console.log('  - testCopyButton() - Test copy button functionality');
-  console.log('  - saveCurrentTeam() - Manually save current team data');
-  console.log('  - testCalendarData() - Test calendar data collection');
-  console.log('  - readTeamRows(key) - Read team practice rows');
-  console.log('  - readTeamRanks(key) - Read team slot rankings');
+  console.log('  - fillSingleTeam() - Fill form with 1 team');
+  console.log('  - fillMultipleTeams() - Fill form with 3 teams');
+  console.log('  - testSubmission() - Test submission with current data');
+  console.log('  - generateFreshTxId() - Generate fresh client_tx_id for testing');
 }
 
 // TN Wizard State
@@ -68,6 +93,22 @@ let stepper = null;
 let practiceSlots = [];
 let practiceConfig = null;
 let selectedSlots = new Set(); // Track selected slots for duplicate prevention
+
+/**
+ * Check and clean preview data if starting fresh
+ */
+function checkAndCleanPreviewData() {
+  // Check URL parameters for fresh start
+  const urlParams = new URLSearchParams(window.location.search);
+  const freshStart = urlParams.get('fresh') === 'true' || urlParams.get('clear') === 'true';
+  
+  if (freshStart) {
+    console.log('🎯 checkAndCleanPreviewData: Fresh start requested, clearing all data');
+    clearAllData();
+  } else {
+    console.log('🎯 checkAndCleanPreviewData: Continuing with existing data (use ?fresh=true to start clean)');
+  }
+}
 
 /**
  * Initialize TN Wizard
@@ -85,6 +126,9 @@ export function initTNWizard() {
     console.error('TN wizard containers not found');
     return;
   }
+  
+  // Check if we're starting fresh or continuing with existing data
+  checkAndCleanPreviewData();
   
   // Initialize debug functions globally
   setupDebugFunctions();
@@ -1179,8 +1223,10 @@ function saveTeamData() {
       sessionStorage.setItem(`tn_team_category_${i}`, categoryEl.value);
     }
     
-    if (optionEl && optionEl.value) {
-      sessionStorage.setItem(`tn_team_option_${i}`, optionEl.value);
+    // Handle radio button options
+    const optionRadios = document.querySelectorAll(`input[name="teamOption${i}"]:checked`);
+    if (optionRadios.length > 0) {
+      sessionStorage.setItem(`tn_team_option_${i}`, optionRadios[0].value);
     }
   }
 }
@@ -2950,52 +2996,350 @@ function revertSlotRankingToLastValid() {
 /**
  * Preview step 4 with sample data for testing
  */
-function previewStep4WithSampleData() {
-  console.log('🎯 previewStep4WithSampleData: Creating sample data for step 4 preview');
+/**
+ * Fill step 4 with complete practice data for all teams (for testing submission)
+ */
+
+/**
+ * Fill all steps 1-4 with complete data and go to summary (for testing submission with 1 team)
+ */
+
+/**
+ * Fill all steps with complete data for single team and go to summary
+ */
+function fillSingleTeamForSubmission() {
+  console.log('🎯 fillSingleTeamForSubmission: Creating complete data for all steps (1 team)');
   
-  // Create sample team data
-  const sampleTeamCount = 3;
-  const sampleTeamNames = ['Team Alpha', 'Team Beta', 'Team Gamma'];
-  const sampleCategories = ['Men Open', 'Ladies Open', 'Mixed Open'];
-  const sampleOptions = ['opt1', 'opt2', 'opt1'];
+  // Step 1: Set team count to 1
+  sessionStorage.setItem('tn_team_count', '1');
+  sessionStorage.setItem('tn_opt1_count', '1');
+  sessionStorage.setItem('tn_opt2_count', '0');
+  sessionStorage.setItem('tn_race_category', 'mixed_open');
+  console.log('🎯 Step 1: Set team count to 1');
   
-  // Save sample data to sessionStorage
-  sessionStorage.setItem('tn_team_count', sampleTeamCount.toString());
+  // Step 2: Fill team info and contact data
+  const uniqueTeamName = 'Test Team ' + Date.now().toString().slice(-6);
   
-  for (let i = 1; i <= sampleTeamCount; i++) {
-    sessionStorage.setItem(`tn_team_name_${i}`, sampleTeamNames[i-1]);
-    sessionStorage.setItem(`tn_team_category_${i}`, sampleCategories[i-1]);
-    sessionStorage.setItem(`tn_team_option_${i}`, sampleOptions[i-1]);
-  }
+  sessionStorage.setItem('tn_team_name_1', uniqueTeamName);
+  sessionStorage.setItem('tn_team_category_1', 'Mixed Open');
+  sessionStorage.setItem('tn_team_option_1', 'opt1');
   
-  // Create sample practice data for Team 1 using new TN store structure
-  const samplePracticeRows1 = [
-    { pref_date: '2025-01-15', duration_hours: 2, helper: 'S' },
-    { pref_date: '2025-01-17', duration_hours: 1, helper: 'T' }
+  sessionStorage.setItem('tn_org_name', 'Test Organization Single');
+  sessionStorage.setItem('tn_mailing_address', '123 Test Street, Test City, TC 12345');
+  
+  // Fill manager data
+  sessionStorage.setItem('tn_manager1_name', 'John Doe');
+  sessionStorage.setItem('tn_manager1_phone', '1234567890');
+  sessionStorage.setItem('tn_manager1_email', 'john@test.com');
+  sessionStorage.setItem('tn_manager2_name', 'Jane Smith');
+  sessionStorage.setItem('tn_manager2_phone', '0987654321');
+  sessionStorage.setItem('tn_manager2_email', 'jane@test.com');
+  console.log('🎯 Step 2: Team info, contact data, and managers filled');
+  
+  // Step 3: Fill race day data
+  const raceDayData = {
+    marqueeQty: 1,
+    steerWithQty: 1,
+    steerWithoutQty: 0,
+    junkBoatQty: 0,
+    junkBoatNo: '',
+    speedboatQty: 1,
+    speedBoatNo: 'SB001'
+  };
+  sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
+  console.log('🎯 Step 3: Race day data filled');
+  
+  // Step 4: Fill practice data for team 1 (only weekdays after 10/27/2025)
+  const practiceRows = [
+    { pref_date: '2025-10-29', duration_hours: 2, helper: 'S' }, // Wednesday
+    { pref_date: '2025-11-05', duration_hours: 1, helper: 'T' }, // Wednesday
+    { pref_date: '2025-11-12', duration_hours: 3, helper: 'S' }  // Wednesday
   ];
   
-  const sampleSlotRanks1 = [
+  const slotRanks = [
     { rank: 1, slot_code: 'SAT2_0800_1000' },
     { rank: 2, slot_code: 'SAT2_1000_1200' },
-    { rank: 3, slot_code: 'SAT2_1215_1415' }
+    { rank: 3, slot_code: 'SAT2_1215_1415' },
+    { rank: 4, slot_code: 'SAT2_1415_1615' },
+    { rank: 5, slot_code: 'SUN2_0800_1000' },
+    { rank: 6, slot_code: 'SUN2_1000_1200' }
   ];
   
-  // Save sample practice data using TN store
-  writeTeamRows('t1', samplePracticeRows1);
-  writeTeamRanks('t1', sampleSlotRanks1);
+  // Fill practice data for team 1
+  writeTeamRows('t1', practiceRows);
+  writeTeamRanks('t1', slotRanks);
+  console.log('🎯 Step 4: Practice data filled for team 1');
   
-  // Clear Team 2 data to test empty state
-  writeTeamRows('t2', []);
-  writeTeamRanks('t2', []);
+  // Navigate to step 5 (summary)
+  loadStep(5);
   
-  // Navigate to step 4
-  loadStep(4);
-  
-  console.log('🎯 previewStep4WithSampleData: Sample data created and step 4 loaded');
+  console.log('🎯 fillSingleTeamForSubmission: Complete data created for all steps');
+  console.log('🎯 Ready for submission testing with 1 team!');
   console.log('🎯 Available debug functions:');
-  console.log('  - window.__DBG_TN.previewStep4() - Load step 4 with sample data');
-  console.log('  - window.__DBG_TN.clearStep4() - Clear all step 4 data');
-  console.log('  - window.__DBG_TN.testTeamSwitch() - Test team switching');
+  console.log('  - window.__DBG_TN.fillSingleTeam() - Fill all steps with single team');
+  console.log('  - window.__DBG_TN.clearStep5() - Clear all data');
+  console.log('  - window.submitTNForm() - Submit the form');
+}
+
+/**
+ * Fill all steps with complete data for multiple teams (3 teams)
+ */
+function fillMultipleTeamsForSubmission() {
+  console.log('🎯 fillMultipleTeamsForSubmission: Creating complete data for all steps (3 teams)');
+  
+  // Step 1: Set team count to 3
+  sessionStorage.setItem('tn_team_count', '3');
+  sessionStorage.setItem('tn_opt1_count', '2');
+  sessionStorage.setItem('tn_opt2_count', '1');
+  sessionStorage.setItem('tn_race_category', 'mixed_open');
+  console.log('🎯 Step 1: Set team count to 3 (2 opt1, 1 opt2)');
+  
+  // Step 2: Fill team info and contact data
+  const uniqueTeamName1 = 'Test Team ' + Date.now().toString().slice(-6) + '_1';
+  const uniqueTeamName2 = 'Test Team ' + Date.now().toString().slice(-6) + '_2';
+  const uniqueTeamName3 = 'Test Team ' + Date.now().toString().slice(-6) + '_3';
+  
+  sessionStorage.setItem('tn_team_name_1', uniqueTeamName1);
+  sessionStorage.setItem('tn_team_category_1', 'Mixed Open');
+  sessionStorage.setItem('tn_team_option_1', 'opt1');
+  
+  sessionStorage.setItem('tn_team_name_2', uniqueTeamName2);
+  sessionStorage.setItem('tn_team_category_2', 'Mixed Open');
+  sessionStorage.setItem('tn_team_option_2', 'opt1');
+  
+  sessionStorage.setItem('tn_team_name_3', uniqueTeamName3);
+  sessionStorage.setItem('tn_team_category_3', 'Mixed Open');
+  sessionStorage.setItem('tn_team_option_3', 'opt2');
+  
+  sessionStorage.setItem('tn_org_name', 'Test Organization Multi');
+  sessionStorage.setItem('tn_mailing_address', '123 Test Street, Test City, TC 12345');
+  
+  // Fill manager data
+  sessionStorage.setItem('tn_manager1_name', 'John Doe');
+  sessionStorage.setItem('tn_manager1_phone', '1234567890');
+  sessionStorage.setItem('tn_manager1_email', 'john@test.com');
+  sessionStorage.setItem('tn_manager2_name', 'Jane Smith');
+  sessionStorage.setItem('tn_manager2_phone', '0987654321');
+  sessionStorage.setItem('tn_manager2_email', 'jane@test.com');
+  console.log('🎯 Step 2: Team info, contact data, and managers filled');
+  
+  // Step 3: Fill race day data
+  const raceDayData = {
+    marqueeQty: 1,
+    steerWithQty: 2,
+    steerWithoutQty: 1,
+    junkBoatQty: 0,
+    junkBoatNo: '',
+    speedboatQty: 1,
+    speedBoatNo: 'SB001'
+  };
+  sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
+  console.log('🎯 Step 3: Race day data filled');
+  
+  // Step 4: Fill practice data for all teams (only weekdays after 10/27/2025)
+  const practiceRows = [
+    { pref_date: '2025-10-29', duration_hours: 2, helper: 'S' }, // Wednesday
+    { pref_date: '2025-11-05', duration_hours: 1, helper: 'T' }, // Wednesday
+    { pref_date: '2025-11-12', duration_hours: 3, helper: 'S' }, // Wednesday
+    { pref_date: '2025-11-19', duration_hours: 2, helper: 'T' }, // Wednesday
+    { pref_date: '2025-11-26', duration_hours: 1, helper: 'S' }  // Wednesday
+  ];
+  
+  const slotRanks = [
+    { rank: 1, slot_code: 'SAT2_0800_1000' },
+    { rank: 2, slot_code: 'SAT2_1000_1200' },
+    { rank: 3, slot_code: 'SAT2_1215_1415' },
+    { rank: 4, slot_code: 'SAT2_1415_1615' },
+    { rank: 5, slot_code: 'SUN2_0800_1000' },
+    { rank: 6, slot_code: 'SUN2_1000_1200' }
+  ];
+  
+  // Fill practice data for all 3 teams
+  writeTeamRows('t1', practiceRows);
+  writeTeamRanks('t1', slotRanks);
+  writeTeamRows('t2', practiceRows);
+  writeTeamRanks('t2', slotRanks);
+  writeTeamRows('t3', practiceRows);
+  writeTeamRanks('t3', slotRanks);
+  console.log('🎯 Step 4: Practice data filled for all 3 teams');
+  
+  // Navigate to step 5 (summary)
+  loadStep(5);
+  
+  console.log('🎯 fillMultipleTeamsForSubmission: Complete data created for all steps');
+  console.log('🎯 Ready for submission testing with 3 teams!');
+  console.log('🎯 Available debug functions:');
+  console.log('  - window.__DBG_TN.fillMultipleTeams() - Fill all steps with multiple teams');
+  console.log('  - window.__DBG_TN.clearStep5() - Clear all data');
+  console.log('  - window.submitTNForm() - Submit the form');
+}
+
+/**
+ * Test submission with current form data (for debugging)
+ */
+async function testSubmissionWithCurrentData() {
+  console.log('🎯 testSubmissionWithCurrentData: Testing submission with current form data');
+  
+  // Get the Supabase key for direct fetch
+  const supabaseKey = window.ENV?.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY';
+  
+  try {
+    // Collect data exactly like the form does
+    const contact = collectContactData();
+    const teams = collectTeamData();
+    const managers = collectManagerData();
+    const raceDay = collectRaceDayData();
+    const practice = buildTNPracticePayload();
+    
+    const raceCategory = sessionStorage.getItem('tn_race_category') || 'mixed_open';
+    const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+    const opt1Count = parseInt(sessionStorage.getItem('tn_opt1_count'), 10) || 0;
+    const opt2Count = parseInt(sessionStorage.getItem('tn_opt2_count'), 10) || 0;
+    
+    // Generate unique team names to avoid duplicate key errors
+    const uniqueTeamNames = teams.map((t, idx) => 
+      t.name.startsWith('Test Team') ? `Test Team ${Date.now()}_${idx}` : t.name
+    );
+    
+    console.log('🎯 Generated unique team names:', uniqueTeamNames);
+    
+        const payload = {
+          client_tx_id: 'test_debug_' + Date.now(),
+          eventShortRef: 'TN2025',
+      category: raceCategory,
+      season: 2025,
+      org_name: contact.name,
+      org_address: contact.address,
+      counts: {
+        num_teams: teamCount,
+        num_teams_opt1: opt1Count,
+        num_teams_opt2: opt2Count
+      },
+      team_names: uniqueTeamNames,
+      team_options: teams.map(t => t.option),
+      managers: managers,
+      race_day: raceDay.length > 0 ? {
+        marqueeQty: raceDay.find(r => r.code === 'marquee')?.qty || 0,
+        steerWithQty: raceDay.find(r => r.code === 'steer_with')?.qty || 0,
+        steerWithoutQty: raceDay.find(r => r.code === 'steer_without')?.qty || 0,
+        junkBoatQty: raceDay.find(r => r.code === 'junk_boat')?.qty || 0,
+        junkBoatNo: raceDay.find(r => r.code === 'junk_boat')?.boat_no || '',
+        speedboatQty: raceDay.find(r => r.code === 'speed_boat')?.qty || 0,
+        speedBoatNo: raceDay.find(r => r.code === 'speed_boat')?.boat_no || ''
+      } : null,
+      practice: practice
+    };
+    
+    console.log('🎯 testSubmissionWithCurrentData: Payload:', JSON.stringify(payload, null, 2));
+    
+    // Debug practice data collection
+    console.log('🎯 Debug practice data:');
+    console.log('  - practice object:', practice);
+    console.log('  - team count from state:', window.state?.teams?.length);
+    console.log('  - team count from sessionStorage:', sessionStorage.getItem('tn_team_count'));
+    console.log('  - readTeamRows function:', typeof readTeamRows);
+    console.log('  - readTeamRanks function:', typeof readTeamRanks);
+    
+    // Check what's in sessionStorage for practice data
+    const practiceKeys = Object.keys(sessionStorage).filter(key => key.startsWith('tn_practice_') || key.startsWith('tn_slot_ranks_'));
+    console.log('  - practice keys in sessionStorage:', practiceKeys);
+    practiceKeys.forEach(key => {
+      console.log(`  - ${key}:`, sessionStorage.getItem(key));
+    });
+    
+    // Test the Edge Function
+    try {
+      const { data, error } = await sb.functions.invoke('submit_registration', {
+        body: payload
+      });
+      
+        if (error) {
+          console.error('❌ testSubmissionWithCurrentData: Edge Function error:', error);
+          console.error('❌ Error message:', error.message);
+          console.error('❌ Error context:', error.context);
+          
+          // Make a direct fetch to get the actual error details
+          try {
+            const response = await fetch('https://khqarcvszewerjckmtpg.supabase.co/functions/v1/submit_registration', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseKey}`,
+                'apikey': supabaseKey
+              },
+              body: JSON.stringify(payload)
+            });
+            
+            const responseText = await response.text();
+            console.error('❌ Direct fetch response status:', response.status);
+            console.error('❌ Direct fetch response body:', responseText);
+            
+            // Try to parse as JSON
+            try {
+              const errorData = JSON.parse(responseText);
+              console.error('❌ Parsed error data:', errorData);
+            } catch (parseError) {
+              console.error('❌ Error response is not valid JSON');
+            }
+          } catch (fetchError) {
+            console.error('❌ Direct fetch failed:', fetchError);
+          }
+        } else {
+          console.log('✅ testSubmissionWithCurrentData: Success!', data);
+        }
+      } catch (e) {
+        console.error('❌ testSubmissionWithCurrentData: Exception during invoke:', e);
+        
+        // Try to make a direct fetch to get more details
+        try {
+          const response = await fetch('https://khqarcvszewerjckmtpg.supabase.co/functions/v1/submit_registration', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseKey}`,
+              'apikey': supabaseKey
+            },
+            body: JSON.stringify(payload)
+          });
+          
+          const responseText = await response.text();
+          console.error('❌ Direct fetch response status:', response.status);
+          console.error('❌ Direct fetch response body:', responseText);
+          
+          // Try to parse as JSON
+          try {
+            const errorData = JSON.parse(responseText);
+            console.error('❌ Parsed error data:', errorData);
+          } catch (parseError) {
+            console.error('❌ Error response is not valid JSON');
+          }
+        } catch (fetchError) {
+          console.error('❌ Direct fetch failed:', fetchError);
+        }
+      }
+    
+  } catch (e) {
+    console.error('❌ testSubmissionWithCurrentData: Exception:', e);
+  }
+}
+
+/**
+ * Generate fresh client_tx_id for testing
+ */
+function generateFreshClientTxId() {
+  console.log('🔄 generateFreshClientTxId: Generating fresh client_tx_id');
+  
+  // Generate a new UUID
+  const newId = (self.crypto?.randomUUID && self.crypto.randomUUID()) || 
+                String(Date.now()) + Math.random().toString(16).slice(2);
+  
+  // Store it in localStorage
+  localStorage.setItem('raceApp:client_tx_id', newId);
+  
+  console.log('✅ Fresh client_tx_id generated:', newId);
+  console.log('✅ Stored in localStorage: raceApp:client_tx_id');
+  
+  return newId;
 }
 
 /**
@@ -3030,6 +3374,127 @@ function clearStep4Data() {
   
   console.log('🎯 clearStep4: All step 4 data cleared');
 };
+
+/**
+ * Clear all application data
+ */
+function clearAllData() {
+  console.log('🎯 clearAllData: Clearing all application data');
+  
+  // Clear all sessionStorage keys that start with 'tn_'
+  const keys = Object.keys(sessionStorage);
+  keys.forEach(key => {
+    if (key.startsWith('tn_')) {
+      sessionStorage.removeItem(key);
+    }
+  });
+  
+  console.log('🎯 clearAllData: All application data cleared');
+}
+
+/**
+ * Start fresh - clear all data and reload step 1
+ */
+function startFresh() {
+  console.log('🎯 startFresh: Starting fresh form');
+  clearAllData();
+  loadStep(1);
+  console.log('🎯 startFresh: Form reset to step 1');
+}
+
+/**
+ * Preview Step 5 with comprehensive sample data
+ */
+function previewStep5WithSampleData() {
+  console.log('🎯 previewStep5WithSampleData: Creating comprehensive sample data for step 5 preview');
+  
+  // 1. Basic organization info
+  sessionStorage.setItem('tn_org_name', 'Hong Kong Dragon Boat Association');
+  sessionStorage.setItem('tn_org_address', '123 Victoria Road, Central, Hong Kong');
+  sessionStorage.setItem('tn_category', 'mixed_corporate');
+  sessionStorage.setItem('tn_season', '2025');
+  
+  // 2. Team data (3 teams) - using division codes from database
+  const sampleTeams = [
+    { name: 'Thunder Dragons', category: 'C', option: 'Option I' }, // Mixed Division (Corporate)
+    { name: 'Lightning Bolts', category: 'M', option: 'Option II' }, // Open Division (Men)
+    { name: 'Storm Riders', category: 'L', option: 'Option I' } // Open Division (Ladies)
+  ];
+  
+  sampleTeams.forEach((team, index) => {
+    const i = index + 1;
+    sessionStorage.setItem(`tn_team_name_${i}`, team.name);
+    sessionStorage.setItem(`tn_team_category_${i}`, team.category);
+    sessionStorage.setItem(`tn_team_option_${i}`, team.option);
+    
+    // Team managers
+    sessionStorage.setItem(`tn_manager_1_${i}`, `Manager ${i}A`);
+    sessionStorage.setItem(`tn_mobile_1_${i}`, `+852-1234-${String(i).padStart(4, '0')}`);
+    sessionStorage.setItem(`tn_email_1_${i}`, `manager${i}a@example.com`);
+    
+    if (i <= 2) { // Only first 2 teams have second manager
+      sessionStorage.setItem(`tn_manager_2_${i}`, `Manager ${i}B`);
+      sessionStorage.setItem(`tn_mobile_2_${i}`, `+852-5678-${String(i).padStart(4, '0')}`);
+      sessionStorage.setItem(`tn_email_2_${i}`, `manager${i}b@example.com`);
+    }
+  });
+  
+  // 3. Race day arrangements
+  sessionStorage.setItem('tn_marquee_qty', '3');
+  sessionStorage.setItem('tn_steer_with', '2');
+  sessionStorage.setItem('tn_steer_without', '1');
+  sessionStorage.setItem('tn_junk_boat', 'JUNK-001 / 1');
+  sessionStorage.setItem('tn_speed_boat', 'SPEED-002 / 1');
+  
+  // 4. Practice booking data using TN store
+  const { writeTeamRows, writeTeamRanks } = window.__DBG_TN || {};
+  
+  if (writeTeamRows && writeTeamRanks) {
+    // Team 1 practice data
+    const team1Practice = [
+      { pref_date: '2025-01-15', duration_hours: 2, helper: 'S' },
+      { pref_date: '2025-01-17', duration_hours: 1, helper: 'T' },
+      { pref_date: '2025-01-20', duration_hours: 2, helper: 'ST' }
+    ];
+    const team1Ranks = [
+      { rank: 1, slot_code: 'SAT2_0800_1000' },
+      { rank: 2, slot_code: 'SAT2_1000_1200' },
+      { rank: 3, slot_code: 'SUN2_0900_1100' }
+    ];
+    writeTeamRows('t1', team1Practice);
+    writeTeamRanks('t1', team1Ranks);
+    
+    // Team 2 practice data
+    const team2Practice = [
+      { pref_date: '2025-01-16', duration_hours: 2, helper: 'ST' },
+      { pref_date: '2025-01-19', duration_hours: 1, helper: 'S' }
+    ];
+    const team2Ranks = [
+      { rank: 1, slot_code: 'SUN2_1100_1300' },
+      { rank: 2, slot_code: 'SAT2_1215_1415' }
+    ];
+    writeTeamRows('t2', team2Practice);
+    writeTeamRanks('t2', team2Ranks);
+    
+    // Team 3 practice data (minimal)
+    const team3Practice = [
+      { pref_date: '2025-01-18', duration_hours: 2, helper: 'T' }
+    ];
+    const team3Ranks = [
+      { rank: 1, slot_code: 'SUN2_1315_1515' }
+    ];
+    writeTeamRows('t3', team3Practice);
+    writeTeamRanks('t3', team3Ranks);
+  }
+  
+  // 5. Navigate to step 5
+  loadStep(5);
+  
+  console.log('🎯 previewStep5WithSampleData: Sample data created and step 5 loaded');
+  console.log('🎯 Available debug functions:');
+  console.log('  - window.__DBG_TN.previewStep5() - Load step 5 with sample data');
+  console.log('  - window.__DBG_TN.clearStep5() - Clear all step 5 data');
+}
 
 /**
  * Test team switching functionality
@@ -3459,7 +3924,7 @@ function updateSlotPreferencesForTeam(teamIndex) {
   
   // 1) Ensure options exist (in case switching teams before init)
   if (typeof populateSlotPreferences === 'function') {
-    populateSlotPreferences();
+  populateSlotPreferences();
   }
 
   // 2) Clear all rank selects before populating (prevents bleed from previous team)
@@ -3647,9 +4112,11 @@ function initStep5() {
  * Load summary data from sessionStorage
  */
 function loadSummaryData() {
+  console.log('🎯 loadSummaryData: Starting summary data load');
   // Load basic info
   const orgName = sessionStorage.getItem('tn_org_name');
-  const category = sessionStorage.getItem('tn_category');
+  const orgAddress = sessionStorage.getItem('tn_org_address');
+  const season = sessionStorage.getItem('tn_season');
   
   // Update summary elements
   const sumOrg = document.getElementById('sumOrg');
@@ -3657,48 +4124,194 @@ function loadSummaryData() {
     sumOrg.textContent = orgName;
   }
   
-  const sumCategory = document.getElementById('sumCategory');
-  if (sumCategory && category) {
-    sumCategory.textContent = category;
+  const sumAddress = document.getElementById('sumAddress');
+  if (sumAddress && orgAddress) {
+    sumAddress.textContent = orgAddress;
+  }
+  
+  const sumSeason = document.getElementById('sumSeason');
+  if (sumSeason && season) {
+    sumSeason.textContent = season;
   }
   
   // Load team data
+  console.log('🎯 loadSummaryData: Calling loadTeamSummary');
   loadTeamSummary();
   
+  // Load team managers
+  console.log('🎯 loadSummaryData: Calling loadManagersSummary');
+  loadManagersSummary();
+  
   // Load race day data
+  console.log('🎯 loadSummaryData: Calling loadRaceDaySummary');
   loadRaceDaySummary();
   
   // Load practice data
+  console.log('🎯 loadSummaryData: Calling loadPracticeSummary');
   loadPracticeSummary();
+  
+  console.log('🎯 loadSummaryData: All summary functions called');
+}
+
+/**
+ * Get category display name from loaded division configuration
+ */
+function getCategoryDisplayName(categoryCode) {
+  // Try to get from loaded configuration first
+  if (window.__CONFIG && window.__CONFIG.divisions) {
+    const division = window.__CONFIG.divisions.find(d => d.division_code === categoryCode);
+    if (division && division.name_en) {
+      return division.name_en;
+    }
+  }
+  
+  // Fallback mapping if configuration not loaded
+  const fallbackMap = {
+    'mixed_corporate': 'Mixed Division (Corporate)',
+    'men_open': 'Open Division (Men)', 
+    'ladies_open': 'Open Division (Ladies)',
+    'mixed_open': 'Mixed Division (Open)'
+  };
+  
+  return fallbackMap[categoryCode] || categoryCode;
+}
+
+/**
+ * Get option display name from loaded package configuration
+ */
+function getOptionDisplayName(optionCode) {
+  // Try to get from loaded configuration first
+  if (window.__CONFIG && window.__CONFIG.packages) {
+    const package_ = window.__CONFIG.packages.find(p => p.package_code === optionCode);
+    if (package_ && package_.title_en) {
+      return package_.title_en;
+    }
+  }
+  
+  // Fallback mapping if configuration not loaded
+  const fallbackMap = {
+    'option_1_non_corp': 'Option I',
+    'option_1_corp': 'Option I',
+    'option_2_non_corp': 'Option II',
+    'option_2_corp': 'Option II'
+  };
+  
+  return fallbackMap[optionCode] || optionCode;
 }
 
 /**
  * Load team summary data
  */
 function loadTeamSummary() {
+  console.log('🎯 loadTeamSummary: Starting');
   const teamsTbody = document.getElementById('teamsTbody');
-  if (!teamsTbody) return;
+  if (!teamsTbody) {
+    console.warn('🎯 loadTeamSummary: teamsTbody element not found');
+    return;
+  }
+  console.log('🎯 loadTeamSummary: teamsTbody found');
   
-  const teamNames = [];
+  const teams = [];
   for (let i = 1; i <= 10; i++) {
     const name = sessionStorage.getItem(`tn_team_name_${i}`);
+    const category = sessionStorage.getItem(`tn_team_category_${i}`);
+    const option = sessionStorage.getItem(`tn_team_option_${i}`);
+    
     if (name) {
-      teamNames.push(name);
+      teams.push({
+        name: name,
+        category: category || '—',
+        option: option || 'Standard'
+      });
     }
   }
   
-  if (teamNames.length === 0) {
+  if (teams.length === 0) {
     teamsTbody.innerHTML = '<tr><td colspan="3" class="muted">No teams</td></tr>';
   } else {
     teamsTbody.innerHTML = '';
-    teamNames.forEach((name, index) => {
+    teams.forEach((team, index) => {
+      const row = document.createElement('tr');
+        // Format category for display using loaded division configuration
+        const categoryDisplay = getCategoryDisplayName(team.category);
+        
+        // Get proper option display name
+        const optionDisplay = getOptionDisplayName(team.option);
+        
+      row.innerHTML = `
+        <td>${index + 1}</td>
+          <td>${team.name} <span style="color: #666; font-size: 0.9em;">(${categoryDisplay})</span></td>
+          <td>${optionDisplay}</td>
+      `;
+      teamsTbody.appendChild(row);
+    });
+  }
+}
+
+/**
+ * Load team managers summary data
+ */
+function loadManagersSummary() {
+  console.log('🎯 loadManagersSummary: Starting');
+  const managersTbody = document.getElementById('managersTbody');
+  if (!managersTbody) {
+    console.warn('🎯 loadManagersSummary: managersTbody element not found');
+    return;
+  }
+  console.log('🎯 loadManagersSummary: managersTbody found');
+  
+  const managers = [];
+  
+  // Load organization-level managers (from step 2)
+  const manager1Name = sessionStorage.getItem('tn_manager1_name');
+  const manager1Phone = sessionStorage.getItem('tn_manager1_phone');
+  const manager1Email = sessionStorage.getItem('tn_manager1_email');
+  
+  if (manager1Name) {
+    managers.push({
+      name: manager1Name,
+      mobile: manager1Phone || '—',
+      email: manager1Email || '—'
+    });
+  }
+  
+  const manager2Name = sessionStorage.getItem('tn_manager2_name');
+  const manager2Phone = sessionStorage.getItem('tn_manager2_phone');
+  const manager2Email = sessionStorage.getItem('tn_manager2_email');
+  
+  if (manager2Name) {
+    managers.push({
+      name: manager2Name,
+      mobile: manager2Phone || '—',
+      email: manager2Email || '—'
+    });
+  }
+  
+  const manager3Name = sessionStorage.getItem('tn_manager3_name');
+  const manager3Phone = sessionStorage.getItem('tn_manager3_phone');
+  const manager3Email = sessionStorage.getItem('tn_manager3_email');
+  
+  if (manager3Name) {
+    managers.push({
+      name: manager3Name,
+      mobile: manager3Phone || '—',
+      email: manager3Email || '—'
+    });
+  }
+  
+  if (managers.length === 0) {
+    managersTbody.innerHTML = '<tr><td colspan="4" class="muted">No manager information</td></tr>';
+  } else {
+    managersTbody.innerHTML = '';
+    managers.forEach((manager, index) => {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${index + 1}</td>
-        <td>${name}</td>
-        <td>Option 1</td>
+        <td>${manager.name}</td>
+        <td>${manager.mobile}</td>
+        <td>${manager.email}</td>
       `;
-      teamsTbody.appendChild(row);
+      managersTbody.appendChild(row);
     });
   }
 }
@@ -3707,10 +4320,29 @@ function loadTeamSummary() {
  * Load race day summary data
  */
 function loadRaceDaySummary() {
-  // This would load race day arrangement data
-  // For now, show placeholder
-  const raceDayGrid = document.getElementById('raceDayGrid');
-  if (raceDayGrid) {
+  console.log('🎯 loadRaceDaySummary: Starting');
+  // Load race day arrangement data from sessionStorage JSON
+  const raceDayDataStr = sessionStorage.getItem('tn_race_day');
+  let raceDayData = {};
+  
+  if (raceDayDataStr) {
+    try {
+      raceDayData = JSON.parse(raceDayDataStr);
+      console.log('🎯 loadRaceDaySummary: Race day data loaded:', raceDayData);
+    } catch (e) {
+      console.warn('Failed to parse race day data:', e);
+    }
+  } else {
+    console.warn('🎯 loadRaceDaySummary: No race day data found in sessionStorage');
+  }
+  
+  // Map the data to display values (using actual input IDs from template)
+  const marqueeQty = raceDayData.marqueeQty || 0;
+  const steerWith = raceDayData.steerWithQty || 0;
+  const steerWithout = raceDayData.steerWithoutQty || 0;
+  const junkBoat = raceDayData.junkBoatQty ? `${raceDayData.junkBoatQty} units` : '—';
+  const speedBoat = raceDayData.speedboatQty ? `${raceDayData.speedboatQty} units` : '—';
+  
     // Update race day summary elements
     const sumMarquee = document.getElementById('sumMarquee');
     const sumSteerWith = document.getElementById('sumSteerWith');
@@ -3718,22 +4350,98 @@ function loadRaceDaySummary() {
     const sumJunk = document.getElementById('sumJunk');
     const sumSpeed = document.getElementById('sumSpeed');
     
-    if (sumMarquee) sumMarquee.textContent = '0';
-    if (sumSteerWith) sumSteerWith.textContent = '0';
-    if (sumSteerWithout) sumSteerWithout.textContent = '0';
-    if (sumJunk) sumJunk.textContent = '—';
-    if (sumSpeed) sumSpeed.textContent = '—';
-  }
+  console.log('🎯 loadRaceDaySummary: Display values:', {
+    marqueeQty, steerWith, steerWithout, junkBoat, speedBoat
+  });
+  
+  if (sumMarquee) sumMarquee.textContent = marqueeQty;
+  if (sumSteerWith) sumSteerWith.textContent = steerWith;
+  if (sumSteerWithout) sumSteerWithout.textContent = steerWithout;
+  if (sumJunk) sumJunk.textContent = junkBoat;
+  if (sumSpeed) sumSpeed.textContent = speedBoat;
+  
+  console.log('🎯 loadRaceDaySummary: Summary elements updated');
 }
 
 /**
  * Load practice summary data
  */
 function loadPracticeSummary() {
+  console.log('🎯 loadPracticeSummary: Starting');
   const perTeamPracticeSummary = document.getElementById('perTeamPracticeSummary');
-  if (perTeamPracticeSummary) {
-    perTeamPracticeSummary.innerHTML = '<p class="muted">Practice booking data will be displayed here</p>';
+  if (!perTeamPracticeSummary) {
+    console.warn('🎯 loadPracticeSummary: perTeamPracticeSummary element not found');
+    return;
   }
+  console.log('🎯 loadPracticeSummary: perTeamPracticeSummary found');
+  
+  // Import the store functions
+  const { readTeamRows, readTeamRanks } = window.__DBG_TN || {};
+  
+  if (!readTeamRows || !readTeamRanks) {
+    perTeamPracticeSummary.innerHTML = '<p class="muted">Practice booking data unavailable</p>';
+    return;
+  }
+  
+  const practiceData = [];
+  
+  // Get practice data for each team
+  for (let i = 1; i <= 10; i++) {
+    const teamName = sessionStorage.getItem(`tn_team_name_${i}`);
+    if (!teamName) continue;
+    
+    const teamKey = `t${i}`;
+    const practiceRows = readTeamRows(teamKey) || [];
+    const slotRanks = readTeamRanks(teamKey) || [];
+    
+    if (practiceRows.length > 0 || slotRanks.length > 0) {
+      practiceData.push({
+        teamName: teamName,
+        teamKey: teamKey,
+        practiceRows: practiceRows,
+        slotRanks: slotRanks
+      });
+    }
+  }
+  
+  if (practiceData.length === 0) {
+    perTeamPracticeSummary.innerHTML = '<p class="muted">No practice booking data</p>';
+    return;
+  }
+  
+  // Generate HTML for each team's practice data
+  let html = '';
+  practiceData.forEach(team => {
+    html += `<div class="team-practice-section" style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 6px;">`;
+    html += `<h4 style="margin: 0 0 0.5rem 0; color: #0f6ec7;">${team.teamName}</h4>`;
+    
+    // Practice dates
+    if (team.practiceRows.length > 0) {
+      html += `<div style="margin-bottom: 0.5rem;">`;
+      html += `<strong>Practice Dates:</strong><br>`;
+      team.practiceRows.forEach(row => {
+        const date = new Date(row.pref_date).toLocaleDateString();
+        const duration = row.duration_hours;
+        const helper = row.helper;
+        html += `<span style="margin-right: 1rem;">• ${date} (${duration}h, ${helper})</span>`;
+      });
+      html += `</div>`;
+    }
+    
+    // Slot preferences
+    if (team.slotRanks.length > 0) {
+      html += `<div>`;
+      html += `<strong>Slot Preferences:</strong><br>`;
+      team.slotRanks.forEach(rank => {
+        html += `<span style="margin-right: 1rem;">${rank.rank}. ${rank.slot_code}</span>`;
+      });
+      html += `</div>`;
+    }
+    
+    html += `</div>`;
+  });
+  
+  perTeamPracticeSummary.innerHTML = html;
 }
 
 /**
@@ -4211,42 +4919,327 @@ function collectAllTeamPracticeData() {
   return allPracticeData;
 }
 
+// Build TN practice payload in server-expected shape: { teams: [{ team_key, dates[], slot_ranks[] }] }
+function buildTNPracticePayload() {
+  const teams = [];
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  for (let i = 0; i < teamCount; i++) {
+    const team_key = `t${i+1}`;
+    const rows  = (typeof readTeamRows==='function' ? readTeamRows(team_key) : []) || [];
+    const ranks = (typeof readTeamRanks==='function' ? readTeamRanks(team_key) : []) || [];
+    teams.push({
+      team_key,
+      dates: rows.map(r => ({
+        pref_date: r.pref_date,
+        duration_hours: Number(r.duration_hours)||1,
+        helper: r.helper || 'NONE'
+      })),
+      slot_ranks: ranks.map(r => ({
+        rank: Number(r.rank),
+        slot_code: r.slot_code
+      }))
+    });
+  }
+  return { teams };
+}
+
+// TN-specific data collection functions
+function collectContactData() {
+  // Get organization name from form or sessionStorage
+  const orgName = document.querySelector('#orgName')?.value?.trim() || 
+                  sessionStorage.getItem('tn_org_name') || '';
+  const mailingAddress = document.querySelector('#mailingAddress')?.value?.trim() || 
+                        sessionStorage.getItem('tn_mailing_address') || '';
+  
+  return {
+    name: orgName,
+    email: '', // No separate contact email field in TN form
+    phone: '', // No separate contact phone field in TN form
+    address: mailingAddress
+  };
+}
+
+function collectTeamData() {
+  const teams = [];
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  
+  for (let i = 0; i < teamCount; i++) {
+    const teamName = sessionStorage.getItem(`tn_team_name_${i+1}`);
+    const teamCategory = sessionStorage.getItem(`tn_team_category_${i+1}`);
+    const teamOption = sessionStorage.getItem(`tn_team_option_${i+1}`);
+    
+    if (teamName) {
+      teams.push({
+        name: teamName,
+        category: teamCategory,
+        option: teamOption,
+        index: i
+      });
+    }
+  }
+  
+  return teams;
+}
+
+function collectRaceDayData() {
+  // TN form stores race day data as 'tn_race_day', not 'race_day_arrangement'
+  const raceDayData = JSON.parse(sessionStorage.getItem('tn_race_day') || '{}');
+  
+  const items = [];
+  if (raceDayData.marqueeQty > 0) {
+    items.push({ code: 'marquee', qty: raceDayData.marqueeQty });
+  }
+  if (raceDayData.steerWithQty > 0) {
+    items.push({ code: 'steer_with', qty: raceDayData.steerWithQty });
+  }
+  if (raceDayData.steerWithoutQty > 0) {
+    items.push({ code: 'steer_without', qty: raceDayData.steerWithoutQty });
+  }
+  if (raceDayData.junkBoatQty > 0) {
+    items.push({ 
+      code: 'junk_boat', 
+      qty: raceDayData.junkBoatQty,
+      boat_no: raceDayData.junkBoatNo 
+    });
+  }
+  if (raceDayData.speedboatQty > 0) {
+    items.push({ 
+      code: 'speed_boat', 
+      qty: raceDayData.speedboatQty,
+      boat_no: raceDayData.speedBoatNo 
+    });
+  }
+  
+  return items;
+}
+
+function collectPackageData() {
+  const packages = [];
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  
+  for (let i = 0; i < teamCount; i++) {
+    const teamOption = sessionStorage.getItem(`tn_team_option_${i+1}`);
+    if (teamOption) {
+      packages.push({ 
+        package_id: teamOption === 'opt1' ? 'option_1' : 'option_2', 
+        qty: 1 
+      });
+    }
+  }
+  
+  return packages;
+}
+
+function collectManagerData() {
+  const managers = [];
+  
+  // Manager 1 (required)
+  const manager1Name = sessionStorage.getItem('tn_manager1_name');
+  const manager1Phone = sessionStorage.getItem('tn_manager1_phone');
+  const manager1Email = sessionStorage.getItem('tn_manager1_email');
+  
+  if (manager1Name) {
+    managers.push({
+      name: manager1Name,
+      mobile: manager1Phone || '',
+      email: manager1Email || ''
+    });
+  }
+  
+  // Manager 2 (required)
+  const manager2Name = sessionStorage.getItem('tn_manager2_name');
+  const manager2Phone = sessionStorage.getItem('tn_manager2_phone');
+  const manager2Email = sessionStorage.getItem('tn_manager2_email');
+  
+  if (manager2Name) {
+    managers.push({
+      name: manager2Name,
+      mobile: manager2Phone || '',
+      email: manager2Email || ''
+    });
+  }
+  
+  // Manager 3 (optional)
+  const manager3Name = sessionStorage.getItem('tn_manager3_name');
+  const manager3Phone = sessionStorage.getItem('tn_manager3_phone');
+  const manager3Email = sessionStorage.getItem('tn_manager3_email');
+  
+  if (manager3Name) {
+    managers.push({
+      name: manager3Name,
+      mobile: manager3Phone || '',
+      email: manager3Email || ''
+    });
+  }
+  
+  return managers;
+}
+
 /**
  * Submit TN form
  */
 async function submitTNForm() {
   try {
-    // Collect complete state
-    const state = collectCompleteTNState();
+    // Collect data
+    const contact = collectContactData();
+    const teams = collectTeamData();
+    const managers = collectManagerData();
+    const raceDay = collectRaceDayData();
+    const practice = buildTNPracticePayload();
+    const packages = collectPackageData();
     
-    // Validate state
-    const errors = validateTNState(state);
+    // Get race category from step 1
+    const raceCategory = sessionStorage.getItem('tn_race_category') || 'mixed_open';
+    const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+    const opt1Count = parseInt(sessionStorage.getItem('tn_opt1_count'), 10) || 0;
+    const opt2Count = parseInt(sessionStorage.getItem('tn_opt2_count'), 10) || 0;
+    
+    // Build payload in server-expected format
+    const payload = {
+      client_tx_id: getClientTxId(),
+      eventShortRef: getEventShortRef() || 'TN2025',
+      category: raceCategory,
+      season: window.__CONFIG?.event?.season || 2025,
+      org_name: contact.name,
+      org_address: contact.address,
+      counts: {
+        num_teams: teamCount,
+        num_teams_opt1: opt1Count,
+        num_teams_opt2: opt2Count
+      },
+      team_names: teams.map(t => t.name),
+      team_options: teams.map(t => t.option),
+      managers: managers,
+      race_day: raceDay.length > 0 ? {
+        marqueeQty: raceDay.find(r => r.code === 'marquee')?.qty || 0,
+        steerWithQty: raceDay.find(r => r.code === 'steer_with')?.qty || 0,
+        steerWithoutQty: raceDay.find(r => r.code === 'steer_without')?.qty || 0,
+        junkBoatQty: raceDay.find(r => r.code === 'junk_boat')?.qty || 0,
+        junkBoatNo: raceDay.find(r => r.code === 'junk_boat')?.boat_no || '',
+        speedboatQty: raceDay.find(r => r.code === 'speed_boat')?.qty || 0,
+        speedBoatNo: raceDay.find(r => r.code === 'speed_boat')?.boat_no || ''
+      } : null,
+      practice: practice
+    };
+    
+    console.log('🎯 submitTNForm: Payload structure:', payload);
+    console.log('🎯 submitTNForm: Payload details:', {
+      client_tx_id: payload.client_tx_id,
+      eventShortRef: payload.eventShortRef,
+      category: payload.category,
+      season: payload.season,
+      org_name: payload.org_name,
+      team_names: payload.team_names,
+      team_options: payload.team_options,
+      managers: payload.managers,
+      race_day: payload.race_day,
+      practice: payload.practice
+    });
+    
+    // Validate payload - simple validation for our payload structure
+    const errors = [];
+    if (!payload.org_name?.trim()) {
+      errors.push('Organization name is required');
+    }
+    if (!payload.team_names || payload.team_names.length === 0) {
+      errors.push('At least one team is required');
+    }
+    if (!payload.managers || payload.managers.length === 0) {
+      errors.push('At least one manager is required');
+    }
+    
     if (errors.length > 0) {
       showError(errors.join(', '));
       return;
     }
     
-    // Submit to Edge Function
-    const response = await fetch('/functions/v1/submit_registration', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        event_short_ref: 'tn',
-        client_tx_id: generateClientTxId(),
-        ...state
-      })
+    // Submit using Supabase Edge Function
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Submission timeout after 30 seconds')), 30000)
+    );
+    
+    const submissionPromise = sb.functions.invoke('submit_registration', {
+      body: payload
     });
     
-    if (!response.ok) {
-      throw new Error(`Submission failed: ${response.statusText}`);
+    const { data, error } = await Promise.race([submissionPromise, timeoutPromise]);
+    
+    if (error) {
+      console.error('Edge Function error:', error);
+      console.error('Error message:', error.message);
+      console.error('Error context:', error.context);
+      
+      // Handle timeout specifically
+      if (error.message && error.message.includes('timeout')) {
+        showError('Submission timed out. Please try again or contact support if the issue persists.');
+        return;
+      }
+      
+      // Make a direct fetch to get the actual error details
+      try {
+        const response = await fetch('https://khqarcvszewerjckmtpg.supabase.co/functions/v1/submit_registration', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${window.ENV?.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY'}`,
+            'apikey': window.ENV?.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY'
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        const responseText = await response.text();
+        console.error('Direct fetch response status:', response.status);
+        console.error('Direct fetch response body:', responseText);
+        
+        // Try to parse as JSON
+        try {
+          const errorData = JSON.parse(responseText);
+          console.error('Parsed error data:', errorData);
+        } catch (parseError) {
+          console.error('Error response is not valid JSON');
+        }
+      } catch (fetchError) {
+        console.error('Direct fetch failed:', fetchError);
+      }
+      
+      // Handle specific error cases
+      if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
+        if (error.message.includes('uniq_teamname_per_div_season_norm')) {
+          showError('One or more team names already exist for this division and season. Please choose different team names.');
+        } else if (error.message.includes('uniq_registration_client_tx')) {
+          showError('This registration has already been submitted. Please refresh the page to start a new registration.');
+        } else {
+          showError('Duplicate data detected. Please check your team names and try again.');
+        }
+      } else if (error.message && error.message.includes('Practice date is not on an allowed weekday')) {
+        showError('One or more practice dates are not on allowed weekdays. Please select weekdays only.');
+      } else if (error.message && error.message.includes('Practice date is before allowed window')) {
+        showError('One or more practice dates are before the allowed practice window.');
+      } else if (error.message && error.message.includes('Practice date is after allowed window')) {
+        showError('One or more practice dates are after the allowed practice window.');
+      } else {
+        showError(`Submission failed: ${error.message || 'Unknown error'}`);
+      }
+      return;
     }
     
-    const result = await response.json();
-    
-    // Show confirmation
-    showConfirmation(result);
+    if (data) {
+      console.log('✅ Form submission successful!', data);
+      const { registration_ids, team_codes } = data;
+      
+      // Create receipt with the first registration_id (for compatibility)
+      const receipt = saveReceipt({ 
+        registration_id: registration_ids?.[0], 
+        team_codes, 
+        email: contact.email 
+      });
+      
+      showConfirmation(receipt);
+    } else {
+      console.log('⚠️ No data in response, but no error either');
+      showError('No response received from server. Please try again.');
+    }
     
   } catch (error) {
     console.error('Submission error:', error);
@@ -4254,12 +5247,6 @@ async function submitTNForm() {
   }
 }
 
-/**
- * Generate client transaction ID
- */
-function generateClientTxId() {
-  return `tn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
 
 /**
  * Show error message
@@ -4272,24 +5259,7 @@ function showError(message) {
   }
 }
 
-/**
- * Show confirmation
- */
-function showConfirmation(result) {
-  const confirmation = document.getElementById('confirmation');
-  if (confirmation) {
-    confirmation.style.display = 'block';
-    confirmation.innerHTML = `
-      <h2>Registration Successful!</h2>
-      <p><strong>Registration ID:</strong> ${result.registration_id}</p>
-      <p><strong>Team Codes:</strong> ${result.team_codes?.join(', ') || 'N/A'}</p>
-      <div class="confirmation-actions">
-        <button onclick="navigator.clipboard.writeText('${result.registration_id}')">Copy ID</button>
-        <button onclick="window.print()">Print</button>
-      </div>
-    `;
-  }
-}
+// showConfirmation is imported from submit.js
 
 // TN wizard initialization is now handled by event_bootstrap.js
 // This file exports the initTNWizard function for use by the bootstrap
@@ -4421,8 +5391,46 @@ window.__DBG_TN = {
    */
   getFormState() {
     try {
-      const state = collectCompleteTNState();
-      return { success: true, state: state };
+      // Use the same payload structure as submitTNForm
+      const contact = collectContactData();
+      const teams = collectTeamData();
+      const managers = collectManagerData();
+      const raceDay = collectRaceDayData();
+      const practice = buildTNPracticePayload();
+      
+      const raceCategory = sessionStorage.getItem('tn_race_category') || 'mixed_open';
+      const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+      const opt1Count = parseInt(sessionStorage.getItem('tn_opt1_count'), 10) || 0;
+      const opt2Count = parseInt(sessionStorage.getItem('tn_opt2_count'), 10) || 0;
+      
+      const payload = {
+        client_tx_id: getClientTxId(),
+        eventShortRef: getEventShortRef() || 'TN2025',
+        category: raceCategory,
+        season: window.__CONFIG?.event?.season || 2025,
+        org_name: contact.name,
+        org_address: contact.address,
+        counts: {
+          num_teams: teamCount,
+          num_teams_opt1: opt1Count,
+          num_teams_opt2: opt2Count
+        },
+        team_names: teams.map(t => t.name),
+        team_options: teams.map(t => t.option),
+        managers: managers,
+        race_day: raceDay.length > 0 ? {
+          marqueeQty: raceDay.find(r => r.code === 'marquee')?.qty || 0,
+          steerWithQty: raceDay.find(r => r.code === 'steer_with')?.qty || 0,
+          steerWithoutQty: raceDay.find(r => r.code === 'steer_without')?.qty || 0,
+          junkBoatQty: raceDay.find(r => r.code === 'junk_boat')?.qty || 0,
+          junkBoatNo: raceDay.find(r => r.code === 'junk_boat')?.boat_no || '',
+          speedboatQty: raceDay.find(r => r.code === 'speed_boat')?.qty || 0,
+          speedBoatNo: raceDay.find(r => r.code === 'speed_boat')?.boat_no || ''
+        } : null,
+        practice: practice
+      };
+      
+      return { success: true, state: payload };
     } catch (error) {
       return { error: error.message };
     }
@@ -4433,14 +5441,274 @@ window.__DBG_TN = {
    */
   simulateSubmission() {
     try {
-      const state = collectCompleteTNState();
-      const errors = validateTNState(state);
+      // Use the same payload structure as submitTNForm
+      const contact = collectContactData();
+      const teams = collectTeamData();
+      const managers = collectManagerData();
+      const raceDay = collectRaceDayData();
+      const practice = buildTNPracticePayload();
+      
+      const raceCategory = sessionStorage.getItem('tn_race_category') || 'mixed_open';
+      const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+      const opt1Count = parseInt(sessionStorage.getItem('tn_opt1_count'), 10) || 0;
+      const opt2Count = parseInt(sessionStorage.getItem('tn_opt2_count'), 10) || 0;
+      
+      const payload = {
+        client_tx_id: getClientTxId(),
+        eventShortRef: getEventShortRef() || 'TN2025',
+        category: raceCategory,
+        season: window.__CONFIG?.event?.season || 2025,
+        org_name: contact.name,
+        org_address: contact.address,
+        counts: {
+          num_teams: teamCount,
+          num_teams_opt1: opt1Count,
+          num_teams_opt2: opt2Count
+        },
+        team_names: teams.map(t => t.name),
+        team_options: teams.map(t => t.option),
+        managers: managers,
+        race_day: raceDay.length > 0 ? {
+          marqueeQty: raceDay.find(r => r.code === 'marquee')?.qty || 0,
+          steerWithQty: raceDay.find(r => r.code === 'steer_with')?.qty || 0,
+          steerWithoutQty: raceDay.find(r => r.code === 'steer_without')?.qty || 0,
+          junkBoatQty: raceDay.find(r => r.code === 'junk_boat')?.qty || 0,
+          junkBoatNo: raceDay.find(r => r.code === 'junk_boat')?.boat_no || '',
+          speedboatQty: raceDay.find(r => r.code === 'speed_boat')?.qty || 0,
+          speedBoatNo: raceDay.find(r => r.code === 'speed_boat')?.boat_no || ''
+        } : null,
+        practice: practice
+      };
+      
+      const errors = validateTNState(payload);
       return {
         success: errors.length === 0,
-        state: state,
+        state: payload,
         errors: errors
       };
     } catch (error) {
+      return { error: error.message };
+    }
+  },
+
+  /**
+   * Test payload structure with sample data
+   */
+  testPayloadStructure() {
+    console.log('🧪 Testing TN Payload Structure...');
+    
+    // Save current sessionStorage data
+    const originalData = {};
+    const keys = ['tn_race_category', 'tn_team_count', 'tn_opt1_count', 'tn_opt2_count', 'tn_org_name', 'tn_mailing_address'];
+    keys.forEach(key => {
+      originalData[key] = sessionStorage.getItem(key);
+    });
+    
+    // Set up test data
+    sessionStorage.setItem('tn_race_category', 'mixed_open');
+    sessionStorage.setItem('tn_team_count', '2');
+    sessionStorage.setItem('tn_opt1_count', '1');
+    sessionStorage.setItem('tn_opt2_count', '1');
+    sessionStorage.setItem('tn_org_name', 'Test Organization');
+    sessionStorage.setItem('tn_mailing_address', '123 Test Street, Test City');
+    
+    // Team data
+    sessionStorage.setItem('tn_team_name_1', 'Test Team 1');
+    sessionStorage.setItem('tn_team_category_1', 'mixed_open');
+    sessionStorage.setItem('tn_team_option_1', 'opt1');
+    sessionStorage.setItem('tn_team_name_2', 'Test Team 2');
+    sessionStorage.setItem('tn_team_category_2', 'mixed_open');
+    sessionStorage.setItem('tn_team_option_2', 'opt2');
+    
+    // Manager data
+    sessionStorage.setItem('tn_manager1_name', 'Manager One');
+    sessionStorage.setItem('tn_manager1_phone', '123-456-7890');
+    sessionStorage.setItem('tn_manager1_email', 'manager1@test.com');
+    sessionStorage.setItem('tn_manager2_name', 'Manager Two');
+    sessionStorage.setItem('tn_manager2_phone', '234-567-8901');
+    sessionStorage.setItem('tn_manager2_email', 'manager2@test.com');
+    sessionStorage.setItem('tn_manager3_name', 'Manager Three');
+    sessionStorage.setItem('tn_manager3_phone', '345-678-9012');
+    sessionStorage.setItem('tn_manager3_email', 'manager3@test.com');
+    
+    // Race day data
+    const raceDayData = {
+      marqueeQty: 1,
+      steerWithQty: 0,
+      steerWithoutQty: 1,
+      junkBoatQty: 0,
+      junkBoatNo: '',
+      speedboatQty: 1,
+      speedBoatNo: 'SB123'
+    };
+    sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
+    
+    // Practice data
+    const practiceData = [
+      {
+        team_index: 0,
+        dates: [
+          { date: '2025-01-15', hours: 2, helpers: 'ST' },
+          { date: '2025-01-22', hours: 1, helpers: 'S' }
+        ],
+        slotPrefs_2hr: { slot_pref_1: 'SAT2_0800_1000', slot_pref_2: 'SAT2_1000_1200' },
+        slotPrefs_1hr: { slot_pref_1: 'SAT1_0800_0900' }
+      },
+      {
+        team_index: 1,
+        dates: [
+          { date: '2025-01-16', hours: 2, helpers: 'T' }
+        ],
+        slotPrefs_2hr: { slot_pref_1: 'SUN2_0900_1100' }
+      }
+    ];
+    sessionStorage.setItem('tn_practice_all_teams', JSON.stringify(practiceData));
+    
+    // Mock practice store functions
+    const originalReadTeamRows = window.readTeamRows;
+    const originalReadTeamRanks = window.readTeamRanks;
+    
+    window.readTeamRows = (teamKey) => {
+      const teamIndex = parseInt(teamKey.replace('t', '')) - 1;
+      const teamData = practiceData[teamIndex];
+      return teamData ? teamData.dates.map(d => ({
+        pref_date: d.date,
+        duration_hours: d.hours,
+        helper: d.helpers
+      })) : [];
+    };
+    
+    window.readTeamRanks = (teamKey) => {
+      const teamIndex = parseInt(teamKey.replace('t', '')) - 1;
+      const teamData = practiceData[teamIndex];
+      if (!teamData) return [];
+      
+      const ranks = [];
+      if (teamData.slotPrefs_2hr?.slot_pref_1) {
+        ranks.push({ rank: 1, slot_code: teamData.slotPrefs_2hr.slot_pref_1 });
+      }
+      if (teamData.slotPrefs_2hr?.slot_pref_2) {
+        ranks.push({ rank: 2, slot_code: teamData.slotPrefs_2hr.slot_pref_2 });
+      }
+      if (teamData.slotPrefs_1hr?.slot_pref_1) {
+        ranks.push({ rank: 3, slot_code: teamData.slotPrefs_1hr.slot_pref_1 });
+      }
+      return ranks;
+    };
+    
+    try {
+      // Generate payload
+      const payload = {
+        client_tx_id: getClientTxId(),
+        eventShortRef: getEventShortRef() || 'TN2025',
+        category: 'mixed_open',
+        season: 2025,
+        org_name: 'Test Organization',
+        org_address: '123 Test Street, Test City',
+        counts: {
+          num_teams: 2,
+          num_teams_opt1: 1,
+          num_teams_opt2: 1
+        },
+        team_names: ['Test Team 1', 'Test Team 2'],
+        team_options: ['opt1', 'opt2'],
+        managers: [
+          { name: 'Manager One', mobile: '123-456-7890', email: 'manager1@test.com' },
+          { name: 'Manager Two', mobile: '234-567-8901', email: 'manager2@test.com' },
+          { name: 'Manager Three', mobile: '345-678-9012', email: 'manager3@test.com' }
+        ],
+        race_day: {
+          marqueeQty: 1,
+          steerWithQty: 0,
+          steerWithoutQty: 1,
+          junkBoatQty: 0,
+          junkBoatNo: '',
+          speedboatQty: 1,
+          speedBoatNo: 'SB123'
+        },
+        practice: {
+          teams: [
+            {
+              team_key: 't1',
+              dates: [
+                { pref_date: '2025-01-15', duration_hours: 2, helper: 'ST' },
+                { pref_date: '2025-01-22', duration_hours: 1, helper: 'S' }
+              ],
+              slot_ranks: [
+                { rank: 1, slot_code: 'SAT2_0800_1000' },
+                { rank: 2, slot_code: 'SAT2_1000_1200' },
+                { rank: 3, slot_code: 'SAT1_0800_0900' }
+              ]
+            },
+            {
+              team_key: 't2',
+              dates: [
+                { pref_date: '2025-01-16', duration_hours: 2, helper: 'T' }
+              ],
+              slot_ranks: [
+                { rank: 1, slot_code: 'SUN2_0900_1100' }
+              ]
+            }
+          ]
+        }
+      };
+      
+      console.log('🧪 Generated Payload:', JSON.stringify(payload, null, 2));
+      
+      // Validate payload structure
+      const validation = {
+        hasClientTxId: !!payload.client_tx_id,
+        hasEventShortRef: !!payload.eventShortRef,
+        hasCategory: !!payload.category,
+        hasSeason: typeof payload.season === 'number',
+        hasOrgName: !!payload.org_name,
+        hasOrgAddress: !!payload.org_address,
+        hasCounts: !!payload.counts && typeof payload.counts.num_teams === 'number',
+        hasTeamNames: Array.isArray(payload.team_names) && payload.team_names.length > 0,
+        hasTeamOptions: Array.isArray(payload.team_options) && payload.team_options.length > 0,
+        hasManagers: Array.isArray(payload.managers) && payload.managers.length > 0,
+        hasRaceDay: payload.race_day === null || (typeof payload.race_day === 'object'),
+        hasPractice: !!payload.practice && typeof payload.practice === 'object' && Array.isArray(payload.practice.teams)
+      };
+      
+      console.log('🧪 Validation Results:', validation);
+      
+      const allValid = Object.values(validation).every(v => v === true);
+      
+      // Restore original data
+      keys.forEach(key => {
+        if (originalData[key] !== null) {
+          sessionStorage.setItem(key, originalData[key]);
+        } else {
+          sessionStorage.removeItem(key);
+        }
+      });
+      
+      // Restore original functions
+      if (originalReadTeamRows) window.readTeamRows = originalReadTeamRows;
+      if (originalReadTeamRanks) window.readTeamRanks = originalReadTeamRanks;
+      
+      return {
+        success: allValid,
+        payload: payload,
+        validation: validation,
+        message: allValid ? '✅ Payload structure is valid!' : '❌ Payload structure has issues'
+      };
+      
+    } catch (error) {
+      // Restore original data
+      keys.forEach(key => {
+        if (originalData[key] !== null) {
+          sessionStorage.setItem(key, originalData[key]);
+        } else {
+          sessionStorage.removeItem(key);
+        }
+      });
+      
+      // Restore original functions
+      if (originalReadTeamRows) window.readTeamRows = originalReadTeamRows;
+      if (originalReadTeamRanks) window.readTeamRanks = originalReadTeamRanks;
+      
       return { error: error.message };
     }
   }

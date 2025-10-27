@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Summary Functions</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        .result { margin: 10px 0; padding: 10px; background: #f8f9fa; border-left: 4px solid #007bff; border-radius: 4px; }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+        .console-output { background: #000; color: #0f0; padding: 10px; font-family: monospace; font-size: 12px; border-radius: 4px; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Debug Summary Functions</h1>
+    
+    <div class="debug-section">
+        <h3>1. Check Console Output</h3>
+        <button onclick="checkConsole()">Check Console</button>
+        <div id="consoleResult" class="result"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>2. Test Functions Directly</h3>
+        <button onclick="testFunctionsDirectly()">Test Functions</button>
+        <div id="functionResult" class="result"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>3. Check HTML Elements</h3>
+        <button onclick="checkHTMLElements()">Check Elements</button>
+        <div id="htmlResult" class="result"></div>
+    </div>
+
+    <!-- Include the summary template inline -->
+    <div id="summaryTemplate" style="display: none;">
+        <div class="section" id="secTeams">
+            <h2>Teams</h2>
+            <table class="summary" id="teamsTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Team Name</th>
+                        <th>Entry Option</th>
+                    </tr>
+                </thead>
+                <tbody id="teamsTbody"><tr><td colspan="3" class="muted">No teams</td></tr></tbody>
+            </table>
+        </div>
+
+        <div class="section" id="secManagers">
+            <h2>Team Managers</h2>
+            <table class="summary" id="managersTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Mobile</th>
+                        <th>Email</th>
+                    </tr>
+                </thead>
+                <tbody id="managersTbody"><tr><td colspan="4" class="muted">No manager information</td></tr></tbody>
+            </table>
+        </div>
+
+        <div class="section" id="secRaceDay">
+            <h2>Race Day Arrangement</h2>
+            <div class="grid-2" id="raceDayGrid">
+                <div class="kv"><div class="k">Marquee Qty</div><div class="v" id="sumMarquee">—</div></div>
+                <div class="kv"><div class="k">Steersman (with boat)</div><div class="v" id="sumSteerWith">—</div></div>
+                <div class="kv"><div class="k">Steersman (no boat)</div><div class="v" id="sumSteerWithout">—</div></div>
+                <div class="kv"><div class="k">Junk Boat # / Qty</div><div class="v" id="sumJunk">—</div></div>
+                <div class="kv"><div class="k">Speed Boat # / Qty</div><div class="v" id="sumSpeed">—</div></div>
+            </div>
+        </div>
+
+        <div class="section" id="secPractice">
+            <h2>Practice Booking (per Team)</h2>
+            <div id="perTeamPracticeSummary">
+                <p class="muted">No practice booking data.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="debug-section">
+        <h3>4. Console Output</h3>
+        <div id="consoleOutput" class="console-output"></div>
+    </div>
+
+    <script>
+        // Load the TN wizard script
+        const script = document.createElement('script');
+        script.src = 'js/tn_wizard.js';
+        document.head.appendChild(script);
+        
+        // Capture console output
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        let consoleMessages = [];
+        
+        console.log = function(...args) {
+            consoleMessages.push('LOG: ' + args.join(' '));
+            originalLog.apply(console, args);
+            updateConsoleOutput();
+        };
+        
+        console.warn = function(...args) {
+            consoleMessages.push('WARN: ' + args.join(' '));
+            originalWarn.apply(console, args);
+            updateConsoleOutput();
+        };
+        
+        console.error = function(...args) {
+            consoleMessages.push('ERROR: ' + args.join(' '));
+            originalError.apply(console, args);
+            updateConsoleOutput();
+        };
+        
+        function updateConsoleOutput() {
+            const output = document.getElementById('consoleOutput');
+            if (output) {
+                output.innerHTML = consoleMessages.slice(-20).join('<br>');
+                output.scrollTop = output.scrollHeight;
+            }
+        }
+        
+        function checkConsole() {
+            const result = document.getElementById('consoleResult');
+            result.innerHTML = `
+                <div class="success">
+                    <strong>Console Output Captured</strong><br>
+                    <em>Check the console output section below for debug messages</em>
+                </div>
+            `;
+        }
+        
+        function testFunctionsDirectly() {
+            const result = document.getElementById('functionResult');
+            
+            // Setup sample data
+            sessionStorage.clear();
+            sessionStorage.setItem('tn_team_count', '2');
+            sessionStorage.setItem('tn_team_name_1', 'Thunder Dragons');
+            sessionStorage.setItem('tn_team_category_1', 'C');
+            sessionStorage.setItem('tn_team_option_1', 'option_1_corp');
+            sessionStorage.setItem('tn_team_name_2', 'Lightning Bolts');
+            sessionStorage.setItem('tn_team_category_2', 'M');
+            sessionStorage.setItem('tn_team_option_2', 'option_2_non_corp');
+            
+            sessionStorage.setItem('tn_manager1_name', 'John Smith');
+            sessionStorage.setItem('tn_manager1_phone', '+852-1234-5678');
+            sessionStorage.setItem('tn_manager1_email', 'john@example.com');
+            
+            const raceDayData = {
+                marqueeQty: 3,
+                steer_withQty: 2,
+                steer_withoutQty: 1,
+                junk_boatQty: 1,
+                speed_boatQty: 1
+            };
+            sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
+            
+            // Test functions
+            setTimeout(() => {
+                if (typeof loadTeamSummary === 'function') {
+                    try {
+                        console.log('Testing functions directly...');
+                        loadTeamSummary();
+                        loadManagersSummary();
+                        loadRaceDaySummary();
+                        loadPracticeSummary();
+                        
+                        result.innerHTML = `
+                            <div class="success">
+                                <strong>✅ Functions Executed</strong><br>
+                                <em>Check console output for debug messages</em>
+                            </div>
+                        `;
+                    } catch (error) {
+                        result.innerHTML = `
+                            <div class="error">
+                                <strong>❌ Function Execution Failed</strong><br>
+                                Error: ${error.message}
+                            </div>
+                        `;
+                    }
+                } else {
+                    result.innerHTML = `
+                        <div class="error">
+                            <strong>❌ Functions Not Loaded</strong><br>
+                            <em>TN wizard script may not be loaded yet</em>
+                        </div>
+                    `;
+                }
+            }, 1000);
+        }
+        
+        function checkHTMLElements() {
+            const result = document.getElementById('htmlResult');
+            
+            const requiredElements = [
+                'teamsTbody',
+                'managersTbody', 
+                'sumMarquee',
+                'sumSteerWith',
+                'sumSteerWithout',
+                'sumJunk',
+                'sumSpeed',
+                'perTeamPracticeSummary'
+            ];
+            
+            const foundElements = requiredElements.filter(id => document.getElementById(id));
+            const missingElements = requiredElements.filter(id => !document.getElementById(id));
+            
+            let resultHtml = '';
+            
+            if (missingElements.length === 0) {
+                resultHtml = `
+                    <div class="success">
+                        <strong>✅ All HTML Elements Found</strong><br>
+                        <em>Elements: ${foundElements.join(', ')}</em>
+                    </div>
+                `;
+            } else {
+                resultHtml = `
+                    <div class="error">
+                        <strong>❌ Missing HTML Elements</strong><br>
+                        Found: ${foundElements.join(', ')}<br>
+                        Missing: ${missingElements.join(', ')}
+                    </div>
+                `;
+            }
+            
+            result.innerHTML = resultHtml;
+        }
+    </script>
+</body>
+</html>

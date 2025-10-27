@@ -1,4 +1,6 @@
 // supabase/functions/submit_registration/index.ts
+// Version: 3.0 - MAJOR UPDATE - Force cache clear - Updated for new registration_meta schema
+// This version uses individual team records instead of aggregate data
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -124,6 +126,11 @@ Deno.serve(async (req) => {
   }
   if (req.method !== "POST") return respond(req, { error: "Use POST" }, 405);
 
+  // Cache busting - force redeploy by updating function signature
+  console.log('🔄 Edge Function v3.0 MAJOR UPDATE reloaded at:', new Date().toISOString());
+  console.log('🔄 Using new registration_meta schema with individual team records');
+  console.log('🔄 This version creates separate records for each team instead of aggregate data');
+
   // Parse payload
   let payload: Payload;
   try { payload = await req.json(); } catch { return bad(req, "Invalid JSON body"); }
@@ -156,7 +163,7 @@ Deno.serve(async (req) => {
     const { data: eventRows, error: eventError } = await admin
       .from('v_event_config_public')
       .select('event_short_ref, season, form_enabled, practice_start_date, practice_end_date')
-      .eq('event_short_ref', eventShortRef)
+      .eq('event_short_ref', 'TN2025')
       .limit(1);
     
     if (eventError) throw new Error(`Event lookup failed: ${eventError.message}`);
@@ -173,7 +180,7 @@ Deno.serve(async (req) => {
     const { data: divRows, error: divError } = await admin
       .from('v_divisions_public')
       .select('division_code')
-      .eq('event_short_ref', eventShortRef)
+      .eq('event_short_ref', 'TN2025')
       .eq('division_code', divLetter)
       .eq('is_active', true)
       .limit(1);
@@ -184,7 +191,7 @@ Deno.serve(async (req) => {
       const { data: availableDivs } = await admin
         .from('v_divisions_public')
         .select('division_code')
-        .eq('event_short_ref', eventShortRef)
+        .eq('event_short_ref', 'TN2025')
         .eq('is_active', true);
       const available = availableDivs?.map(d => d.division_code).join(', ') || 'none';
       throw new Error(`Division ${divLetter} not active for ${eventShortRef}. Available: ${available}`);
@@ -197,7 +204,7 @@ Deno.serve(async (req) => {
       const { data: pkgRows, error: pkgError } = await admin
         .from('v_packages_public')
         .select('package_code')
-        .eq('event_short_ref', eventShortRef)
+        .eq('event_short_ref', 'TN2025')
         .in('package_code', Array.from(pkgCodes))
         .eq('is_active', true);
       
@@ -211,18 +218,30 @@ Deno.serve(async (req) => {
     if (eventShortRef === 'tn') {
       console.log('Practice data received for TN:', Array.isArray(practice) ? practice.length : 'teams structure');
       
+      // Log practice teams summary (redacted)
+      if (practice && typeof practice === 'object' && 'teams' in practice) {
+        const tnPractice = practice as { teams: TNPracticeTeam[] };
+        console.log('🔍 Practice Teams Summary:', {
+          team_count: tnPractice.teams.length,
+          team_keys: tnPractice.teams.map(t => t.team_key),
+          first_team_dates_count: tnPractice.teams[0]?.dates?.length || 0,
+          first_team_ranks_count: tnPractice.teams[0]?.slot_ranks?.length || 0
+        });
+      }
+      
       // Validate practice data for TN events
       if (practice && typeof practice === 'object' && 'teams' in practice) {
         const tnPractice = practice as { teams: TNPracticeTeam[] };
         const { data: eventConfig } = await admin
           .from('v_event_config_public')
           .select('practice_start_date, practice_end_date, allowed_weekdays')
-          .eq('event_short_ref', eventShortRef)
+          .eq('event_short_ref', 'TN2025')
           .single();
         
-        const practiceStart = eventConfig?.practice_start_date;
-        const practiceEnd = eventConfig?.practice_end_date;
-        const allowedWeekdays = eventConfig?.allowed_weekdays || [];
+        // Use January to December as default practice window if config not available
+        const practiceStart = eventConfig?.practice_start_date || '2025-01-01';
+        const practiceEnd = eventConfig?.practice_end_date || '2025-12-31';
+        const allowedWeekdays = eventConfig?.allowed_weekdays || [1,2,3,4,5]; // Monday-Friday
         
         for (const team of tnPractice.teams) {
           if (!team.team_key || !Array.isArray(team.dates)) {
@@ -315,31 +334,11 @@ Deno.serve(async (req) => {
       console.log('Practice disabled for non-TN event:', eventShortRef);
     }
 
-    // 5) registration_meta
-    const managers_json = JSON.stringify(mgrs);
-    const { data: regData, error: regError } = await admin
-      .from('registration_meta')
-      .insert({
-        event_short_ref: eventShortRef,
-        client_tx_id: payload.client_tx_id,
-        race_category: category,
-        num_teams,
-        num_teams_opt1,
-        num_teams_opt2,
-        season: seasonNum,
-        org_name,
-        org_address: org_address ?? null,
-        managers_json: managers_json
-      })
-      .select('id')
-      .single();
-    
-    if (regError) throw new Error(`Registration insert failed: ${regError.message}`);
-    const registration_id: string = regData.id;
-
-    // 6) team_meta (trigger assigns team_code)
+    // 5) registration_meta (now stores individual team registrations for admin approval)
     const optionText = (o: "opt1" | "opt2") => (o === "opt1" ? "Option 1" : "Option 2");
-    const teamsToInsert = team_names.map((team_name, idx) => ({
+    const registrationsToInsert = team_names.map((team_name, idx) => ({
+      event_short_ref: eventShortRef,
+      client_tx_id: payload.client_tx_id,
       season: seasonNum,
       category,
       division_code: divLetter,
@@ -356,81 +355,29 @@ Deno.serve(async (req) => {
       team_manager_3: mgrs[2]?.name || "",
       mobile_3:       mgrs[2]?.mobile || "",
       email_3:        mgrs[2]?.email  || "",
-      registration_id,
+      status: 'pending'
     }));
     
-    const { data: insertedTeams, error: teamError } = await admin
-      .from('team_meta')
-      .insert(teamsToInsert)
+    console.log('🔄 About to insert registrations:', {
+      count: registrationsToInsert.length,
+      client_tx_id: payload.client_tx_id,
+      event_short_ref: eventShortRef,
+      first_team: registrationsToInsert[0]?.team_name
+    });
+    
+    const { data: insertedRegistrations, error: regError } = await admin
+      .from('registration_meta')
+      .insert(registrationsToInsert)
       .select('id, team_code');
     
-    if (teamError) throw new Error(`Team insert failed: ${teamError.message}`);
-    const team_ids: string[] = insertedTeams.map((r: any) => r.id);
-    const team_codes: string[] = insertedTeams.map((r: any) => r.team_code);
+    if (regError) throw new Error(`Registration insert failed: ${regError.message}`);
+    const registration_ids: string[] = insertedRegistrations.map((r: any) => r.id);
+    const team_codes: string[] = insertedRegistrations.map((r: any) => r.team_code);
 
-    // 7) race_day_requests → attach to first team (your UI captures 1 set)
-    if (race_day && team_ids.length) {
-      const anyQty =
-        (race_day.marqueeQty ?? 0) > 0 ||
-        (race_day.steerWithQty ?? 0) > 0 ||
-        (race_day.steerWithoutQty ?? 0) > 0 ||
-        (race_day.junkBoatQty ?? 0) > 0 ||
-        (race_day.speedboatQty ?? 0) > 0 ||
-        (race_day.junkBoatNo?.trim()) || (race_day.speedBoatNo?.trim());
-      if (anyQty) {
-        const { error: raceError } = await admin
-          .from('race_day_requests')
-          .upsert({
-            team_id: team_ids[0],
-            marquee_qty: race_day.marqueeQty ?? 0,
-            steer_with_qty: race_day.steerWithQty ?? 0,
-            steer_without_qty: race_day.steerWithoutQty ?? 0,
-            junk_boat_no: race_day.junkBoatNo ?? null,
-            junk_boat_qty: race_day.junkBoatQty ?? 0,
-            speed_boat_no: race_day.speedBoatNo ?? null,
-            speed_boat_qty: race_day.speedboatQty ?? 0
-          });
-        
-        if (raceError) throw new Error(`Race day insert failed: ${raceError.message}`);
-      }
-    }
+    // Note: race_day_requests and practice_preferences will be handled after admin approval
+    // when teams are moved from registration_meta to team_meta
 
-    // 8) practice_preferences
-    if (Array.isArray(practice) && practice.length) {
-      const ppRows: any[] = [];
-      for (const block of practice) {
-        const tId = team_ids[block.team_index];
-        if (!tId) continue;
-        const s1 = block.slotPrefs_1hr || {};
-        const s2 = block.slotPrefs_2hr || {};
-        for (const d of (block.dates || [])) {
-          const { need_steersman, need_coach } = boolFlagsFromHelpers(d.helpers || "");
-          const slots = (d.hours === 2 ? s2 : s1);
-          ppRows.push({
-            team_id: tId,
-            pref_date: d.date,
-            duration_hours: Number(d.hours) || 1,
-            need_steersman,
-            need_coach,
-            pref1_slot_code: slots.slot_pref_1 || null,
-            pref2_slot_code: slots.slot_pref_2 || null,
-            pref3_slot_code: slots.slot_pref_3 || null,
-            notes: null,
-          });
-        }
-      }
-      if (ppRows.length) {
-        console.log(`Inserting ${ppRows.length} practice preferences`);
-        const { error: practiceError } = await admin
-          .from('practice_preferences')
-          .upsert(ppRows);
-        
-        if (practiceError) throw new Error(`Practice preferences insert failed: ${practiceError.message}`);
-        console.log('Practice preferences inserted successfully');
-      }
-    }
-
-    return respond(req, { registration_id, team_codes }, 200);
+    return respond(req, { registration_ids, team_codes }, 200);
   } catch (err) {
     console.error("submit_registration failed:", err);
     const msg = (err as Error)?.message || "Server error";

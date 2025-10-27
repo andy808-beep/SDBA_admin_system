@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Edge Function Test</title>
+</head>
+<body>
+    <h1>Simple Edge Function Test</h1>
+    <button onclick="testConnection()">Test Connection</button>
+    <div id="result"></div>
+
+    <script>
+        async function testConnection() {
+            const result = document.getElementById('result');
+            result.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch('https://khqarcvszewerjckmtpg.supabase.co/functions/v1/submit_registration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY',
+                        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY'
+                    },
+                    body: JSON.stringify({
+                        eventShortRef: 'tn',
+                        category: 'mixed_open',
+                        org_name: 'Test',
+                        counts: { num_teams: 1, num_teams_opt1: 1, num_teams_opt2: 0 },
+                        team_names: ['Test'],
+                        team_options: ['opt1'],
+                        managers: [{ name: 'Test', mobile: '123', email: 'test@test.com' }]
+                    })
+                });
+                
+                result.innerHTML = `
+                    <p>Status: ${response.status}</p>
+                    <p>Status Text: ${response.statusText}</p>
+                    <p>Headers: ${JSON.stringify([...response.headers.entries()])}</p>
+                `;
+                
+                const text = await response.text();
+                result.innerHTML += `<p>Body: ${text}</p>`;
+                
+            } catch (error) {
+                result.innerHTML = `<p>Error: ${error.message}</p><p>Type: ${error.constructor.name}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

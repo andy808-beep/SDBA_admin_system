@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Registration Meta</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .log { background: #f8f9fa; padding: 10px; border-left: 4px solid #007bff; margin: 10px 0; }
+        .error-log { border-left-color: #dc3545; }
+        .success-log { border-left-color: #28a745; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Registration Meta</h1>
+    
+    <div class="test-section info">
+        <h3>Debug Database Contents</h3>
+        <p>This will help us see what's actually in the registration_meta table.</p>
+    </div>
+
+    <div class="test-section">
+        <h3>Debug Controls</h3>
+        <button onclick="checkTableContents()">Check Table Contents</button>
+        <button onclick="checkConstraints()">Check Constraints</button>
+        <button onclick="testUniqueInsert()">Test Unique Insert</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <div id="logs"></div>
+
+    <script>
+        const supabaseUrl = 'https://khqarcvszewerjckmtpg.supabase.co';
+        const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY';
+
+        async function checkTableContents() {
+            try {
+                log('🔍 Checking registration_meta table contents...', 'info');
+                
+                const response = await fetch(`${supabaseUrl}/rest/v1/registration_meta?select=id,client_tx_id,event_short_ref,team_name,created_at&order=created_at.desc&limit=10`, {
+                    headers: {
+                        'apikey': anonKey,
+                        'Authorization': `Bearer ${anonKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Found ${data.length} records in registration_meta`, 'success');
+                    log('Recent records:', 'info');
+                    log(JSON.stringify(data, null, 2), 'info');
+                    
+                    // Check for duplicate client_tx_id + event_short_ref combinations
+                    const combinations = data.map(r => `${r.client_tx_id}+${r.event_short_ref}`);
+                    const uniqueCombinations = [...new Set(combinations)];
+                    log(`Unique client_tx_id + event_short_ref combinations: ${uniqueCombinations.length}`, 'info');
+                    
+                    if (combinations.length !== uniqueCombinations.length) {
+                        log('⚠️ Found duplicate client_tx_id + event_short_ref combinations!', 'error');
+                    }
+                } else {
+                    const error = await response.text();
+                    log(`❌ Error accessing table: ${response.status}`, 'error');
+                    log(`Error details: ${error}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkConstraints() {
+            try {
+                log('🔍 Checking table constraints...', 'info');
+                
+                // Try to get constraint information
+                const response = await fetch(`${supabaseUrl}/rest/v1/information_schema.table_constraints?table_name=eq.registration_meta&constraint_type=eq.UNIQUE`, {
+                    headers: {
+                        'apikey': anonKey,
+                        'Authorization': `Bearer ${anonKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('Unique constraints on registration_meta:', 'info');
+                    log(JSON.stringify(data, null, 2), 'info');
+                } else {
+                    log('Could not fetch constraint info (this is normal)', 'info');
+                }
+                
+            } catch (error) {
+                log(`❌ Error checking constraints: ${error.message}`, 'error');
+            }
+        }
+
+        async function testUniqueInsert() {
+            try {
+                log('🧪 Testing unique insert with fresh data...', 'info');
+                
+                const uniqueId = `debug_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                log(`Using unique ID: ${uniqueId}`, 'info');
+                
+                const testData = {
+                    event_short_ref: 'TN2025',
+                    client_tx_id: uniqueId,
+                    season: 2025,
+                    category: 'mixed_open',
+                    division_code: 'X',
+                    option_choice: 'Option 1',
+                    team_name: 'Debug Test Team',
+                    org_name: 'Debug Test Org',
+                    team_manager_1: 'Manager 1',
+                    mobile_1: '12345678',
+                    email_1: 'test@example.com',
+                    team_manager_2: 'Manager 2',
+                    mobile_2: '87654321',
+                    email_2: 'test2@example.com',
+                    team_manager_3: 'Manager 3',
+                    mobile_3: '11223344',
+                    email_3: 'test3@example.com',
+                    status: 'pending'
+                };
+                
+                const response = await fetch(`${supabaseUrl}/rest/v1/registration_meta`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': anonKey,
+                        'Authorization': `Bearer ${anonKey}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                if (response.ok) {
+                    log('✅ Unique insert successful!', 'success');
+                } else {
+                    const error = await response.text();
+                    log(`❌ Insert failed: ${response.status}`, 'error');
+                    log(`Error details: ${error}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Network error: ${error.message}`, 'error');
+            }
+        }
+
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type === 'error' ? 'error-log' : type === 'success' ? 'success-log' : ''}`;
+            logDiv.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            logsDiv.appendChild(logDiv);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        // Initialize
+        log('🚀 Debug Registration Meta initialized', 'info');
+    </script>
+</body>
+</html>
