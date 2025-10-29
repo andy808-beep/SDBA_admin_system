@@ -14,7 +14,9 @@
 // Utilities
 const isTNMode = () => {
 	const cfg = window.__CONFIG;
-	return cfg?.event?.event_short_ref === 'tn';
+	const result = cfg?.event?.event_short_ref === 'tn';
+	console.log('🔧 isTNMode check:', { event_short_ref: cfg?.event?.event_short_ref, result });
+	return result;
 };
 
 const dom = (() => {
@@ -240,38 +242,287 @@ function renderContactSection(cfg) {
 }
 
 function renderTeamSection(cfg) {
+	console.log('🔧 renderTeamSection called');
 	// Skip rendering for TN mode - TN uses legacy templates
-	if (isTNMode()) return;
+	if (isTNMode()) {
+		console.log('🎯 renderTeamSection: Skipping for TN mode');
+		return;
+	}
 	
-	const mount = dom.q('#teamsSection');
-	if (!mount) return;
+	const mount = dom.q('#teamSection');
+	console.log('🔧 renderTeamSection: Mount element found:', !!mount);
+	if (!mount) {
+		console.error('❌ renderTeamSection: #teamSection not found in DOM');
+		return;
+	}
 
 	// Clear existing content
 	mount.innerHTML = '';
+	console.log('🔧 renderTeamSection: Cleared existing content');
+	
+	// Create team count selector
+	const countSection = createEl('div', { class: 'form-section', style: 'background: #f0f8ff; border: 2px solid #007bff; padding: 20px; margin: 10px 0;' });
+	countSection.innerHTML = `
+		<h3 style="color: #007bff; margin-top: 0;">Step 1a: Team Count</h3>
+		<div class="form-group">
+			<label for="teamCount" style="font-weight: bold;">Number of Teams</label>
+			<select id="teamCount" name="teamCount" required style="width: 200px; padding: 10px; font-size: 16px;">
+				<option value="">-- Select --</option>
+				${Array.from({length: 10}, (_, i) => `<option value="${i + 1}">${i + 1} Team${i > 0 ? 's' : ''}</option>`).join('')}
+			</select>
+		</div>
+	`;
+	mount.appendChild(countSection);
+	console.log('🔧 renderTeamSection: Added team count selector');
+	console.log('🔧 renderTeamSection: Mount innerHTML after adding selector:', mount.innerHTML.substring(0, 200) + '...');
 	
 	// Create teams list container
-	const list = createEl('div', { id: 'teamsList', class: 'teams-list' });
+	const list = createEl('div', { id: 'teamsList', class: 'teams-list', style: 'display: none;' });
 	mount.appendChild(list);
+	console.log('🔧 renderTeamSection: Added teams list container');
 	
-	// Create add button
-	const addBtn = createEl('button', { 
-		id: 'addTeamBtn', 
-		type: 'button', 
-		class: 'btn-secondary',
-		text: getLabel(cfg.labels || {}, 'add_team', 'Add Team')
-	});
-	mount.appendChild(addBtn);
-
-	// Attach handler once
-	if (addBtn && addBtn.dataset.bound !== '1') {
-		addBtn.addEventListener('click', () => addTeamRow(cfg));
-		addBtn.dataset.bound = '1';
+	// Add team count change handler
+	const teamCountSelect = dom.q('#teamCount');
+	console.log('🔧 renderTeamSection: Team count select found:', !!teamCountSelect);
+	if (teamCountSelect && teamCountSelect.dataset.bound !== '1') {
+		teamCountSelect.addEventListener('change', (e) => {
+			console.log('🔧 Team count changed to:', e.target.value);
+			const count = parseInt(e.target.value) || 0;
+			renderTeamsForCount(count, cfg);
+		});
+		teamCountSelect.dataset.bound = '1';
+		console.log('🔧 renderTeamSection: Event listener attached');
 	}
+	console.log('✅ renderTeamSection: Completed');
+}
 
-	// Add at least one team row
-	if (list && list.dataset.initialized !== '1') {
-		addTeamRow(cfg);
-		list.dataset.initialized = '1';
+function renderTeamsForCount(count, cfg) {
+	const list = dom.q('#teamsList');
+	if (!list) return;
+	
+	// Clear existing teams
+	list.innerHTML = '';
+	
+	if (count === 0) {
+		list.style.display = 'none';
+		return;
+	}
+	
+	list.style.display = 'block';
+	
+	// Create header
+	const header = createEl('div', { class: 'form-section' });
+	header.innerHTML = `<h3>Step 1b: Team Details</h3>`;
+	list.appendChild(header);
+	
+	// Create team rows
+	for (let i = 1; i <= count; i++) {
+		createTeamRow(i, cfg);
+	}
+}
+
+function createTeamRow(teamIndex, cfg) {
+	const list = dom.q('#teamsList');
+	if (!list) return;
+	
+	const teamSection = createEl('div', { class: 'team-section', 'data-team-index': teamIndex });
+	teamSection.innerHTML = `
+		<h4>Team ${teamIndex}</h4>
+		<div class="form-row">
+			<div class="form-group">
+				<label for="team_${teamIndex}_name">Team Name</label>
+				<input type="text" id="team_${teamIndex}_name" name="team_${teamIndex}_name" required>
+			</div>
+		</div>
+		
+		<div class="form-row">
+			<div class="form-group">
+				<label>Boat Type</label>
+				<div class="radio-group" id="team_${teamIndex}_boat_type_group">
+					<!-- Boat types will be loaded dynamically -->
+				</div>
+			</div>
+		</div>
+		
+		<div class="form-row" id="team_${teamIndex}_division_row" style="display: none;">
+			<div class="form-group">
+				<label>Division</label>
+				<div class="radio-group" id="team_${teamIndex}_division_group">
+					<!-- Divisions will be loaded dynamically -->
+				</div>
+			</div>
+		</div>
+	`;
+	
+	list.appendChild(teamSection);
+	
+	// Load boat types and set up handlers
+	loadBoatTypesForTeam(teamIndex, cfg);
+}
+
+async function loadBoatTypesForTeam(teamIndex, cfg) {
+	try {
+		// Load boat types from v_divisions_public (filtered by boat type)
+		const boatTypes = await loadBoatTypes(cfg);
+		const boatTypeGroup = dom.q(`#team_${teamIndex}_boat_type_group`);
+		if (!boatTypeGroup) return;
+		
+		// Clear existing options
+		boatTypeGroup.innerHTML = '';
+		
+		// Create radio buttons for each boat type
+		boatTypes.forEach((boatType, index) => {
+			const radioId = `team_${teamIndex}_boat_type_${index}`;
+			const radioDiv = createEl('div', { class: 'radio-option' });
+			radioDiv.innerHTML = `
+				<input type="radio" id="${radioId}" name="team_${teamIndex}_boat_type" value="${boatType.name_en}" required>
+				<label for="${radioId}">
+					<span class="boat-type-name">${boatType.name_en}</span>
+					<span class="boat-type-price">${boatType.price ? ` - $${boatType.price}` : ''}</span>
+				</label>
+			`;
+			boatTypeGroup.appendChild(radioDiv);
+		});
+		
+		// Add change handler for boat type selection
+		const radioInputs = boatTypeGroup.querySelectorAll('input[type="radio"]');
+		radioInputs.forEach(radio => {
+			radio.addEventListener('change', () => {
+				if (radio.checked) {
+					loadDivisionsForTeam(teamIndex, cfg);
+					showDivisionRow(teamIndex);
+				}
+			});
+		});
+		
+	} catch (error) {
+		console.error('Error loading boat types:', error);
+		boatTypeGroup.innerHTML = '<p class="error">Error loading boat types</p>';
+	}
+}
+
+async function loadDivisionsForTeam(teamIndex, cfg) {
+	try {
+		// Load divisions from v_divisions_public
+		const divisions = await loadDivisions(cfg);
+		const divisionGroup = dom.q(`#team_${teamIndex}_division_group`);
+		if (!divisionGroup) return;
+		
+		// Clear existing options
+		divisionGroup.innerHTML = '';
+		
+		// Create radio buttons for each division
+		divisions.forEach((division, index) => {
+			const radioId = `team_${teamIndex}_division_${index}`;
+			const radioDiv = createEl('div', { class: 'radio-option' });
+			radioDiv.innerHTML = `
+				<input type="radio" id="${radioId}" name="team_${teamIndex}_division" value="${division.name_en}" required>
+				<label for="${radioId}">${division.name_en}</label>
+			`;
+			divisionGroup.appendChild(radioDiv);
+		});
+		
+	} catch (error) {
+		console.error('Error loading divisions:', error);
+		divisionGroup.innerHTML = '<p class="error">Error loading divisions</p>';
+	}
+}
+
+function showDivisionRow(teamIndex) {
+	const divisionRow = dom.q(`#team_${teamIndex}_division_row`);
+	if (divisionRow) {
+		divisionRow.style.display = 'block';
+	}
+}
+
+async function loadBoatTypes(cfg) {
+	try {
+		// Use the existing config loader to get boat types from packages
+		if (window.__CONFIG && window.__CONFIG.packages) {
+			// Get packages for this event (these are the boat types with prices)
+			const packages = window.__CONFIG.packages.filter(pkg => 
+				pkg.event_short_ref === cfg.event.event_short_ref
+			);
+			
+			return packages.map(pkg => ({
+				name_en: pkg.title_en,
+				price: pkg.listed_unit_price || '0'
+			}));
+		}
+		
+		// Fallback: try to load from packages API
+		const response = await fetch(`${window.__SUPABASE_URL}/rest/v1/v_packages_public?event_short_ref=eq.${cfg.event.event_short_ref}`, {
+			headers: {
+				'apikey': window.__SUPABASE_ANON_KEY,
+				'Authorization': 'Bearer ' + window.__SUPABASE_ANON_KEY
+			}
+		});
+		
+		if (response.ok) {
+			const packages = await response.json();
+			return packages.map(pkg => ({
+				name_en: pkg.title_en,
+				price: pkg.listed_unit_price || '0'
+			}));
+		}
+		
+		throw new Error('Failed to load boat types');
+		
+	} catch (error) {
+		console.error('Error loading boat types:', error);
+		// Fallback to mock data
+		return [
+			{ name_en: 'Standard Boat', price: '500' },
+			{ name_en: 'Small Boat', price: '300' }
+		];
+	}
+}
+
+async function loadDivisions(cfg) {
+	try {
+		// Use the existing config loader to get divisions
+		if (window.__CONFIG && window.__CONFIG.divisions) {
+			// Get unique sub-names (Men, Ladies, Mixed) from divisions
+			const subNames = [...new Set(
+				window.__CONFIG.divisions
+					.filter(div => div.event_short_ref === cfg.event.event_short_ref)
+					.map(div => div.name_en) // Use name_en from the view (which maps to div_sub_name_en)
+					.filter(Boolean) // Remove null/undefined
+			)];
+			
+			return subNames.map(subName => ({
+				name_en: subName,
+				div_code_prefix: subName.charAt(0).toUpperCase() // M, L, M for Men, Ladies, Mixed
+			}));
+		}
+		
+		// Fallback: try to load from divisions API
+		const response = await fetch(`${window.__SUPABASE_URL}/rest/v1/v_divisions_public?event_short_ref=eq.${cfg.event.event_short_ref}`, {
+			headers: {
+				'apikey': window.__SUPABASE_ANON_KEY,
+				'Authorization': 'Bearer ' + window.__SUPABASE_ANON_KEY
+			}
+		});
+		
+		if (response.ok) {
+			const divisions = await response.json();
+			const subNames = [...new Set(divisions.map(div => div.name_en).filter(Boolean))];
+			return subNames.map(subName => ({
+				name_en: subName,
+				div_code_prefix: subName.charAt(0).toUpperCase()
+			}));
+		}
+		
+		throw new Error('Failed to load divisions');
+		
+	} catch (error) {
+		console.error('Error loading divisions:', error);
+		// Fallback to mock data
+		return [
+			{ name_en: 'Men', div_code_prefix: 'M' },
+			{ name_en: 'Ladies', div_code_prefix: 'L' },
+			{ name_en: 'Mixed', div_code_prefix: 'M' }
+		];
 	}
 }
 
@@ -455,7 +706,7 @@ export function collectStateFromForm() {
     const cfg = assertConfig();
 
     // Section visibility tolerance
-    const teamsHidden = dom.q('#teamsSection')?.classList.contains('hidden');
+    const teamsHidden = dom.q('#teamSection')?.classList.contains('hidden');
     const practiceHidden = dom.q('#practiceSection')?.classList.contains('hidden');
     const raceDayHidden = dom.q('#raceDaySection')?.classList.contains('hidden');
 
@@ -469,6 +720,8 @@ export function collectStateFromForm() {
 
     // Teams
     if (!teamsHidden) {
+        if (isTNMode()) {
+            // TN mode: use existing logic
         const teamRows = dom.qa('#teamsList [data-row="team"], #teamsMount [data-row="team"]');
         if (teamRows.length > 0) {
             teamRows.forEach((row, idx) => {
@@ -478,6 +731,28 @@ export function collectStateFromForm() {
                 state.teams.push({ name, division_code, package_id });
                 if (package_id) state.packages.push({ package_id, qty: 1 });
             });
+            }
+        } else {
+            // WU/SC mode: new structure with boat type and division
+            const teamSections = dom.qa('#teamsList .team-section');
+            if (teamSections.length > 0) {
+                teamSections.forEach((section, idx) => {
+                    const teamIndex = section.getAttribute('data-team-index');
+                    const name = dom.q(`#team_${teamIndex}_name`)?.value || '';
+                    const boatType = dom.q(`input[name="team_${teamIndex}_boat_type"]:checked`)?.value || '';
+                    const division = dom.q(`input[name="team_${teamIndex}_division"]:checked`)?.value || '';
+                    
+                    // Combine boat type and division for category field
+                    const category = boatType && division ? `${boatType} - ${division}` : (boatType || division);
+                    
+                    state.teams.push({ 
+                        name, 
+                        category,
+                        boat_type: boatType,
+                        division: division
+                    });
+                });
+            }
         }
     }
 
@@ -544,26 +819,52 @@ function renderSummarySection(cfg) {
 }
 
 export function initFormForEvent(eventShortRef) {
+	console.log('🔧 initFormForEvent called with:', eventShortRef);
 	const cfg = assertConfig();
-	if (eventShortRef && cfg?.event?.event_short_ref && cfg.event.event_short_ref !== eventShortRef) {
-		// Mismatch warning only in console
+	console.log('🔧 Config loaded:', cfg?.event?.event_short_ref);
+	
+	// Check for mismatch only if both values exist and don't match (case-insensitive)
+	if (eventShortRef && cfg?.event?.event_short_ref) {
+		const argLower = eventShortRef.toLowerCase();
+		const loadedLower = cfg.event.event_short_ref.toLowerCase();
+		// Allow partial matches (e.g., 'wu' matches 'WU2025')
+		if (!loadedLower.includes(argLower) && !argLower.includes(loadedLower.replace(/\d+/g, '').toLowerCase())) {
 		console.warn('initFormForEvent: ref mismatch between arg and loaded config', { arg: eventShortRef, loaded: cfg.event.event_short_ref });
+		}
 	}
 	
 	// Skip all rendering for TN mode - TN uses legacy templates and wizard
 	if (isTNMode()) {
-		console.log('initFormForEvent: Skipping single-page form rendering for TN mode');
+		console.log('🎯 initFormForEvent: Skipping single-page form rendering for TN mode');
 		return;
 	}
+	
+	// For WU/SC, use multi-step wizard instead of single-page form
+	if (eventShortRef === 'wu' || eventShortRef === 'sc') {
+		console.log('🎯 initFormForEvent: Starting WU/SC multi-step wizard...');
+		// Import and initialize WU/SC wizard
+		import('./wu_sc_wizard.js').then(({ initWUSCWizard }) => {
+			initWUSCWizard(eventShortRef);
+		});
+		return;
+	}
+	
+	console.log('🎯 initFormForEvent: Starting single-page form rendering...');
 	
 	// Apply label/help text bindings from config
 	applyCopyBindings(cfg);
 	// Apply visibility/required based on config + profile precedence
 	applyVisibilityAndRequired(cfg);
 	// Render sections
+	console.log('🎯 Rendering contact section...');
 	renderContactSection(cfg);
+	console.log('🎯 Rendering team section...');
 	renderTeamSection(cfg);
+	console.log('🎯 Rendering race day section...');
 	renderRaceDaySection(cfg);
+	console.log('🎯 Rendering practice section...');
 	renderPracticeSection(cfg);
+	console.log('🎯 Rendering summary section...');
 	renderSummarySection(cfg);
+	console.log('✅ initFormForEvent: All sections rendered');
 }

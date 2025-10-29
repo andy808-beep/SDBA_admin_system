@@ -187,7 +187,7 @@ function showForm() {
 
 async function fetchEvents() {
   const { data, error } = await sb
-    .from('annual_event_config')
+    .from('v_event_config_public')
     .select('event_short_ref, event_long_name_en, event_date_en, event_date, event_location_en, form_enabled')
     .eq('form_enabled', true)
     .order('event_date', { ascending: true });

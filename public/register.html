@@ -186,6 +186,40 @@
       background: #28a745;
       color: white;
     }
+    
+    /* WU/SC Stepper Styles - Same as TN */
+    #wuScContainer .stepper-container {
+      background: white;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    #wuScContainer .stepper-steps {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    #wuScContainer .step {
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      background: #e9ecef;
+      color: #6c757d;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+    
+    #wuScContainer .step.active {
+      background: #007bff;
+      color: white;
+    }
+    
+    #wuScContainer .step.completed {
+      background: #28a745;
+      color: white;
+    }
   </style>
 </head>
 <body>
@@ -213,36 +247,10 @@
         <div id="wizardMount"></div>
       </div>
       
-      <!-- WU/SC Single Page Form Sections -->
+      <!-- WU/SC Multi-Step Wizard Container -->
       <div id="wuScContainer" hidden>
-        <div id="contactSection" class="form-section">
-          <h2>Contact Information</h2>
-          <div id="contactFields"></div>
-        </div>
-        
-        <div id="teamSection" class="form-section">
-          <h2>Team Information</h2>
-          <div id="teamFields"></div>
-        </div>
-        
-        <div id="raceDaySection" class="form-section">
-          <h2>Race Day Arrangements</h2>
-          <div id="raceDayFields"></div>
-        </div>
-        
-        <div id="practiceSection" class="form-section">
-          <h2>Practice Booking</h2>
-          <div id="practiceFields"></div>
-        </div>
-        
-        <div id="summarySection" class="form-section">
-          <h2>Summary</h2>
-          <div id="summaryFields"></div>
-        </div>
-        
-        <div class="form-section">
-          <button type="submit" id="submitBtn" class="btn">Submit Registration</button>
-        </div>
+        <!-- WU/SC Wizard Mount Point -->
+        <div id="wuScWizardMount"></div>
       </div>
     </div>
   </div>
@@ -255,7 +263,35 @@
   <script type="module" src="./js/submit.js"></script>
   <script type="module" src="./js/event_bootstrap.js"></script>
   <script type="module" src="./js/tn_wizard.js"></script>
+  <script type="module" src="./js/wu_sc_wizard.js"></script>
   <script src="./js/tn_verification.js"></script>
+  
+  <!-- Load Templates -->
+  <script>
+    // Load TN templates
+    fetch('tn_templates.html')
+      .then(response => response.text())
+      .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const templates = doc.querySelectorAll('template');
+        templates.forEach(template => {
+          document.body.appendChild(template);
+        });
+      });
+    
+    // Load WU/SC templates
+    fetch('wu_sc_templates.html')
+      .then(response => response.text())
+      .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const templates = doc.querySelectorAll('template');
+        templates.forEach(template => {
+          document.body.appendChild(template);
+        });
+      });
+  </script>
   
   <!-- TN Legacy CSS Scoping Script -->
   <script>

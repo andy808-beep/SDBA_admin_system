@@ -18,7 +18,11 @@ BEGIN
       banner_text_en,
       banner_text_tc,
       config_version,
-      updated_at
+      updated_at,
+      event_long_name_en,
+      event_date_en,
+      event_date,
+      event_location_en
     FROM public.annual_event_config';
   END IF;
 END $$;

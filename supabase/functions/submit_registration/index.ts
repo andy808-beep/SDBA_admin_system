@@ -78,7 +78,7 @@ type TNPracticeTeam = {
 
 type Payload = {
   eventShortRef: string;
-  category: "men_open" | "ladies_open" | "mixed_open" | "mixed_corporate";
+  category: "men_open" | "ladies_open" | "mixed_open" | "mixed_corporate" | string;
   season?: number;
   org_name: string;
   org_address?: string | null;
@@ -92,6 +92,14 @@ type Payload = {
   } | null;
   practice?: PracticeBlock[] | { teams: TNPracticeTeam[] };
   client_tx_id?: string;
+  // New structure for WU/SC
+  teams?: Array<{
+    name: string;
+    category: string;
+    boat_type: string;
+    division: string;
+    team_size?: number;
+  }>;
 };
 
 // ---------------- Helpers ----------------
@@ -142,16 +150,32 @@ Deno.serve(async (req) => {
 
   if (!eventShortRef) return bad(req, "eventShortRef is required");
   if (!category) return bad(req, "category is required");
-  const divLetter = letterFromCategory(category);
-  if (!divLetter) return bad(req, `Unknown category: ${category}`);
-  if (!counts) return bad(req, "counts missing");
-  const { num_teams, num_teams_opt1, num_teams_opt2 } = counts;
-  if (!Number.isInteger(num_teams) || num_teams < 1) return bad(req, "num_teams invalid");
-  if (team_names.length !== num_teams || team_options.length !== num_teams) {
-    return bad(req, "team_names / team_options length must equal num_teams");
+  
+  // Normalize event type from eventShortRef (e.g., 'SC2025' -> 'sc', 'TN2025' -> 'tn')
+  const eventType = eventShortRef.replace(/\d+/g, '').toLowerCase(); // Remove numbers and lowercase
+  
+  // Check if this is a WU/SC event (has teams array with individual categories)
+  const isWUSC = payload.teams && Array.isArray(payload.teams) && payload.teams.length > 0;
+  
+  // For TN events, validate category
+  let divLetter: string | null = null;
+  if (!isWUSC) {
+    divLetter = letterFromCategory(category);
+    if (!divLetter) return bad(req, `Unknown category: ${category}`);
   }
-  if ((num_teams_opt1 + num_teams_opt2) !== num_teams) {
-    return bad(req, "num_teams_opt1 + num_teams_opt2 must equal num_teams");
+  
+  if (!isWUSC && !counts) return bad(req, "counts missing");
+  
+  // TN-specific validation
+  if (!isWUSC) {
+    const { num_teams, num_teams_opt1, num_teams_opt2 } = counts || {};
+    if (!Number.isInteger(num_teams) || num_teams < 1) return bad(req, "num_teams invalid");
+    if (team_names.length !== num_teams || team_options.length !== num_teams) {
+      return bad(req, "team_names / team_options length must equal num_teams");
+    }
+    if ((num_teams_opt1 + num_teams_opt2) !== num_teams) {
+      return bad(req, "num_teams_opt1 + num_teams_opt2 must equal num_teams");
+    }
   }
   if (!org_name?.trim()) return bad(req, "org_name is required");
 
@@ -176,46 +200,49 @@ Deno.serve(async (req) => {
     }
     const seasonNum: number = Number(eventRow.season);
 
-    // 2) Division check
-    const { data: divRows, error: divError } = await admin
-      .from('v_divisions_public')
-      .select('division_code')
-      .eq('event_short_ref', 'TN2025')
-      .eq('division_code', divLetter)
-      .eq('is_active', true)
-      .limit(1);
-    
-    if (divError) throw new Error(`Division check failed: ${divError.message}`);
-    if (!divRows.length) {
-      // Get available divisions for better error message
-      const { data: availableDivs } = await admin
+    // TN-specific validation: Division and Package checks
+    if (!isWUSC) {
+      // 2) Division check
+      const { data: divRows, error: divError } = await admin
         .from('v_divisions_public')
         .select('division_code')
         .eq('event_short_ref', 'TN2025')
-        .eq('is_active', true);
-      const available = availableDivs?.map(d => d.division_code).join(', ') || 'none';
-      throw new Error(`Division ${divLetter} not active for ${eventShortRef}. Available: ${available}`);
-    }
-
-    // 3) Package availability check
-    const pkgCodes = new Set<string>();
-    for (const opt of team_options) pkgCodes.add(derivePackageCode(eventShortRef, category, opt));
-    if (pkgCodes.size) {
-      const { data: pkgRows, error: pkgError } = await admin
-        .from('v_packages_public')
-        .select('package_code')
-        .eq('event_short_ref', 'TN2025')
-        .in('package_code', Array.from(pkgCodes))
-        .eq('is_active', true);
+        .eq('division_code', divLetter)
+        .eq('is_active', true)
+        .limit(1);
       
-      if (pkgError) throw new Error(`Package check failed: ${pkgError.message}`);
-      const ok = new Set(pkgRows.map((r: any) => r.package_code));
-      for (const code of pkgCodes) if (!ok.has(code)) throw new Error(`Package not available: ${code}`);
+      if (divError) throw new Error(`Division check failed: ${divError.message}`);
+      if (!divRows.length) {
+        // Get available divisions for better error message
+        const { data: availableDivs } = await admin
+          .from('v_divisions_public')
+          .select('division_code')
+          .eq('event_short_ref', 'TN2025')
+          .eq('is_active', true);
+        const available = availableDivs?.map(d => d.division_code).join(', ') || 'none';
+        throw new Error(`Division ${divLetter} not active for ${eventShortRef}. Available: ${available}`);
+      }
+
+      // 3) Package availability check
+      const pkgCodes = new Set<string>();
+      for (const opt of team_options) pkgCodes.add(derivePackageCode(eventShortRef, category, opt));
+      if (pkgCodes.size) {
+        const { data: pkgRows, error: pkgError } = await admin
+          .from('v_packages_public')
+          .select('package_code')
+          .eq('event_short_ref', 'TN2025')
+          .in('package_code', Array.from(pkgCodes))
+          .eq('is_active', true);
+        
+        if (pkgError) throw new Error(`Package check failed: ${pkgError.message}`);
+        const ok = new Set(pkgRows.map((r: any) => r.package_code));
+        for (const code of pkgCodes) if (!ok.has(code)) throw new Error(`Package not available: ${code}`);
+      }
     }
 
     // 4) Practice validation - only for TN events
     let practice = initialPractice;
-    if (eventShortRef === 'tn') {
+    if (eventType === 'tn') {
       console.log('Practice data received for TN:', Array.isArray(practice) ? practice.length : 'teams structure');
       
       // Log practice teams summary (redacted)
@@ -246,6 +273,12 @@ Deno.serve(async (req) => {
         for (const team of tnPractice.teams) {
           if (!team.team_key || !Array.isArray(team.dates)) {
             throw new Error('Invalid practice team data structure');
+          }
+          
+          // Debug: Log team slot ranks count
+          console.log(`🔍 Team ${team.team_key} slot_ranks count:`, team.slot_ranks?.length || 0);
+          if (team.slot_ranks && team.slot_ranks.length > 0) {
+            console.log(`🔍 Team ${team.team_key} slot_ranks:`, team.slot_ranks);
           }
           
           // Validate dates
@@ -287,43 +320,51 @@ Deno.serve(async (req) => {
             }
           }
           
-          // Validate slot ranks
+          // Validate slot ranks - allow up to 3 per duration (1hr, 2hr)
           if (Array.isArray(team.slot_ranks)) {
-            if (team.slot_ranks.length > 3) {
-              throw new Error('E.SLOT_RANK_COUNT: Maximum 3 slot rankings allowed');
-            }
+            console.log(`🔍 Validating slot ranks for team ${team.team_key}: count=${team.slot_ranks.length}`);
             
-            // Check for duplicate ranks
-            const ranks = team.slot_ranks.map(r => r.rank);
-            const uniqueRanks = new Set(ranks);
-            if (ranks.length !== uniqueRanks.size) {
-              throw new Error('E.SLOT_RANK_DUP: Duplicate slot rankings not allowed');
-            }
-            
-            // Check for duplicate slot codes
-            const slotCodes = team.slot_ranks.map(r => r.slot_code);
-            const uniqueSlotCodes = new Set(slotCodes);
-            if (slotCodes.length !== uniqueSlotCodes.size) {
-              throw new Error('E.SLOT_RANK_DUP: Duplicate slot codes not allowed');
-            }
-            
-            // Validate slot codes exist
+            // Group by duration to validate 3 max per duration
+            const ranksByDuration = new Map<number, any[]>();
             for (const rank of team.slot_ranks) {
-              if (!rank.slot_code) {
-                throw new Error('E.SLOT_INVALID: Slot code is required');
-              }
-              
-              // Check if slot exists in timeslot catalog
-              const { data: slotExists } = await admin
+              // Get slot details to check duration
+              const { data: slotData } = await admin
                 .from('timeslot_catalog')
-                .select('slot_code')
+                .select('duration_hours')
                 .eq('slot_code', rank.slot_code)
                 .eq('is_active', true)
                 .single();
               
-              if (!slotExists) {
-                throw new Error('E.SLOT_INVALID: Invalid slot code');
+              if (!slotData) {
+                throw new Error(`E.SLOT_INVALID: Invalid slot code ${rank.slot_code}`);
               }
+              
+              const duration = slotData.duration_hours;
+              if (!ranksByDuration.has(duration)) {
+                ranksByDuration.set(duration, []);
+              }
+              ranksByDuration.get(duration)!.push(rank);
+            }
+            
+            // Check max 3 per duration
+            for (const [duration, ranks] of ranksByDuration.entries()) {
+              if (ranks.length > 3) {
+                throw new Error(`E.SLOT_RANK_COUNT: Maximum 3 slot rankings allowed per duration (found ${ranks.length} for ${duration}hr sessions)`);
+              }
+              
+              // Check for duplicate ranks within this duration
+              const rankValues = ranks.map(r => r.rank);
+              const uniqueRanks = new Set(rankValues);
+              if (rankValues.length !== uniqueRanks.size) {
+                throw new Error(`E.SLOT_RANK_DUP: Duplicate slot rankings not allowed for ${duration}hr sessions`);
+              }
+            }
+            
+            // Check for duplicate slot codes across all durations
+            const slotCodes = team.slot_ranks.map(r => r.slot_code);
+            const uniqueSlotCodes = new Set(slotCodes);
+            if (slotCodes.length !== uniqueSlotCodes.size) {
+              throw new Error('E.SLOT_RANK_DUP: Duplicate slot codes not allowed');
             }
           }
         }
@@ -336,27 +377,108 @@ Deno.serve(async (req) => {
 
     // 5) registration_meta (now stores individual team registrations for admin approval)
     const optionText = (o: "opt1" | "opt2") => (o === "opt1" ? "Option 1" : "Option 2");
-    const registrationsToInsert = team_names.map((team_name, idx) => ({
-      event_short_ref: eventShortRef,
-      client_tx_id: payload.client_tx_id,
-      season: seasonNum,
-      category,
-      division_code: divLetter,
-      option_choice: optionText(team_options[idx]),
-      team_name,
-      org_name,
-      org_address: org_address ?? null,
-      team_manager_1: mgrs[0]?.name || "",
-      mobile_1:       mgrs[0]?.mobile || "",
-      email_1:        mgrs[0]?.email  || "",
-      team_manager_2: mgrs[1]?.name || "",
-      mobile_2:       mgrs[1]?.mobile || "",
-      email_2:        mgrs[1]?.email  || "",
-      team_manager_3: mgrs[2]?.name || "",
-      mobile_3:       mgrs[2]?.mobile || "",
-      email_3:        mgrs[2]?.email  || "",
-      status: 'pending'
-    }));
+    
+    // Handle different event types
+    let registrationsToInsert: any[];
+    
+    if (eventType === 'tn') {
+      // TN: Use existing logic with team_names array
+      registrationsToInsert = team_names.map((team_name, idx) => ({
+        event_type: 'tn',
+        event_short_ref: eventShortRef,
+        client_tx_id: payload.client_tx_id,
+        season: seasonNum,
+        category,
+        division_code: divLetter,
+        option_choice: optionText(team_options[idx]),
+        team_name,
+        org_name,
+        org_address: org_address ?? null,
+        team_manager_1: mgrs[0]?.name || "",
+        mobile_1:       mgrs[0]?.mobile || "",
+        email_1:        mgrs[0]?.email  || "",
+        team_manager_2: mgrs[1]?.name || "",
+        mobile_2:       mgrs[1]?.mobile || "",
+        email_2:        mgrs[1]?.email  || "",
+        team_manager_3: mgrs[2]?.name || "",
+        mobile_3:       mgrs[2]?.mobile || "",
+        email_3:        mgrs[2]?.email  || "",
+        status: 'pending'
+      }));
+    } else {
+      // WU/SC: Use new teams structure from payload
+      const teams = (payload as any).teams || [];
+      
+      // Map division names to their code prefixes from division_config_general
+      const divisionMap = new Map<string, string>();
+      for (const team of teams) {
+        if (team.division && !divisionMap.has(team.division)) {
+          // Query division_config_general to get div_code_prefix for this division name
+          const eventTypeMapping: Record<string, string> = {
+            'wu': 'warm_up',
+            'sc': 'short_course'
+          };
+          const configEventType = eventTypeMapping[eventType] || eventType;
+          
+          const { data: divData } = await admin
+            .from('division_config_general')
+            .select('div_code_prefix')
+            .eq('event_type', configEventType)
+            .or(`div_main_name_en.eq.${team.division},div_sub_name_en.eq.${team.division}`)
+            .eq('status', 'active')
+            .limit(1)
+            .single();
+          
+          if (divData?.div_code_prefix) {
+            divisionMap.set(team.division, divData.div_code_prefix);
+          } else {
+            // Try to match the full combined name (e.g., "Standard Boat – Men")
+            const { data: allDivs } = await admin
+              .from('division_config_general')
+              .select('div_code_prefix, div_main_name_en, div_sub_name_en')
+              .eq('event_type', configEventType)
+              .eq('status', 'active');
+            
+            if (allDivs) {
+              for (const div of allDivs) {
+                const fullName = div.div_sub_name_en 
+                  ? `${div.div_main_name_en} – ${div.div_sub_name_en}`
+                  : div.div_main_name_en;
+                if (fullName === team.division) {
+                  divisionMap.set(team.division, div.div_code_prefix);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      registrationsToInsert = teams.map((team: any) => ({
+        event_type: eventType,  // Use normalized event type ('wu' or 'sc')
+        event_short_ref: eventShortRef,
+        client_tx_id: payload.client_tx_id,
+        season: seasonNum,
+        category: team.category || team.boat_type || '',
+        division_code: divisionMap.get(team.division) || '', // Use div_code_prefix
+        option_choice: null,  // Not used for WU/SC events
+        team_name: team.name || '',
+        org_name,
+        org_address: org_address ?? null,
+        package_choice: team.boat_type || '',
+        team_size: team.team_size || null,
+        team_manager_1: mgrs[0]?.name || "",
+        mobile_1:       mgrs[0]?.mobile || "",
+        email_1:        mgrs[0]?.email  || "",
+        team_manager_2: mgrs[1]?.name || "",
+        mobile_2:       mgrs[1]?.mobile || "",
+        email_2:        mgrs[1]?.email  || "",
+        team_manager_3: mgrs[2]?.name || "",
+        mobile_3:       mgrs[2]?.mobile || "",
+        email_3:        mgrs[2]?.email  || "",
+        status: 'pending'
+      }));
+    }
     
     console.log('🔄 About to insert registrations:', {
       count: registrationsToInsert.length,

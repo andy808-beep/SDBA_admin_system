@@ -451,11 +451,14 @@ create table public.registration_meta (
 
   season   int  NOT NULL CHECK (season BETWEEN 2000 AND 2100),
 
+  -- Event type to distinguish TN/WU/SC
+  event_type text NOT NULL DEFAULT 'tn' CHECK (event_type IN ('tn', 'wu', 'sc')),
+
   -- legacy category kept for compatibility; prefer division_code going forward
   category text,
-  division_code text,                -- e.g. 'M','L','X','C'
+  division_code text,                -- e.g. 'M','L','X','C' for TN; 'WM','WL','WX','WPM','WPL','WPX','Y','YL','D' for WU; 'SM','SL','SX','SU','HKU','SPM','SPL','SPX' for SC
 
-  option_choice text NOT NULL CHECK (option_choice IN ('Option 1','Option 2')),
+  option_choice text CHECK (option_choice IN ('Option 1','Option 2')),  -- Only required for TN events
   team_code     text NOT NULL,       -- assigned/validated by trigger
   team_name     citext NOT NULL,
 
@@ -480,6 +483,10 @@ create table public.registration_meta (
   mobile_3       text,
   email_3        text,
 
+  -- WU/SC specific fields (nullable for TN compatibility)
+  package_choice text,               -- WU/SC package selection
+  team_size int CHECK (team_size BETWEEN 8 AND 25), -- WU/SC team size
+
   -- Link back to header registration (optional)
   registration_id uuid,
 
@@ -501,13 +508,19 @@ create table public.registration_meta (
   CONSTRAINT uniq_registration_teamname_per_div_season_norm UNIQUE (season, division_code, team_name_normalized),
   -- Removed uniq_registration_client_tx constraint to allow multiple teams per submission
   CHECK (length(btrim(team_name::text)) > 0),
-  CHECK (length(btrim(team_code)) > 0)
+  CHECK (length(btrim(team_code)) > 0),
+  -- TN events require option_choice, WU/SC events don't
+  CONSTRAINT ck_option_choice_required_for_tn CHECK (
+    (event_type = 'tn' AND option_choice IS NOT NULL) OR
+    (event_type IN ('wu', 'sc'))
+  )
 );
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_registration_meta_season_div ON public.registration_meta (season, division_code);
 CREATE INDEX IF NOT EXISTS idx_registration_meta_user ON public.registration_meta (user_id);
 CREATE INDEX IF NOT EXISTS idx_registration_meta_status ON public.registration_meta (status);
+CREATE INDEX IF NOT EXISTS idx_registration_meta_event_type ON public.registration_meta (event_type);
 CREATE INDEX IF NOT EXISTS idx_registration_meta_client_tx ON public.registration_meta (event_short_ref, client_tx_id);
 
 -- Triggers
@@ -539,27 +552,44 @@ BEGIN
     NEW.team_code := upper(btrim(NEW.team_code));
   END IF;
 
-  -- Prefer division_code → first letter; else map from category
-  IF NEW.division_code IS NOT NULL AND btrim(NEW.division_code) <> '' THEN
-    eff_letter := upper(substring(btrim(NEW.division_code) from 1 for 1));
+  -- Handle division code based on event type
+  IF NEW.event_type = 'tn' THEN
+    -- TN: Use first letter of division_code or map from category
+    IF NEW.division_code IS NOT NULL AND btrim(NEW.division_code) <> '' THEN
+      eff_letter := upper(substring(btrim(NEW.division_code) from 1 for 1));
+    ELSE
+      eff_letter := public._cat_letter(cat_norm);
+    END IF;
   ELSE
-    eff_letter := public._cat_letter(cat_norm);
+    -- WU/SC: Use full division_code prefix from division_config_general
+    IF NEW.division_code IS NOT NULL AND btrim(NEW.division_code) <> '' THEN
+      eff_letter := upper(btrim(NEW.division_code));
+    ELSE
+      -- Default fallback based on event type
+      IF NEW.event_type = 'wu' THEN
+        eff_letter := 'W';
+      ELSIF NEW.event_type = 'sc' THEN
+        eff_letter := 'S';
+      ELSE
+        eff_letter := 'T';
+      END IF;
+    END IF;
   END IF;
 
   IF eff_letter IS NULL THEN
-    RAISE EXCEPTION 'Cannot derive division letter (division_code=%, category=%)',
-      NEW.division_code, NEW.category;
+    RAISE EXCEPTION 'Cannot derive division letter (division_code=%, category=%, event_type=%)',
+      NEW.division_code, NEW.category, NEW.event_type;
   END IF;
 
   yy := lpad((NEW.season % 100)::text, 2, '0');
   prefix := 'S' || yy || '-' || eff_letter;
 
-  -- advisory lock per (season, letter)
-  bucket_key := ascii(eff_letter);
+  -- advisory lock per (season, letter) - use hash for multi-char codes
+  bucket_key := hashtext(eff_letter);
   IF NEW.team_code IS NULL OR NEW.team_code = '' THEN
     PERFORM pg_advisory_xact_lock(NEW.season, bucket_key);
 
-    SELECT COALESCE(MAX((substring(team_code from '^[S][0-9]{2}-[A-Z]([0-9]{3})$'))::int), 0)
+    SELECT COALESCE(MAX((substring(team_code from '^[S][0-9]{2}-[A-Z]+([0-9]{3})$'))::int), 0)
       INTO max_num
     FROM public.registration_meta
     WHERE season = NEW.season
@@ -587,6 +617,218 @@ BEFORE INSERT OR UPDATE ON public.registration_meta
 FOR EACH ROW EXECUTE FUNCTION public.registration_meta_normalize_and_assign();
 
 -- =========================================================
+-- WU TEAM META (Warm-Up Event Teams)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS public.wu_team_meta (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+
+  season int NOT NULL CHECK (season BETWEEN 2000 AND 2100),
+  division_code text, -- WU-specific divisions (e.g., 'WM', 'WL', 'WX', 'WPM', 'WPL', 'WPX', 'Y', 'YL', 'D')
+
+  team_code text NOT NULL,
+  team_name citext NOT NULL,
+  team_name_normalized citext
+    GENERATED ALWAYS AS (
+      lower( regexp_replace(btrim(team_name::text), '\s+', ' ', 'g') )
+    ) STORED,
+
+  -- WU-specific fields (simpler than TN)
+  package_choice text NOT NULL, -- 'basic_wu', 'premium_wu'
+  team_size int DEFAULT 20 CHECK (team_size BETWEEN 10 AND 25),
+
+  -- Contact info (simplified - single manager)
+  team_manager text NOT NULL,
+  mobile text,
+  email text,
+
+  -- Organization info
+  org_name text,
+  org_address text,
+
+  -- Link back to registration
+  registration_id uuid REFERENCES public.registration_meta(id),
+
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+
+  -- Constraints
+  CONSTRAINT uniq_wu_teamcode_global UNIQUE (team_code),
+  CONSTRAINT uniq_wu_teamname_per_div_season_norm UNIQUE (season, division_code, team_name_normalized),
+  CHECK (length(btrim(team_name::text)) > 0),
+  CHECK (length(btrim(team_code)) > 0)
+);
+
+-- WU Team Meta Indexes
+CREATE INDEX IF NOT EXISTS idx_wu_teammeta_season_div ON public.wu_team_meta (season, division_code);
+CREATE INDEX IF NOT EXISTS idx_wu_teammeta_user ON public.wu_team_meta (user_id);
+CREATE INDEX IF NOT EXISTS idx_wu_teammeta_registration ON public.wu_team_meta (registration_id);
+
+-- WU Team code generator
+CREATE OR REPLACE FUNCTION public.wu_team_meta_normalize_and_assign()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  yy text;
+  prefix text;
+  max_num int;
+  bucket_key int;
+  eff_letter text;
+BEGIN
+  IF NEW.team_code IS NOT NULL THEN
+    NEW.team_code := upper(btrim(NEW.team_code));
+  END IF;
+
+  -- Use division code prefix from division_config_general (e.g., 'WM', 'WL', 'WPM')
+  IF NEW.division_code IS NOT NULL AND btrim(NEW.division_code) <> '' THEN
+    eff_letter := upper(btrim(NEW.division_code));
+  ELSE
+    eff_letter := 'W'; -- Default to 'W' for WU
+  END IF;
+
+  yy := lpad((NEW.season % 100)::text, 2, '0');
+  prefix := 'S' || yy || '-' || eff_letter;
+
+  -- advisory lock per (season, letter)
+  bucket_key := ascii(eff_letter);
+  IF NEW.team_code IS NULL OR NEW.team_code = '' THEN
+    PERFORM pg_advisory_xact_lock(NEW.season, bucket_key);
+
+    SELECT COALESCE(MAX((substring(team_code from '^[S][0-9]{2}-[A-Z]([0-9]{3})$'))::int), 0)
+      INTO max_num
+    FROM public.wu_team_meta
+    WHERE season = NEW.season
+      AND team_code ~ ('^' || prefix || '[0-9]{3}$');
+
+    NEW.team_code := prefix || lpad((max_num + 1)::text, 3, '0');
+  END IF;
+
+  IF NEW.team_code !~ ('^' || prefix || '[0-9]{3}$') THEN
+    RAISE EXCEPTION 'WU team_code % does not match expected pattern %### for season %',
+      NEW.team_code, prefix, NEW.season;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- WU Team Meta Triggers
+DROP TRIGGER IF EXISTS trg_wu_team_meta_before ON public.wu_team_meta;
+CREATE TRIGGER trg_wu_team_meta_before
+BEFORE INSERT OR UPDATE ON public.wu_team_meta
+FOR EACH ROW EXECUTE FUNCTION public.wu_team_meta_normalize_and_assign();
+
+DROP TRIGGER IF EXISTS trg_wu_team_meta_updated_at ON public.wu_team_meta;
+CREATE TRIGGER trg_wu_team_meta_updated_at
+BEFORE UPDATE ON public.wu_team_meta
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- =========================================================
+-- SC TEAM META (Short Course Event Teams)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS public.sc_team_meta (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+
+  season int NOT NULL CHECK (season BETWEEN 2000 AND 2100),
+  division_code text, -- SC-specific divisions (e.g., 'SM', 'SL', 'SX', 'SU', 'HKU', 'SPM', 'SPL', 'SPX')
+
+  team_code text NOT NULL,
+  team_name citext NOT NULL,
+  team_name_normalized citext
+    GENERATED ALWAYS AS (
+      lower( regexp_replace(btrim(team_name::text), '\s+', ' ', 'g') )
+    ) STORED,
+
+  -- SC-specific fields (simpler than TN)
+  package_choice text NOT NULL, -- 'basic_sc', 'premium_sc'
+  team_size int DEFAULT 15 CHECK (team_size BETWEEN 8 AND 20),
+
+  -- Contact info (simplified - single manager)
+  team_manager text NOT NULL,
+  mobile text,
+  email text,
+
+  -- Organization info
+  org_name text,
+  org_address text,
+
+  -- Link back to registration
+  registration_id uuid REFERENCES public.registration_meta(id),
+
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+
+  -- Constraints
+  CONSTRAINT uniq_sc_teamcode_global UNIQUE (team_code),
+  CONSTRAINT uniq_sc_teamname_per_div_season_norm UNIQUE (season, division_code, team_name_normalized),
+  CHECK (length(btrim(team_name::text)) > 0),
+  CHECK (length(btrim(team_code)) > 0)
+);
+
+-- SC Team Meta Indexes
+CREATE INDEX IF NOT EXISTS idx_sc_teammeta_season_div ON public.sc_team_meta (season, division_code);
+CREATE INDEX IF NOT EXISTS idx_sc_teammeta_user ON public.sc_team_meta (user_id);
+CREATE INDEX IF NOT EXISTS idx_sc_teammeta_registration ON public.sc_team_meta (registration_id);
+
+-- SC Team code generator
+CREATE OR REPLACE FUNCTION public.sc_team_meta_normalize_and_assign()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  yy text;
+  prefix text;
+  max_num int;
+  bucket_key int;
+  eff_letter text;
+BEGIN
+  IF NEW.team_code IS NOT NULL THEN
+    NEW.team_code := upper(btrim(NEW.team_code));
+  END IF;
+
+  -- Use division code prefix from division_config_general (e.g., 'SM', 'SL', 'SPM')
+  IF NEW.division_code IS NOT NULL AND btrim(NEW.division_code) <> '' THEN
+    eff_letter := upper(btrim(NEW.division_code));
+  ELSE
+    eff_letter := 'S'; -- Default to 'S' for SC
+  END IF;
+
+  yy := lpad((NEW.season % 100)::text, 2, '0');
+  prefix := 'S' || yy || '-' || eff_letter;
+
+  -- advisory lock per (season, letter)
+  bucket_key := ascii(eff_letter);
+  IF NEW.team_code IS NULL OR NEW.team_code = '' THEN
+    PERFORM pg_advisory_xact_lock(NEW.season, bucket_key);
+
+    SELECT COALESCE(MAX((substring(team_code from '^[S][0-9]{2}-[A-Z]([0-9]{3})$'))::int), 0)
+      INTO max_num
+    FROM public.sc_team_meta
+    WHERE season = NEW.season
+      AND team_code ~ ('^' || prefix || '[0-9]{3}$');
+
+    NEW.team_code := prefix || lpad((max_num + 1)::text, 3, '0');
+  END IF;
+
+  IF NEW.team_code !~ ('^' || prefix || '[0-9]{3}$') THEN
+    RAISE EXCEPTION 'SC team_code % does not match expected pattern %### for season %',
+      NEW.team_code, prefix, NEW.season;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- SC Team Meta Triggers
+DROP TRIGGER IF EXISTS trg_sc_team_meta_before ON public.sc_team_meta;
+CREATE TRIGGER trg_sc_team_meta_before
+BEFORE INSERT OR UPDATE ON public.sc_team_meta
+FOR EACH ROW EXECUTE FUNCTION public.sc_team_meta_normalize_and_assign();
+
+DROP TRIGGER IF EXISTS trg_sc_team_meta_updated_at ON public.sc_team_meta;
+CREATE TRIGGER trg_sc_team_meta_updated_at
+BEFORE UPDATE ON public.sc_team_meta
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- =========================================================
 -- ADMIN VIEWS FOR REGISTRATION APPROVAL WORKFLOW
 -- =========================================================
 
@@ -597,6 +839,7 @@ SELECT
   id,
   user_id,
   season,
+  event_type,
   category,
   division_code,
   option_choice,
@@ -608,6 +851,8 @@ SELECT
   team_manager_1, mobile_1, email_1,
   team_manager_2, mobile_2, email_2,
   team_manager_3, mobile_3, email_3,
+  package_choice,
+  team_size,
   status,
   admin_notes,
   approved_by,
@@ -627,6 +872,7 @@ SELECT
   id,
   user_id,
   season,
+  event_type,
   category,
   division_code,
   option_choice,
@@ -638,6 +884,8 @@ SELECT
   team_manager_1, mobile_1, email_1,
   team_manager_2, mobile_2, email_2,
   team_manager_3, mobile_3, email_3,
+  package_choice,
+  team_size,
   status,
   admin_notes,
   approved_by,
@@ -654,7 +902,7 @@ ORDER BY approved_at DESC;
 -- HELPER FUNCTIONS FOR ADMIN WORKFLOW
 -- =========================================================
 
--- Function to approve a registration (move to team_meta)
+-- Function to approve a registration (move to appropriate team table based on event_type)
 CREATE OR REPLACE FUNCTION public.approve_registration(reg_id uuid, admin_user_id uuid, notes text DEFAULT NULL)
 RETURNS uuid
 LANGUAGE plpgsql
@@ -673,22 +921,64 @@ BEGIN
     RAISE EXCEPTION 'Registration not found or not pending: %', reg_id;
   END IF;
   
-  -- Insert into team_meta
-  INSERT INTO public.team_meta (
-    user_id, season, category, division_code, option_choice,
-    team_code, team_name, team_name_normalized, org_name, org_address,
-    team_manager_1, mobile_1, email_1,
-    team_manager_2, mobile_2, email_2,
-    team_manager_3, mobile_3, email_3,
-    registration_id
-  ) VALUES (
-    reg_record.user_id, reg_record.season, reg_record.category, reg_record.division_code, reg_record.option_choice,
-    reg_record.team_code, reg_record.team_name, reg_record.team_name_normalized, reg_record.org_name, reg_record.org_address,
-    reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
-    reg_record.team_manager_2, reg_record.mobile_2, reg_record.email_2,
-    reg_record.team_manager_3, reg_record.mobile_3, reg_record.email_3,
-    reg_record.id
-  ) RETURNING id INTO new_team_id;
+  -- Route to appropriate team table based on event_type
+  IF reg_record.event_type = 'tn' THEN
+    -- Insert into team_meta for TN
+    INSERT INTO public.team_meta (
+      user_id, season, category, division_code, option_choice,
+      team_code, team_name, team_name_normalized, org_name, org_address,
+      team_manager_1, mobile_1, email_1,
+      team_manager_2, mobile_2, email_2,
+      team_manager_3, mobile_3, email_3,
+      registration_id
+    ) VALUES (
+      reg_record.user_id, reg_record.season, reg_record.category, reg_record.division_code, reg_record.option_choice,
+      reg_record.team_code, reg_record.team_name, reg_record.team_name_normalized, reg_record.org_name, reg_record.org_address,
+      reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
+      reg_record.team_manager_2, reg_record.mobile_2, reg_record.email_2,
+      reg_record.team_manager_3, reg_record.mobile_3, reg_record.email_3,
+      reg_record.id
+    ) RETURNING id INTO new_team_id;
+    
+  ELSIF reg_record.event_type = 'wu' THEN
+    -- Insert into wu_team_meta for WU (team_code will be auto-generated by trigger)
+    INSERT INTO public.wu_team_meta (
+      user_id, season, division_code,
+      team_code, team_name,
+      package_choice, team_size,
+      team_manager, mobile, email,
+      org_name, org_address,
+      registration_id
+    ) VALUES (
+      reg_record.user_id, reg_record.season, reg_record.division_code,
+      '', reg_record.team_name,  -- Empty team_code will trigger auto-generation
+      reg_record.package_choice, reg_record.team_size,
+      reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
+      reg_record.org_name, reg_record.org_address,
+      reg_record.id
+    ) RETURNING id INTO new_team_id;
+    
+  ELSIF reg_record.event_type = 'sc' THEN
+    -- Insert into sc_team_meta for SC (team_code will be auto-generated by trigger)
+    INSERT INTO public.sc_team_meta (
+      user_id, season, division_code,
+      team_code, team_name,
+      package_choice, team_size,
+      team_manager, mobile, email,
+      org_name, org_address,
+      registration_id
+    ) VALUES (
+      reg_record.user_id, reg_record.season, reg_record.division_code,
+      '', reg_record.team_name,  -- Empty team_code will trigger auto-generation
+      reg_record.package_choice, reg_record.team_size,
+      reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
+      reg_record.org_name, reg_record.org_address,
+      reg_record.id
+    ) RETURNING id INTO new_team_id;
+    
+  ELSE
+    RAISE EXCEPTION 'Unknown event_type: %', reg_record.event_type;
+  END IF;
   
   -- Update registration status
   UPDATE public.registration_meta
@@ -824,6 +1114,8 @@ for each row execute function public.set_updated_at();
 -- RLS: ENABLE & DENY (service-role or SECURITY DEFINER only)
 -- =========================================================
 alter table public.team_meta            enable row level security;
+alter table public.wu_team_meta         enable row level security;
+alter table public.sc_team_meta          enable row level security;
 -- NOTE: RLS intentionally NOT enabled on team_meta_audit (trigger needs to write freely)
 -- alter table public.team_meta_audit   enable row level security;
 alter table public.timeslot_catalog     enable row level security;

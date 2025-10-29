@@ -3051,18 +3051,19 @@ function fillSingleTeamForSubmission() {
   
   // Step 4: Fill practice data for team 1 (only weekdays after 10/27/2025)
   const practiceRows = [
-    { pref_date: '2025-10-29', duration_hours: 2, helper: 'S' }, // Wednesday
-    { pref_date: '2025-11-05', duration_hours: 1, helper: 'T' }, // Wednesday
-    { pref_date: '2025-11-12', duration_hours: 3, helper: 'S' }  // Wednesday
+    { pref_date: '2025-10-29', duration_hours: 2, helper: 'S' }, // Wednesday - 2hr
+    { pref_date: '2025-11-05', duration_hours: 1, helper: 'T' }, // Wednesday - 1hr
+    { pref_date: '2025-11-12', duration_hours: 2, helper: 'S' }  // Wednesday - 2hr
   ];
   
+  // Slot ranks: 3 for 2hr sessions, 3 for 1hr sessions (using only Saturday slots)
   const slotRanks = [
-    { rank: 1, slot_code: 'SAT2_0800_1000' },
-    { rank: 2, slot_code: 'SAT2_1000_1200' },
-    { rank: 3, slot_code: 'SAT2_1215_1415' },
-    { rank: 4, slot_code: 'SAT2_1415_1615' },
-    { rank: 5, slot_code: 'SUN2_0800_1000' },
-    { rank: 6, slot_code: 'SUN2_1000_1200' }
+    { rank: 1, slot_code: 'SAT2_0800_1000' },  // 2hr Saturday
+    { rank: 2, slot_code: 'SAT2_1000_1200' },  // 2hr Saturday
+    { rank: 3, slot_code: 'SAT2_1215_1415' },  // 2hr Saturday
+    { rank: 1, slot_code: 'SAT1_0800_0900' },  // 1hr Saturday
+    { rank: 2, slot_code: 'SAT1_0900_1000' },  // 1hr Saturday
+    { rank: 3, slot_code: 'SAT1_1000_1100' }   // 1hr Saturday
   ];
   
   // Fill practice data for team 1
@@ -3138,20 +3139,21 @@ function fillMultipleTeamsForSubmission() {
   
   // Step 4: Fill practice data for all teams (only weekdays after 10/27/2025)
   const practiceRows = [
-    { pref_date: '2025-10-29', duration_hours: 2, helper: 'S' }, // Wednesday
-    { pref_date: '2025-11-05', duration_hours: 1, helper: 'T' }, // Wednesday
-    { pref_date: '2025-11-12', duration_hours: 3, helper: 'S' }, // Wednesday
-    { pref_date: '2025-11-19', duration_hours: 2, helper: 'T' }, // Wednesday
-    { pref_date: '2025-11-26', duration_hours: 1, helper: 'S' }  // Wednesday
+    { pref_date: '2025-10-29', duration_hours: 2, helper: 'S' }, // Wednesday - 2hr
+    { pref_date: '2025-11-05', duration_hours: 1, helper: 'T' }, // Wednesday - 1hr
+    { pref_date: '2025-11-12', duration_hours: 2, helper: 'S' }, // Wednesday - 2hr
+    { pref_date: '2025-11-19', duration_hours: 1, helper: 'T' }, // Wednesday - 1hr
+    { pref_date: '2025-11-26', duration_hours: 2, helper: 'S' }  // Wednesday - 2hr
   ];
   
+  // Slot ranks: 3 for 2hr sessions, 3 for 1hr sessions (using only Saturday slots)
   const slotRanks = [
-    { rank: 1, slot_code: 'SAT2_0800_1000' },
-    { rank: 2, slot_code: 'SAT2_1000_1200' },
-    { rank: 3, slot_code: 'SAT2_1215_1415' },
-    { rank: 4, slot_code: 'SAT2_1415_1615' },
-    { rank: 5, slot_code: 'SUN2_0800_1000' },
-    { rank: 6, slot_code: 'SUN2_1000_1200' }
+    { rank: 1, slot_code: 'SAT2_0800_1000' },  // 2hr Saturday
+    { rank: 2, slot_code: 'SAT2_1000_1200' },  // 2hr Saturday
+    { rank: 3, slot_code: 'SAT2_1215_1415' },  // 2hr Saturday
+    { rank: 1, slot_code: 'SAT1_0800_0900' },  // 1hr Saturday
+    { rank: 2, slot_code: 'SAT1_0900_1000' },  // 1hr Saturday
+    { rank: 3, slot_code: 'SAT1_1000_1100' }   // 1hr Saturday
   ];
   
   // Fill practice data for all 3 teams

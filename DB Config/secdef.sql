@@ -31,6 +31,18 @@ ALTER TABLE public.annual_event_order_item_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.timeslot_catalog               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ui_texts                       ENABLE ROW LEVEL SECURITY;
 
--- Optional: explicitly deny table reads to non-owners via RLS policies (example pattern)
--- CREATE POLICY deny_all ON public.annual_event_config FOR SELECT USING (false);
--- (Repeat per base table as needed.)
+-- Add permissive policies for public read access through views
+CREATE POLICY "allow_public_read_annual_event_config" ON public.annual_event_config 
+  FOR SELECT USING (true);
+
+CREATE POLICY "allow_public_read_division_config" ON public.division_config_general 
+  FOR SELECT USING (true);
+
+CREATE POLICY "allow_public_read_order_item_config" ON public.annual_event_order_item_config 
+  FOR SELECT USING (true);
+
+CREATE POLICY "allow_public_read_timeslot_catalog" ON public.timeslot_catalog 
+  FOR SELECT USING (true);
+
+CREATE POLICY "allow_public_read_ui_texts" ON public.ui_texts 
+  FOR SELECT USING (true);
