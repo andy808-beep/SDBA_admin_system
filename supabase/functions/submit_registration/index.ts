@@ -18,9 +18,9 @@ export const admin = createClient(SUPABASE_URL, SERVICE_ROLE!, {
 // ---------------- CORS (env-driven) ----------------
 type Json = Record<string, unknown>;
 
-// Read allowed origins from env, fallback to common local ports
+// Read allowed origins from env, fallback to allow all origins for production
 const CORS_LIST = (Deno.env.get("CORS_ALLOW_ORIGINS") ??
-  "http://localhost:3000,http://127.0.0.1:3000")
+  "*,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5500,http://127.0.0.1:5500")
   .split(",")
   .map(s => s.trim())
   .filter(Boolean);
@@ -30,10 +30,14 @@ const ALLOW_ORIGINS = new Set<string>(CORS_LIST);
 
 function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("origin");
-  const allowOrigin =
-    origin && (ALLOW_ORIGINS.has("*") || ALLOW_ORIGINS.has(origin))
-      ? origin
-      : (ALLOW_ORIGINS.has("*") ? "*" : "null");
+  // If wildcard is in the set, always return the requesting origin (or * if no origin)
+  // Otherwise, only return the origin if it's explicitly in the allow list
+  let allowOrigin: string;
+  if (ALLOW_ORIGINS.has("*")) {
+    allowOrigin = origin || "*";
+  } else {
+    allowOrigin = origin && ALLOW_ORIGINS.has(origin) ? origin : "null";
+  }
   return {
     "access-control-allow-origin": allowOrigin,
     "access-control-allow-headers": "content-type, authorization, apikey, x-client-info",

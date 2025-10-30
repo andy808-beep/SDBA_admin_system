@@ -57,6 +57,18 @@
   border: 1px solid #ddd;
 }
 
+#tnScope .entry-option:focus,
+#tnScope .entry-option:focus-within {
+  outline: none !important;
+  border-color: #ddd !important;
+}
+
+#tnScope .entry-option input:focus {
+  outline: none !important;
+  border-color: var(--theme-primary, #0f6ec7) !important;
+  box-shadow: 0 0 0 2px rgba(15, 110, 199, 0.15) !important;
+}
+
 #tnScope .entry-option ul {
   list-style-type: disc;
   padding-left: 1.2rem;

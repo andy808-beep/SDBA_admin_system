@@ -1,0 +1,116 @@
+/* Theme-specific styling for form elements */
+
+/* Stepper theming */
+.stepper-steps .step.active {
+  background: var(--theme-primary) !important;
+  color: white !important;
+}
+
+.stepper-steps .step.completed {
+  background: var(--theme-primary-light) !important;
+  color: var(--theme-primary-dark) !important;
+  border-color: var(--theme-primary) !important;
+}
+
+/* Package/option selection theming */
+.package-option.selected,
+.radio-option input[type="radio"]:checked + label {
+  border-color: var(--theme-primary) !important;
+  background-color: var(--theme-primary-light) !important;
+}
+
+.package-box.selected {
+  border: 2px solid var(--theme-primary) !important;
+  box-shadow: 0 0 0 1px var(--theme-primary) !important;
+}
+
+/* Form input focus states */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--theme-primary) !important;
+  box-shadow: 0 0 0 3px var(--theme-primary-light) !important;
+}
+
+/* Links */
+a {
+  color: var(--theme-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--theme-primary-dark);
+  text-decoration: underline;
+}
+
+/* Radio buttons and checkboxes */
+input[type="radio"]:checked {
+  accent-color: var(--theme-primary);
+}
+
+input[type="checkbox"]:checked {
+  accent-color: var(--theme-primary);
+}
+
+/* Progress indicators */
+.progress-bar {
+  background-color: var(--theme-primary) !important;
+}
+
+/* Headers with theme color */
+h1, h2 {
+  color: #2c3e50;
+}
+
+h3 {
+  color: var(--theme-primary-dark);
+}
+
+/* Event-specific header colors */
+body[data-event="tn"] h1,
+body[data-event="tn"] h2 {
+  color: #c79100;
+}
+
+body[data-event="wu"] h1,
+body[data-event="wu"] h2 {
+  color: #005090;
+}
+
+body[data-event="sc"] h1,
+body[data-event="sc"] h2 {
+  color: #007a3d;
+}
+
+/* Team section borders */
+.team-section {
+  border-left: 4px solid var(--theme-primary);
+}
+
+/* Selected items highlight */
+.selected-item,
+.active-item {
+  background-color: var(--theme-primary-light) !important;
+  border-color: var(--theme-primary) !important;
+}
+
+/* Badge/tag colors */
+.badge, .tag {
+  background-color: var(--theme-primary);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Alert/info boxes */
+.info-box {
+  background-color: var(--theme-primary-light);
+  border-left: 4px solid var(--theme-primary);
+  padding: 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+

@@ -152,93 +152,49 @@ export function initTNWizard() {
 function initStepNavigation() {
   if (!stepper) return;
   
-  // Create stepper HTML
+  // Create stepper HTML (matching WU/SC style)
   stepper.innerHTML = `
     <div class="stepper-container">
-      <div class="stepper-progress">
-        <div class="stepper-bar" id="stepperBar"></div>
-      </div>
       <div class="stepper-steps">
-        <div class="step" data-step="1">
-          <div class="step-number">1</div>
-          <div class="step-label">Teams</div>
-        </div>
-        <div class="step" data-step="2">
-          <div class="step-number">2</div>
-          <div class="step-label">Organization</div>
-        </div>
-        <div class="step" data-step="3">
-          <div class="step-number">3</div>
-          <div class="step-label">Race Day</div>
-        </div>
-        <div class="step" data-step="4">
-          <div class="step-number">4</div>
-          <div class="step-label">Practice</div>
-        </div>
-        <div class="step" data-step="5">
-          <div class="step-number">5</div>
-          <div class="step-label">Summary</div>
-        </div>
+        <div class="step ${currentStep >= 1 ? 'active' : ''}" data-step="1">1. Teams</div>
+        <div class="step ${currentStep >= 2 ? 'active' : ''}" data-step="2">2. Organization</div>
+        <div class="step ${currentStep >= 3 ? 'active' : ''}" data-step="3">3. Race Day</div>
+        <div class="step ${currentStep >= 4 ? 'active' : ''}" data-step="4">4. Practice</div>
+        <div class="step ${currentStep >= 5 ? 'active' : ''}" data-step="5">5. Summary</div>
       </div>
     </div>
   `;
   
-  // Add stepper styles
+  // Add stepper styles (matching WU/SC style)
   const style = document.createElement('style');
   style.textContent = `
     .stepper-container {
       margin-bottom: 2rem;
-      padding: 1rem;
-      background: #f8f9fa;
-      border-radius: 8px;
-    }
-    .stepper-progress {
-      position: relative;
-      height: 4px;
-      background: #e9ecef;
-      border-radius: 2px;
-      margin-bottom: 1rem;
-    }
-    .stepper-bar {
-      height: 100%;
-      background: #0f6ec7;
-      border-radius: 2px;
-      transition: width 0.3s ease;
-      width: 0%;
     }
     .stepper-steps {
       display: flex;
-      justify-content: space-between;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
     }
     .step {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      cursor: pointer;
-      opacity: 0.5;
-      transition: opacity 0.3s ease;
+      padding: 0.75rem 1.5rem;
+      background: #e9ecef;
+      color: #6c757d;
+      border-radius: 25px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: default;
+      transition: all 0.3s ease;
+      white-space: nowrap;
     }
     .step.active {
-      opacity: 1;
-    }
-    .step-number {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: #e9ecef;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-    }
-    .step.active .step-number {
-      background: #0f6ec7;
+      background: var(--theme-primary, #007bff);
       color: white;
     }
-    .step-label {
-      font-size: 0.85rem;
-      text-align: center;
+    .step.completed {
+      background: #d4edda;
+      color: #155724;
     }
   `;
   document.head.appendChild(style);
@@ -301,19 +257,17 @@ async function loadStep(step) {
 function updateStepper() {
   if (!stepper) return;
   
-  // Update progress bar
-  const progress = ((currentStep - 1) / (totalSteps - 1)) * 100;
-  const bar = stepper.querySelector('#stepperBar');
-  if (bar) {
-    bar.style.width = `${progress}%`;
-  }
-  
-  // Update step states
+  // Update step states (matching WU/SC logic)
   const steps = stepper.querySelectorAll('.step');
   steps.forEach((step, index) => {
     const stepNum = index + 1;
-    step.classList.toggle('active', stepNum === currentStep);
-    step.classList.toggle('completed', stepNum < currentStep);
+    step.classList.remove('active', 'completed');
+    
+    if (stepNum < currentStep) {
+      step.classList.add('completed');
+    } else if (stepNum === currentStep) {
+      step.classList.add('active');
+    }
   });
 }
 
@@ -888,6 +842,7 @@ function setupPackageBoxHandlers(teamIndex) {
         // Clear inline styles
         const packageBox = option.querySelector('.package-box');
         if (packageBox) {
+          packageBox.style.background = '';
           packageBox.style.border = '';
           packageBox.style.boxShadow = '';
           packageBox.style.borderRadius = '';
@@ -920,8 +875,9 @@ function setupPackageBoxHandlers(teamIndex) {
         // Force styling with inline styles as backup
         const packageBox = packageOption.querySelector('.package-box');
         if (packageBox) {
-          packageBox.style.border = '2px solid #90EE90';
-          packageBox.style.boxShadow = '0 0 0 1px #90EE90';
+          packageBox.style.background = '#fff8e6';
+          packageBox.style.border = '2px solid #f7b500';
+          packageBox.style.boxShadow = '0 2px 8px rgba(247, 181, 0, 0.2)';
           packageBox.style.borderRadius = '12px';
           console.log(`🎯 Team ${teamIndex}: Applied inline styles to package box`);
         }
@@ -2209,8 +2165,9 @@ function addCalendarStyles() {
     }
     
     #tnScope .package-option.selected .package-box {
-      border: 2px solid #90EE90 !important;
-      box-shadow: 0 0 0 1px #90EE90 !important;
+      background: var(--theme-primary-light, #fff8e6) !important;
+      border: 2px solid var(--theme-primary, #f7b500) !important;
+      box-shadow: 0 2px 8px rgba(247, 181, 0, 0.2) !important;
       border-radius: 12px !important;
     }
     

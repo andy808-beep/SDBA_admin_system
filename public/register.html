@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Race Registration</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="css/theme.css" />
   <!-- TN Legacy CSS - loaded conditionally when event='tn' -->
   <link rel="stylesheet" href="css/tn_legacy.css" id="tnLegacyCSS" disabled />
   <style>
@@ -80,9 +81,63 @@
     }
     
     .loading {
-      text-align: center;
-      padding: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6rem 2rem;
+      min-height: 200px;
+    }
+    
+    /* Three bouncing dots */
+    .spinner {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .spinner .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #007bff;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+    
+    .spinner .dot:nth-child(1) {
+      animation-delay: -0.32s;
+    }
+    
+    .spinner .dot:nth-child(2) {
+      animation-delay: -0.16s;
+    }
+    
+    .spinner .dot:nth-child(3) {
+      animation-delay: 0s;
+    }
+    
+    @keyframes bounce {
+      0%, 80%, 100% {
+        transform: scale(0);
+        opacity: 0.5;
+      }
+      40% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+    
+    .loading-text {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #495057;
+      margin-top: 1.5rem;
+    }
+    
+    .loading-subtext {
+      font-size: 0.9rem;
       color: #6c757d;
+      margin-top: 0.5rem;
     }
     
     .error {
@@ -232,7 +287,11 @@
         <!-- Events will be loaded dynamically -->
       </div>
       <div class="loading" id="eventLoading">
-        <div>Loading available events...</div>
+        <div class="spinner">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
       </div>
     </div>
 

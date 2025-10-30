@@ -1,6 +1,39 @@
 /* Universal Form Styles */
 /* Base styles for WU/SC forms and event picker */
 
+/* Theme Colors - Dynamic per event */
+:root {
+  /* Default theme */
+  --theme-primary: #0066cc;
+  --theme-primary-light: #e6f2ff;
+  --theme-primary-dark: #004499;
+  --theme-accent: #0066cc;
+}
+
+/* TN Theme - Yellow/Gold */
+body[data-event="tn"] {
+  --theme-primary: #f7b500;
+  --theme-primary-light: #fff8e6;
+  --theme-primary-dark: #c79100;
+  --theme-accent: #ffc720;
+}
+
+/* WU Theme - Blue */
+body[data-event="wu"] {
+  --theme-primary: #0070c0;
+  --theme-primary-light: #e6f2ff;
+  --theme-primary-dark: #005090;
+  --theme-accent: #2196f3;
+}
+
+/* SC Theme - Green */
+body[data-event="sc"] {
+  --theme-primary: #00a651;
+  --theme-primary-light: #e6f7ed;
+  --theme-primary-dark: #007a3d;
+  --theme-accent: #4caf50;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -30,6 +63,40 @@ button {
   font-family: inherit;
   font-size: 1rem;
   cursor: pointer;
+}
+
+/* Theme-aware button styles */
+button[type="submit"],
+button#nextBtn,
+button#submitBtn,
+.nav-buttons button:not(#backBtn) {
+  background: var(--theme-primary);
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+button[type="submit"]:hover,
+button#nextBtn:hover,
+button#submitBtn:hover,
+.nav-buttons button:not(#backBtn):hover {
+  background: var(--theme-primary-dark);
+}
+
+button#backBtn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+button#backBtn:hover {
+  background: #5a6268;
 }
 
 /* Utility classes */
@@ -90,6 +157,22 @@ button {
   gap: 0.25rem;
   margin: 0;
   font-weight: 500;
+}
+
+/* Radio labels for WU/SC forms */
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.radio-label input[type="radio"] {
+  margin: 0;
+  cursor: pointer;
+  transform: scale(1.1);
 }
 
 .boat-type-name {
@@ -173,18 +256,50 @@ button {
 
 /* Loading states */
 .loading {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #007bff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6rem 2rem;
+  min-height: 200px;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* Three bouncing dots */
+.spinner {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--theme-primary, #007bff);
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.spinner .dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.spinner .dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.spinner .dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* Error states */
@@ -255,6 +370,55 @@ button {
   border-color: #007bff;
   box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
   transform: translateY(-2px);
+}
+
+/* Event-specific card colors */
+.event-card[data-event="tn"],
+.event-card[data-event="TN2025"] {
+  border-left: 4px solid #f7b500;
+}
+
+.event-card[data-event="tn"]:hover,
+.event-card[data-event="TN2025"]:hover {
+  border-color: #f7b500;
+  box-shadow: 0 4px 12px rgba(247, 181, 0, 0.15);
+}
+
+.event-card[data-event="tn"] h3,
+.event-card[data-event="TN2025"] h3 {
+  color: #c79100;
+}
+
+.event-card[data-event="wu"],
+.event-card[data-event="WU2025"] {
+  border-left: 4px solid #0070c0;
+}
+
+.event-card[data-event="wu"]:hover,
+.event-card[data-event="WU2025"]:hover {
+  border-color: #0070c0;
+  box-shadow: 0 4px 12px rgba(0, 112, 192, 0.15);
+}
+
+.event-card[data-event="wu"] h3,
+.event-card[data-event="WU2025"] h3 {
+  color: #005090;
+}
+
+.event-card[data-event="sc"],
+.event-card[data-event="SC2025"] {
+  border-left: 4px solid #00a651;
+}
+
+.event-card[data-event="sc"]:hover,
+.event-card[data-event="SC2025"]:hover {
+  border-color: #00a651;
+  box-shadow: 0 4px 12px rgba(0, 166, 81, 0.15);
+}
+
+.event-card[data-event="sc"] h3,
+.event-card[data-event="SC2025"] h3 {
+  color: #007a3d;
 }
 
 .event-card h3 {

@@ -465,7 +465,7 @@ async function loadBoatTypesForTeam(teamIndex, cfg) {
   
   validPackages.forEach((pkg, index) => {
     const label = document.createElement('label');
-    label.style.display = 'block';
+    label.className = 'radio-label';
     label.innerHTML = `
       <input type="radio" id="boatType${teamIndex}_${index}" name="boatType${teamIndex}" value="${pkg.title_en}" required />
       ${pkg.title_en} - HK$${pkg.listed_unit_price.toLocaleString()}
@@ -535,6 +535,7 @@ function showDivisionRow(teamIndex) {
   // Add filtered divisions
   filteredDivisions.forEach((div, index) => {
     const label = document.createElement('label');
+    label.className = 'radio-label';
     label.innerHTML = `
       <input type="radio" id="division${teamIndex}_${index}" name="division${teamIndex}" value="${div.name_en}" required />
       ${div.name_en}

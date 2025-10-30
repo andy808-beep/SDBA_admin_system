@@ -294,6 +294,7 @@ function renderEventCards(events) {
     console.log(`🎯 renderEventCards: Creating card ${index + 1} for ${event.name}`);
     const card = document.createElement('div');
     card.className = 'event-card';
+    card.setAttribute('data-event', event.ref); // Add data-event for theme colors
     card.onclick = () => selectEvent(event.ref);
     
     card.innerHTML = `
@@ -406,6 +407,10 @@ async function boot() {
   console.log('🚀 Boot: Resolved ref =', ref);
   
   if (ref) {
+    // Set theme color via data attribute
+    document.body.setAttribute('data-event', ref.toLowerCase());
+    console.log(`🎨 Theme: Applied ${ref.toUpperCase()} theme colors`);
+    
     // Determine mode and log banner
     const mode = ref === 'tn' ? 'tn_wizard' : 'single_page';
     console.log(`🚀 Boot → event=${ref}, mode=${mode}`);
