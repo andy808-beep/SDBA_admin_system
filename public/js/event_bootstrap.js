@@ -431,49 +431,51 @@ if (document.readyState === 'loading') {
   boot();
 }
 
-// QA helper
-window.__DBG = {
-  dumpState: async () => {
-    try {
-      const { collectStateFromForm } = await import('./ui_bindings.js');
-      return collectStateFromForm();
-    } catch (e) {
-      console.error('dumpState failed:', e);
-      return null;
-    }
-  },
-  refreshConfig: async () => {
-    try {
-      const { clearConfigCache } = await import('./config_loader.js');
-      const ref = new URLSearchParams(location.search).get('e') || localStorage.getItem('raceApp:last_event_ref') || '';
-      if (ref) {
-        clearConfigCache(ref);
-        const { loadEventConfig } = await import('./config_loader.js');
-        const { initFormForEvent } = await import('./ui_bindings.js');
-        const { bindTotals } = await import('./totals.js');
-        const { bindSubmit } = await import('./submit.js');
-        const cfg = await loadEventConfig(ref, { useCache: false });
-        initFormForEvent(ref);
-        bindTotals();
-        bindSubmit();
-        console.log('Config refreshed for:', ref);
-      } else {
-        console.warn('No event ref to refresh');
+// QA helper (dev only)
+if (window.__DEV__) {
+  window.__DBG = {
+    dumpState: async () => {
+      try {
+        const { collectStateFromForm } = await import('./ui_bindings.js');
+        return collectStateFromForm();
+      } catch (e) {
+        console.error('dumpState failed:', e);
+        return null;
       }
-    } catch (e) {
-      console.error('refreshConfig failed:', e);
+    },
+    refreshConfig: async () => {
+      try {
+        const { clearConfigCache } = await import('./config_loader.js');
+        const ref = new URLSearchParams(location.search).get('e') || localStorage.getItem('raceApp:last_event_ref') || '';
+        if (ref) {
+          clearConfigCache(ref);
+          const { loadEventConfig } = await import('./config_loader.js');
+          const { initFormForEvent } = await import('./ui_bindings.js');
+          const { bindTotals } = await import('./totals.js');
+          const { bindSubmit } = await import('./submit.js');
+          const cfg = await loadEventConfig(ref, { useCache: false });
+          initFormForEvent(ref);
+          bindTotals();
+          bindSubmit();
+          console.log('Config refreshed for:', ref);
+        } else {
+          console.warn('No event ref to refresh');
+        }
+      } catch (e) {
+        console.error('refreshConfig failed:', e);
+      }
+    },
+    clearCache: () => {
+      try {
+        const keys = Object.keys(localStorage);
+        const raceKeys = keys.filter(k => k.startsWith('raceApp:'));
+        raceKeys.forEach(k => localStorage.removeItem(k));
+        console.log(`Cleared ${raceKeys.length} cache keys`);
+      } catch (e) {
+        console.error('clearCache failed:', e);
+      }
     }
-  },
-  clearCache: () => {
-    try {
-      const keys = Object.keys(localStorage);
-      const raceKeys = keys.filter(k => k.startsWith('raceApp:'));
-      raceKeys.forEach(k => localStorage.removeItem(k));
-      console.log(`Cleared ${raceKeys.length} cache keys`);
-    } catch (e) {
-      console.error('clearCache failed:', e);
-    }
-  }
-};
+  };
+}
 
 

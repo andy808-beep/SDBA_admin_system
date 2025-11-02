@@ -9,9 +9,11 @@ import { getCurrentTeamKey, setCurrentTeamKey, readTeamRows, writeTeamRows, read
 import { EDGE_URL, getClientTxId, getEventShortRef, postJSON, saveReceipt, showConfirmation, mapError } from './submit.js';
 
 /**
- * Set up debug functions for testing
+ * Set up debug functions for testing (dev only)
  */
 function setupDebugFunctions() {
+  if (!window.__DEV__) return;
+  
   console.log('🎯 setupDebugFunctions: Setting up debug functions');
   
   // Create debug namespace
@@ -5224,10 +5226,12 @@ function showError(message) {
 // This file exports the initTNWizard function for use by the bootstrap
 
 /**
- * TN Debug Tools
+ * TN Debug Tools (dev only)
  * Development-only debugging utilities for TN wizard testing
  */
-window.__DBG_TN = {
+if (window.__DEV__) {
+  window.__DBG_TN = window.__DBG_TN || {};
+  Object.assign(window.__DBG_TN, {
   /**
    * Capture DOM snapshot of current step (ids/classes only)
    * Returns pruned DOM tree for manual comparison with legacy
@@ -5671,4 +5675,5 @@ window.__DBG_TN = {
       return { error: error.message };
     }
   }
-};
+  });
+}

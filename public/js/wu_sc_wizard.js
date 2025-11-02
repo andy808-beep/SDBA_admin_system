@@ -45,9 +45,11 @@ export function initWUSCWizard(eventShortRef) {
 }
 
 /**
- * Set up debug functions for testing
+ * Set up debug functions for testing (dev only)
  */
 function setupDebugFunctions() {
+  if (!window.__DEV__) return;
+  
   console.log('🎯 Setting up WU/SC debug functions');
   
   window.__DBG_WUSC = {
