@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from '../../lib/supabaseClient';
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 /** Match your vanilla routes */
 type HashPath = "#overview" | "#applications" | "#practice" | "#exports";
@@ -25,30 +26,57 @@ export default function AdminPage() {
   const [path, setPath] = useState<HashPath>("#overview");
   const [params, setParams] = useState<URLSearchParams>(new URLSearchParams());
   // -------------------------------
-  // Applications state (read-only render in Step 4)
+  // Applications state
   // -------------------------------
   type AppRow = {
-    id?: string;
-    submitted_at: string | null;
-    category: string;
+    id: string;
+    season: number;
+    event_type: string;
+    division_code: string | null;
+    category: string | null;
+    option_choice: string | null;
     team_code: string;
     team_name: string;
-    org_name: string;
-    manager: string;
-    waiver_status: string;   // 'missing' | 'received' | 'need_revision' | 'approved' | ...
-    payment_status: string;  // 'approved' | 'missing' | 'attention' | 'received' | ...
-    app_status: string;      // 'submitted' | 'under_review' | 'approved' | ...
+    org_name: string | null;
+    org_address: string | null;
+    manager_name: string;
+    manager_email: string | null;
+    manager_mobile: string | null;
+    status: string;
+    approved_by: string | null;
+    approved_at: string | null;
+    created_at: string;
   };
 
-  const [appsData, setAppsData] = useState<AppRow[]>([]);
-  const [appsFiltered, setAppsFiltered] = useState<AppRow[]>([]);
-  const [appsQueue, setAppsQueue] = useState<
-    "all" | "waiver_received" | "waiver_missing" | "payment_attention" | "payment_approved" | "ready_to_approve"
-  >("all");
-  const [appsCat, setAppsCat] = useState("");
-  const [appsStatus, setAppsStatus] = useState("");
-  const [appsSearch, setAppsSearch] = useState("");
-  const [appsBadge, setAppsBadge] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+  const [event, setEvent] = useState<'tn' | 'wu' | 'sc' | 'all'>('all');
+  const [items, setItems] = useState<AppRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [badgeNew, setBadgeNew] = useState(0);
+  
+  // Overview counters state
+  const [counters, setCounters] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    new_today: 0,
+  });
+  const [countersLoading, setCountersLoading] = useState(false);
+
+  // Realtime channel ref
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Export state
+  const [exporting, setExporting] = useState<Record<string, boolean>>({});
 
   // ---- Lifecycle: on mount + hashchange (parity with window.addEventListener('hashchange', route))
   useEffect(() => {
@@ -70,54 +98,283 @@ export default function AdminPage() {
   };
 
   // -------------------------------
-  // Mount/unmount parity hooks (stubs for now)
+  // Fetch applications list
+  // -------------------------------
+  const fetchApplications = useCallback(async () => {
+    if (path !== "#applications") return;
+
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+        status: status === 'all' ? 'all' : status,
+        event: event === 'all' ? 'all' : event,
+      });
+      if (q) {
+        params.append('q', q);
+      }
+
+      const response = await fetch(`/api/admin/list?${params}`, {
+        signal: abortControllerRef.current.signal,
+      });
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error("Access denied");
+        }
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.ok) {
+        setItems(data.items || []);
+        setTotal(data.total || 0);
+        // Reset badgeNew when successfully fetching in #applications
+        if (path === "#applications") {
+          setBadgeNew(0);
+        }
+      } else {
+        throw new Error(data.error || "Failed to fetch applications");
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return; // Request was cancelled
+      }
+      setError(err.message || "Failed to load applications");
+      console.error("fetchApplications error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [path, page, pageSize, status, event, q]);
+
+  // Fetch applications when entering #applications or filters change
+  useEffect(() => {
+    if (path === "#applications") {
+      fetchApplications();
+    }
+  }, [path, page, status, event, fetchApplications]);
+
+  // Debounced search
+  useEffect(() => {
+    if (path !== "#applications") return;
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      setPage(1); // Reset to first page on search
+      fetchApplications();
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [q, fetchApplications, path]);
+
+  // -------------------------------
+  // Fetch counters for Overview
+  // -------------------------------
+  const fetchCounters = useCallback(async () => {
+    if (path !== "#overview") return;
+
+    setCountersLoading(true);
+    try {
+      const response = await fetch("/api/admin/counters");
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error("Access denied");
+        }
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.ok) {
+        setCounters({
+          total: data.total || 0,
+          pending: data.pending || 0,
+          approved: data.approved || 0,
+          rejected: data.rejected || 0,
+          new_today: data.new_today || 0,
+        });
+      } else {
+        throw new Error(data.error || "Failed to fetch counters");
+      }
+    } catch (err: any) {
+      console.error("fetchCounters error:", err);
+    } finally {
+      setCountersLoading(false);
+    }
+  }, [path]);
+
+  useEffect(() => {
+    if (path === "#overview") {
+      fetchCounters();
+    }
+  }, [path, fetchCounters]);
+
+  // -------------------------------
+  // Realtime subscription for new pending registrations
   // -------------------------------
   useEffect(() => {
-    // Simulate:
-    // if (target === '#applications') mountApplications(params); else unmountApplications();
-    if (path === "#applications") {
-      mountApplications(params);
-    } else {
-      unmountApplications();
+    // Subscribe to new pending registrations
+    const channel = supabase
+      .channel('registration_meta_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'registration_meta',
+          filter: 'status=eq.pending',
+        },
+        () => {
+          // Check current path (use window.location to avoid stale closure)
+          const currentHash = window.location.hash || "#overview";
+          if (currentHash !== "#applications") {
+            // If not on #applications, increment badgeNew
+            setBadgeNew((prev) => prev + 1);
+          } else {
+            // If on #applications, refetch to show new row
+            fetchApplications();
+          }
+        }
+      )
+      .subscribe();
+
+    realtimeChannelRef.current = channel;
+
+    return () => {
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
+    };
+  }, [fetchApplications]);
+
+  // -------------------------------
+  // Approve function
+  // -------------------------------
+  const handleApprove = async (registrationId: string, notes?: string) => {
+    setApprovingId(registrationId);
+    try {
+      const response = await fetch("/api/admin/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          registration_id: registrationId,
+          notes: notes || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          // Already processed - soft warn and refetch
+          alert("This registration was already processed. Refreshing...");
+          fetchApplications();
+          return;
+        }
+        throw new Error(data.error || "Failed to approve registration");
+      }
+
+      if (data.ok) {
+        // Toast notification (simple alert for now)
+        alert(`Registration approved! Team ID: ${data.team_meta_id}`);
+        // Refetch list
+        fetchApplications();
+      } else {
+        throw new Error(data.error || "Failed to approve registration");
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+      console.error("approve error:", err);
+    } finally {
+      setApprovingId(null);
     }
+  };
 
-    // if (target === '#practice') mountPractice(params);
-    if (path === "#practice") {
-      mountPractice(params);
+  // -------------------------------
+  // Export CSV function
+  // -------------------------------
+  const handleExport = async (mode: 'tn' | 'wu' | 'sc' | 'all', category?: 'men_open' | 'ladies_open' | 'mixed_open' | 'mixed_corporate') => {
+    const exportKey = category ? `${mode}_${category}` : mode;
+    setExporting((prev) => ({ ...prev, [exportKey]: true }));
+
+    try {
+      // Get Supabase URL and anon key
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      
+      // Get current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error("Not authenticated");
+      }
+
+      // Call edge function
+      const functionUrl = `${supabaseUrl}/functions/v1/export_csv`;
+      const response = await fetch(functionUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+          "apikey": supabaseAnonKey,
+        },
+        body: JSON.stringify({
+          mode,
+          category,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      // Download blob
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      
+      // Extract filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get("Content-Disposition");
+      let filename = `SDBA_${exportKey}_${new Date().toISOString().slice(0, 10)}.csv`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      alert(`Export error: ${err.message}`);
+      console.error("export error:", err);
+    } finally {
+      setExporting((prev) => ({ ...prev, [exportKey]: false }));
     }
-  }, [path, params]);
-
-    // When Applications tab becomes active, read deep-link params and load data (stub)
-  useEffect(() => {
-    if (path !== "#applications") return;
-    const q = (params.get("queue") || "all") as typeof appsQueue;
-    const cat = params.get("category") || "";
-    const st = params.get("status") || "";
-    const qstr = (params.get("q") || "").toLowerCase();
-    setAppsQueue(q);
-    setAppsCat(cat);
-    setAppsStatus(st);
-    setAppsSearch(qstr);
-
-    // TODO: replace with Supabase fetch
-    setAppsData([]);
-  }, [path, params]);
-
-  // Recompute filtered rows and counts when filters/data change
-  useEffect(() => {
-    if (path !== "#applications") return;
-
-    const filtered = appsData
-      .filter((r) => passesQueueReact(r, appsQueue))
-      .filter((r) => passesFiltersReact(r, appsCat, appsStatus, appsSearch))
-      .sort((a, b) => String(b.submitted_at || "").localeCompare(String(a.submitted_at || "")));
-
-    setAppsFiltered(filtered);
-
-    // Badge count in sidebar (we use "waiver received" count)
-    const waiverReceived = appsData.filter((r) => r.waiver_status === "received").length;
-    setAppsBadge(waiverReceived);
-  }, [path, appsData, appsQueue, appsCat, appsStatus, appsSearch]);
+  };
 
   // -------------------------------
   // Logout (same behavior as your vanilla helper)
@@ -179,9 +436,11 @@ export default function AdminPage() {
             >
               <span className="nav-label">Applications</span>
               {/* navBadgeApps preserved for later wiring */}
-              <span id="navBadgeApps" className="ml-2 inline-block rounded-full bg-gray-200 px-2 text-xs text-gray-700">
-                {appsBadge}
-              </span>
+              {badgeNew > 0 && (
+                <span id="navBadgeApps" className="ml-2 inline-block rounded-full bg-red-500 px-2 text-xs text-white">
+                  {badgeNew}
+                </span>
+              )}
             </a>
 
             <a
@@ -219,26 +478,37 @@ export default function AdminPage() {
             <div className="section">
               <h2 id="ov-h2" className="text-base font-semibold">Overview</h2>
               <p className="text-sm text-gray-600">
-                Placeholder for KPIs & notifications. We’ll wire data later.
+                Dashboard KPIs and statistics.
               </p>
             </div>
 
+            {countersLoading && (
+              <div className="mt-4 text-sm text-gray-500">Loading...</div>
+            )}
             <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
               <div className="kpi rounded-xl border p-4">
                 <div className="label text-xs text-gray-500">New Today</div>
-                <div className="value mt-1 text-2xl font-semibold" id="kpi-new-today">0</div>
+                <div className="value mt-1 text-2xl font-semibold" id="kpi-new-today">
+                  {counters.new_today}
+                </div>
               </div>
               <div className="kpi rounded-xl border p-4">
                 <div className="label text-xs text-gray-500">Approved</div>
-                <div className="value mt-1 text-2xl font-semibold" id="kpi-approved">0</div>
+                <div className="value mt-1 text-2xl font-semibold" id="kpi-approved">
+                  {counters.approved}
+                </div>
               </div>
               <div className="kpi rounded-xl border p-4">
                 <div className="label text-xs text-gray-500">Pending</div>
-                <div className="value mt-1 text-2xl font-semibold" id="kpi-pending">0</div>
+                <div className="value mt-1 text-2xl font-semibold" id="kpi-pending">
+                  {counters.pending}
+                </div>
               </div>
               <div className="kpi rounded-xl border p-4">
                 <div className="label text-xs text-gray-500">Total Submissions</div>
-                <div className="value mt-1 text-2xl font-semibold" id="kpi-total">0</div>
+                <div className="value mt-1 text-2xl font-semibold" id="kpi-total">
+                  {counters.total}
+                </div>
               </div>
             </div>
           </section>
@@ -253,64 +523,58 @@ export default function AdminPage() {
             <div className="section">
               <h2 id="app-h2" className="text-base font-semibold">Applications</h2>
               <p className="text-sm text-gray-600">
-                Triage and review new submissions. Click a row to open the drawer.
+                Triage and review new submissions.
               </p>
 
-              {/* Queue pills (shorts/logo removed) */}
-              <div id="queuePills" className="pillbar mt-3 mb-4 flex flex-wrap gap-2">
-                {[
-                  { id: "all", label: "All" },
-                  { id: "waiver_received", label: "Waiver: received" },
-                  { id: "waiver_missing", label: "Waiver: missing" },
-                  { id: "payment_attention", label: "Payment: missing" },
-                  { id: "payment_approved", label: "Payment: approved" },
-                  { id: "ready_to_approve", label: "Ready to approve" },
-                ].map((p) => (
-                  <button
-                    key={p.id}
-                    data-queue={p.id}
-                    onClick={() => setAppsQueue(p.id as any)}
-                    className={`pillx rounded-full border px-3 py-1 text-xs ${
-                      appsQueue === (p.id as any) ? "is-active bg-gray-900 text-white border-gray-900" : ""
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
+              {/* Error banner */}
+              {error && (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                  Error: {error}
+                </div>
+              )}
 
-              {/* Search row */}
-              <div className="controls mb-4 flex flex-wrap gap-2">
+              {/* Loading indicator */}
+              {isLoading && (
+                <div className="mt-4 text-sm text-gray-500">Loading...</div>
+              )}
+
+              {/* Filters */}
+              <div className="controls mt-4 mb-4 flex flex-wrap gap-2">
                 <input
                   id="searchBox"
                   type="search"
-                  placeholder="Search team / org / manager"
-                  value={appsSearch}
-                  onChange={(e) => setAppsSearch((e.target.value || "").toLowerCase())}
+                  placeholder="Search team / org / manager / team code"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
                   className="h-9 min-w-[260px] flex-1 rounded-xl border px-3 text-sm"
                 />
                 <select
-                  id="filterCategory"
-                  value={appsCat}
-                  onChange={(e) => setAppsCat(e.target.value)}
+                  id="filterStatus"
+                  value={status}
+                  onChange={(e) => {
+                    setStatus(e.target.value as typeof status);
+                    setPage(1);
+                  }}
                   className="h-9 rounded-xl border px-3 text-sm"
                 >
-                  <option value="">All categories</option>
-                  <option value="men_open">Men Open</option>
-                  <option value="ladies_open">Ladies Open</option>
-                  <option value="mixed_open">Mixed Open</option>
-                  <option value="mixed_corporate">Mixed Corporate</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="all">All Statuses</option>
                 </select>
                 <select
-                  id="filterStatus"
-                  value={appsStatus}
-                  onChange={(e) => setAppsStatus(e.target.value)}
+                  id="filterEvent"
+                  value={event}
+                  onChange={(e) => {
+                    setEvent(e.target.value as typeof event);
+                    setPage(1);
+                  }}
                   className="h-9 rounded-xl border px-3 text-sm"
                 >
-                  <option value="">All app statuses</option>
-                  <option value="submitted">Submitted</option>
-                  <option value="under_review">Under Review</option>
-                  <option value="approved">Approved</option>
+                  <option value="all">All Events</option>
+                  <option value="tn">TN</option>
+                  <option value="wu">WU</option>
+                  <option value="sc">SC</option>
                 </select>
               </div>
 
@@ -319,53 +583,94 @@ export default function AdminPage() {
                 <table className="table w-full text-left text-sm">
                   <thead className="bg-gray-50 text-gray-600">
                     <tr>
-                      <th className="px-3 py-2">Submitted</th>
-                      <th className="px-3 py-2">Category</th>
-                      <th className="px-3 py-2">Team Code</th>
                       <th className="px-3 py-2">Team Name</th>
-                      <th className="px-3 py-2">Organization</th>
+                      <th className="px-3 py-2">Team Code</th>
+                      <th className="px-3 py-2">Event</th>
+                      <th className="px-3 py-2">Division</th>
                       <th className="px-3 py-2">Manager</th>
-                      <th className="col-req px-3 py-2">Requirements</th>
-                      <th className="px-3 py-2">App Status</th>
+                      <th className="px-3 py-2">Email</th>
+                      <th className="px-3 py-2">Created</th>
+                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">Actions</th>
                     </tr>
                   </thead>
                   <tbody id="appTbody">
-                    {appsFiltered.length === 0 ? (
+                    {!isLoading && items.length === 0 ? (
                       <tr className="border-t">
-                        <td colSpan={8} className="px-3 py-12 text-center text-sm text-gray-500">
-                          No applications in this queue.
+                        <td colSpan={9} className="px-3 py-12 text-center text-sm text-gray-500">
+                          No applications found.
                         </td>
                       </tr>
                     ) : (
-                      appsFiltered.map((r, idx) => (
+                      items.map((r) => (
                         <tr
-                          key={idx}
-                          className="border-t hover:bg-gray-50 cursor-pointer"
-                          onClick={() => openDrawer(idx)}
+                          key={r.id}
+                          className="border-t hover:bg-gray-50"
                         >
-                          <td className="px-3 py-2">{fmtTime(r.submitted_at)}</td>
-                          <td className="px-3 py-2">{catShort(r.category)}</td>
-                          <td className="px-3 py-2 font-semibold">{r.team_code}</td>
                           <td className="px-3 py-2">{r.team_name}</td>
-                          <td className="px-3 py-2">{r.org_name}</td>
-                          <td className="px-3 py-2">{r.manager}</td>
+                          <td className="px-3 py-2 font-semibold">{r.team_code}</td>
+                          <td className="px-3 py-2">{r.event_type.toUpperCase()}</td>
+                          <td className="px-3 py-2">{r.division_code || "—"}</td>
+                          <td className="px-3 py-2">{r.manager_name}</td>
+                          <td className="px-3 py-2 text-xs">{r.manager_email || "—"}</td>
+                          <td className="px-3 py-2 text-xs">{fmtTime(r.created_at)}</td>
                           <td className="px-3 py-2">
-                            <div className="chips flex flex-wrap gap-1">
-                              <span className={`chip ${chipClass(r.waiver_status)} rounded-full px-2 py-0.5 text-xs`}>
-                                Waiver: {titleCase(r.waiver_status)}
-                              </span>
-                              <span className={`chip ${chipClass(r.payment_status)} rounded-full px-2 py-0.5 text-xs`}>
-                                $ {titleCase(r.payment_status)}
-                              </span>
-                            </div>
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-xs ${
+                              r.status === 'approved' ? 'bg-green-100 text-green-700' :
+                              r.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                              'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {titleCase(r.status)}
+                            </span>
                           </td>
-                          <td className="px-3 py-2">{titleCase(r.app_status)}</td>
+                          <td className="px-3 py-2">
+                            {r.status === 'pending' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleApprove(r.id);
+                                }}
+                                disabled={approvingId === r.id || isLoading}
+                                className="rounded-xl bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {approvingId === r.id ? "Approving..." : "Approve"}
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ))
                     )}
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination */}
+              {total > 0 && (
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, total)} of {total}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1 || isLoading}
+                      className="rounded-xl border px-3 py-1 text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Prev
+                    </button>
+                    <span className="px-3 py-1 text-sm">
+                      Page {page} of {Math.ceil(total / pageSize)}
+                    </span>
+                    <button
+                      onClick={() => setPage(p => Math.min(Math.ceil(total / pageSize), p + 1))}
+                      disabled={page >= Math.ceil(total / pageSize) || isLoading}
+                      className="rounded-xl border px-3 py-1 text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
@@ -383,8 +688,84 @@ export default function AdminPage() {
             id="view-exports"
             className={`rounded-2xl border bg-white p-4 md:p-6 ${isActive("#exports") ? "" : "hidden"}`}
           >
-            <h2 className="mb-2 text-base font-semibold">Exports</h2>
-            <p className="text-sm text-gray-600">CSV exports land in Step 6.</p>
+            <div className="section">
+              <h2 className="mb-2 text-base font-semibold">Exports</h2>
+              <p className="text-sm text-gray-600">
+                Download CSV exports for different event types and categories.
+              </p>
+            </div>
+
+            <div className="mt-6 space-y-6">
+              {/* TN Exports */}
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-gray-700">TN (Traditional) Exports</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleExport('tn')}
+                    disabled={exporting['tn']}
+                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {exporting['tn'] ? "Exporting..." : "Export All"}
+                  </button>
+                  <button
+                    onClick={() => handleExport('tn', 'men_open')}
+                    disabled={exporting['tn_men_open']}
+                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {exporting['tn_men_open'] ? "Exporting..." : "Men Open"}
+                  </button>
+                  <button
+                    onClick={() => handleExport('tn', 'ladies_open')}
+                    disabled={exporting['tn_ladies_open']}
+                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {exporting['tn_ladies_open'] ? "Exporting..." : "Ladies Open"}
+                  </button>
+                  <button
+                    onClick={() => handleExport('tn', 'mixed_open')}
+                    disabled={exporting['tn_mixed_open']}
+                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {exporting['tn_mixed_open'] ? "Exporting..." : "Mixed Open"}
+                  </button>
+                  <button
+                    onClick={() => handleExport('tn', 'mixed_corporate')}
+                    disabled={exporting['tn_mixed_corporate']}
+                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {exporting['tn_mixed_corporate'] ? "Exporting..." : "Mixed Corporate"}
+                  </button>
+                </div>
+              </div>
+
+              {/* WU Exports */}
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-gray-700">WU (Warm-Up) Exports</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleExport('wu')}
+                    disabled={exporting['wu']}
+                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {exporting['wu'] ? "Exporting..." : "Export WU"}
+                  </button>
+                </div>
+              </div>
+
+              {/* SC Exports */}
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-gray-700">SC (Sprint Challenge) Exports</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleExport('sc')}
+                    disabled={exporting['sc']}
+                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {exporting['sc'] ? "Exporting..." : "Export SC"}
+                  </button>
+                </div>
+              </div>
+            </div>
           </section>
         </main>
       </div>
@@ -392,51 +773,9 @@ export default function AdminPage() {
   );
 }
 
-/** ---- Stubs to preserve behavior; we’ll fill these in later steps ---- */
-function mountApplications(_params: URLSearchParams) {
-  // TODO: wire data/filtering/drawer in Steps 3–5
-  // console.log("mountApplications", Object.fromEntries(_params.entries()));
-}
-function unmountApplications() {
-  // TODO: cleanup listeners/state if needed
-}
+/** ---- Stubs to preserve behavior; we'll fill these in later steps ---- */
 function mountPractice(_params: URLSearchParams) {
   // TODO: build calendar frame + navigation in Steps 7–8
-}
-
-// -------------------------------
-// Helpers used by Applications
-// -------------------------------
-function passesQueueReact(
-  row: { waiver_status: string; payment_status: string },
-  queue: "all" | "waiver_received" | "waiver_missing" | "payment_attention" | "payment_approved" | "ready_to_approve"
-) {
-  switch (queue) {
-    case "waiver_received":
-      return row.waiver_status === "received";
-    case "waiver_missing":
-      return row.waiver_status === "missing";
-    case "payment_attention":
-      return row.payment_status !== "approved" && row.payment_status !== "received";
-    case "payment_approved":
-      return row.payment_status === "approved" || row.payment_status === "received";
-    case "ready_to_approve":
-      return row.waiver_status === "approved" &&
-             (row.payment_status === "approved" || row.payment_status === "received");
-    case "all":
-    default:
-      return true;
-  }
-}
-
-function passesFiltersReact(row: any, currentCat: string, currentStatus: string, searchTerm: string) {
-  if (currentCat && row.category !== currentCat) return false;
-  if (currentStatus && row.app_status !== currentStatus) return false;
-  if (searchTerm) {
-    const blob = `${row.team_code} ${row.team_name} ${row.org_name} ${row.manager}`.toLowerCase();
-    if (!blob.includes(searchTerm)) return false;
-  }
-  return true;
 }
 
 function fmtTime(d: any) {
@@ -464,32 +803,3 @@ function titleCase(s: string) {
     .join(" ");
 }
 
-function catShort(cat: string) {
-  switch (cat) {
-    case "men_open":
-      return "Men";
-    case "ladies_open":
-      return "Ladies";
-    case "mixed_open":
-      return "Mixed";
-    case "mixed_corporate":
-      return "Mixed Corporate";
-    default:
-      return cat || "—";
-  }
-}
-
-function chipClass(status: string) {
-  switch ((status || "").toLowerCase()) {
-    case "approved":
-      return "bg-green-100 text-green-700 border border-green-200";
-    case "received":
-      return "bg-blue-100 text-blue-700 border border-blue-200";
-    case "need_revision":
-    case "attention":
-      return "bg-amber-100 text-amber-800 border border-amber-200";
-    case "missing":
-    default:
-      return "bg-red-100 text-red-700 border border-red-200";
-  }
-}
