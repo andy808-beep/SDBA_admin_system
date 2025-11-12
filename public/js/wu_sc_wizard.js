@@ -273,7 +273,7 @@ function initStepper() {
   const stepperHTML = `
     <div class="stepper-container">
       <div class="stepper-steps">
-        <div class="step ${currentStep >= 1 ? 'active' : ''}" data-step="1">1. Team Details</div>
+        <div class="step ${currentStep >= 1 ? 'active' : ''}" data-step="1">1. Teams</div>
         <div class="step ${currentStep >= 2 ? 'active' : ''}" data-step="2">2. Team Information</div>
         <div class="step ${currentStep >= 3 ? 'active' : ''}" data-step="3">3. Race Day</div>
         <div class="step ${currentStep >= 4 ? 'active' : ''}" data-step="4">4. Summary</div>
