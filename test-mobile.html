@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mobile Stepper Test</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 1rem;
+      background: #f5f5f5;
+    }
+    
+    .test-info {
+      background: white;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    
+    .test-info strong {
+      color: #0066cc;
+    }
+    
+    /* Copy of the stepper CSS from register.html */
+    .stepper-container {
+      background: white;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .stepper-steps {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .step {
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      background: #e9ecef;
+      color: #6c757d;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+      flex: 1 1 auto;
+      text-align: center;
+      min-width: 0;
+    }
+    
+    .step.active {
+      background: #007bff;
+      color: white;
+    }
+    
+    .step.completed {
+      background: #28a745;
+      color: white;
+    }
+    
+    /* Mobile responsive stepper */
+    @media (max-width: 768px) {
+      .stepper-steps {
+        gap: 0.4rem;
+      }
+      
+      .step {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+        border-radius: 16px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .stepper-container {
+        padding: 0.5rem 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e0 transparent;
+      }
+      
+      .stepper-container::-webkit-scrollbar {
+        height: 4px;
+      }
+      
+      .stepper-container::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      
+      .stepper-container::-webkit-scrollbar-thumb {
+        background-color: #cbd5e0;
+        border-radius: 2px;
+      }
+      
+      .stepper-steps {
+        gap: 0.35rem;
+        flex-wrap: nowrap;
+        padding: 0 0.75rem;
+      }
+      
+      .step {
+        padding: 0.35rem 0.5rem;
+        font-size: 0.7rem;
+        border-radius: 14px;
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="test-info">
+    <strong>Screen Width:</strong> <span id="width"></span>px<br>
+    <strong>Test:</strong> Stepper should scroll horizontally on screens ≤480px wide<br>
+    <strong>Expected:</strong> If your screen is narrow, you should be able to swipe left/right
+  </div>
+  
+  <div class="stepper-container">
+    <div class="stepper-steps">
+      <div class="step completed">1. Teams</div>
+      <div class="step active">2. Team Information</div>
+      <div class="step">3. Race Day</div>
+      <div class="step">4. Summary</div>
+    </div>
+  </div>
+  
+  <div class="test-info">
+    ✅ <strong>What you should see:</strong>
+    <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+      <li>On wide screens (>480px): Steps wrap to multiple lines if needed</li>
+      <li>On narrow screens (≤480px): Steps stay on one line and scroll horizontally</li>
+      <li>A subtle scrollbar should appear when you scroll</li>
+    </ul>
+  </div>
+  
+  <script>
+    function updateWidth() {
+      document.getElementById('width').textContent = window.innerWidth;
+    }
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+  </script>
+</body>
+</html>
+

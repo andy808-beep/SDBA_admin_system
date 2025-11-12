@@ -4,12 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Race Registration</title>
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="css/theme.css" />
+  <!-- Build: v2.1-mobile-scroll-2024-11-12 -->
+  <link rel="stylesheet" href="styles.css?v=20241112-2" />
+  <link rel="stylesheet" href="css/theme.css?v=20241112-2" />
   <!-- TN Legacy CSS - loaded conditionally when event='tn' -->
   <link rel="stylesheet" href="css/tn_legacy.css" id="tnLegacyCSS" disabled />
   <style>
     /* Universal form specific styles */
+    /* CSS_VERSION: v2.1-mobile-scroll-fix-DEPLOYED */
     .form-container {
       max-width: 1200px;
       margin: 0 auto;
@@ -452,6 +454,12 @@
   </div>
   
   <script src="env.js"></script>
+  <script>
+    // Version marker for debugging deployment
+    console.log('%c🚀 DEPLOYMENT VERSION: v2.1-mobile-scroll-fix', 'background: #0066cc; color: white; padding: 4px 8px; border-radius: 3px; font-weight: bold;');
+    console.log('Build date: 2024-11-12');
+    console.log('Changes: Mobile stepper horizontal scroll enabled (overflow-x: auto at ≤480px)');
+  </script>
   <script src="./js/env_verifier.js"></script>
   <script type="module" src="./supabase_config.js"></script>
   <script type="module" src="./js/config_loader.js"></script>
