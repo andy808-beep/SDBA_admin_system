@@ -280,45 +280,39 @@
       }
       
       #tnScope .step {
-        padding: 0.4rem 0.6rem;
-        font-size: 0.75rem;
+        padding: 0.4rem 0.5rem;
+        font-size: 0.7rem;
         border-radius: 16px;
       }
     }
     
     @media (max-width: 480px) {
       #tnScope .stepper-container {
-        padding: 0.75rem 0.5rem;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
-        scrollbar-color: #cbd5e0 transparent;
-      }
-      
-      #tnScope .stepper-container::-webkit-scrollbar {
-        height: 4px;
-      }
-      
-      #tnScope .stepper-container::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      
-      #tnScope .stepper-container::-webkit-scrollbar-thumb {
-        background: #cbd5e0;
-        border-radius: 2px;
+        padding: 0.5rem 0.4rem;
       }
       
       #tnScope .stepper-steps {
-        gap: 0.3rem;
-        flex-wrap: nowrap;
-        min-width: min-content;
+        gap: 0.25rem;
       }
       
       #tnScope .step {
-        padding: 0.35rem 0.5rem;
-        font-size: 0.7rem;
-        border-radius: 14px;
-        flex-shrink: 0;
+        padding: 0.3rem 0.4rem;
+        font-size: 0.65rem;
+        border-radius: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+    
+    /* Ultra-compact for very small screens */
+    @media (max-width: 390px) {
+      #tnScope .stepper-steps {
+        gap: 0.2rem;
+      }
+      
+      #tnScope .step {
+        padding: 0.25rem 0.3rem;
+        font-size: 0.6rem;
       }
     }
     
@@ -369,45 +363,39 @@
       }
       
       #wuScContainer .step {
-        padding: 0.4rem 0.6rem;
-        font-size: 0.75rem;
+        padding: 0.4rem 0.5rem;
+        font-size: 0.7rem;
         border-radius: 16px;
       }
     }
     
     @media (max-width: 480px) {
       #wuScContainer .stepper-container {
-        padding: 0.75rem 0.5rem;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
-        scrollbar-color: #cbd5e0 transparent;
-      }
-      
-      #wuScContainer .stepper-container::-webkit-scrollbar {
-        height: 4px;
-      }
-      
-      #wuScContainer .stepper-container::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      
-      #wuScContainer .stepper-container::-webkit-scrollbar-thumb {
-        background: #cbd5e0;
-        border-radius: 2px;
+        padding: 0.5rem 0.4rem;
       }
       
       #wuScContainer .stepper-steps {
-        gap: 0.3rem;
-        flex-wrap: nowrap;
-        min-width: min-content;
+        gap: 0.25rem;
       }
       
       #wuScContainer .step {
-        padding: 0.35rem 0.5rem;
-        font-size: 0.7rem;
-        border-radius: 14px;
-        flex-shrink: 0;
+        padding: 0.3rem 0.4rem;
+        font-size: 0.65rem;
+        border-radius: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+    
+    /* Ultra-compact for very small screens */
+    @media (max-width: 390px) {
+      #wuScContainer .stepper-steps {
+        gap: 0.2rem;
+      }
+      
+      #wuScContainer .step {
+        padding: 0.25rem 0.3rem;
+        font-size: 0.6rem;
       }
     }
   </style>
