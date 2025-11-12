@@ -16,12 +16,37 @@
       padding: 2rem;
     }
     
+    @media (max-width: 768px) {
+      .form-container {
+        padding: 1rem;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .form-container {
+        padding: 0.75rem;
+      }
+    }
+    
     .form-section {
       background: white;
       border-radius: 8px;
       padding: 2rem;
       margin-bottom: 2rem;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    @media (max-width: 768px) {
+      .form-section {
+        padding: 1.5rem;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .form-section {
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
     }
     
     .form-section h2 {
@@ -221,6 +246,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
     }
     
     #tnScope .step {
@@ -230,6 +257,10 @@
       color: #6c757d;
       font-size: 0.9rem;
       transition: all 0.3s ease;
+      white-space: nowrap;
+      flex: 1 1 auto;
+      text-align: center;
+      min-width: 0;
     }
     
     #tnScope .step.active {
@@ -240,6 +271,55 @@
     #tnScope .step.completed {
       background: #28a745;
       color: white;
+    }
+    
+    /* Mobile responsive stepper for TN */
+    @media (max-width: 768px) {
+      #tnScope .stepper-steps {
+        gap: 0.4rem;
+      }
+      
+      #tnScope .step {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+        border-radius: 16px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      #tnScope .stepper-container {
+        padding: 0.75rem 0.5rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e0 transparent;
+      }
+      
+      #tnScope .stepper-container::-webkit-scrollbar {
+        height: 4px;
+      }
+      
+      #tnScope .stepper-container::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      
+      #tnScope .stepper-container::-webkit-scrollbar-thumb {
+        background: #cbd5e0;
+        border-radius: 2px;
+      }
+      
+      #tnScope .stepper-steps {
+        gap: 0.3rem;
+        flex-wrap: nowrap;
+        min-width: min-content;
+      }
+      
+      #tnScope .step {
+        padding: 0.35rem 0.5rem;
+        font-size: 0.7rem;
+        border-radius: 14px;
+        flex-shrink: 0;
+      }
     }
     
     /* WU/SC Stepper Styles - Same as TN */
@@ -255,6 +335,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
     }
     
     #wuScContainer .step {
@@ -264,6 +346,10 @@
       color: #6c757d;
       font-size: 0.9rem;
       transition: all 0.3s ease;
+      white-space: nowrap;
+      flex: 1 1 auto;
+      text-align: center;
+      min-width: 0;
     }
     
     #wuScContainer .step.active {
@@ -274,6 +360,55 @@
     #wuScContainer .step.completed {
       background: #28a745;
       color: white;
+    }
+    
+    /* Mobile responsive stepper */
+    @media (max-width: 768px) {
+      #wuScContainer .stepper-steps {
+        gap: 0.4rem;
+      }
+      
+      #wuScContainer .step {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+        border-radius: 16px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      #wuScContainer .stepper-container {
+        padding: 0.75rem 0.5rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e0 transparent;
+      }
+      
+      #wuScContainer .stepper-container::-webkit-scrollbar {
+        height: 4px;
+      }
+      
+      #wuScContainer .stepper-container::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      
+      #wuScContainer .stepper-container::-webkit-scrollbar-thumb {
+        background: #cbd5e0;
+        border-radius: 2px;
+      }
+      
+      #wuScContainer .stepper-steps {
+        gap: 0.3rem;
+        flex-wrap: nowrap;
+        min-width: min-content;
+      }
+      
+      #wuScContainer .step {
+        padding: 0.35rem 0.5rem;
+        font-size: 0.7rem;
+        border-radius: 14px;
+        flex-shrink: 0;
+      }
     }
   </style>
 </head>
