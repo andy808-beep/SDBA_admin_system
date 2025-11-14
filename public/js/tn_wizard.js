@@ -8,6 +8,13 @@ import { sb } from '../supabase_config.js';
 import { getCurrentTeamKey, setCurrentTeamKey, readTeamRows, writeTeamRows, readTeamRanks, writeTeamRanks } from './tn_practice_store.js';
 import { EDGE_URL, getClientTxId, getEventShortRef, postJSON, saveReceipt, showConfirmation, mapError } from './submit.js';
 
+// Expose practice store functions globally (needed for summary page)
+window.__DBG_TN = window.__DBG_TN || {};
+window.__DBG_TN.readTeamRows = readTeamRows;
+window.__DBG_TN.readTeamRanks = readTeamRanks;
+window.__DBG_TN.writeTeamRows = writeTeamRows;
+window.__DBG_TN.writeTeamRanks = writeTeamRanks;
+
 /**
  * Set up debug functions for testing (dev only)
  */
@@ -53,11 +60,7 @@ function setupDebugFunctions() {
   window.__DBG_TN.testCalendarData = testCalendarDataCollection;
   window.testCalendarData = testCalendarDataCollection;
   
-  // Add TN store debug functions
-  window.__DBG_TN.readTeamRows = readTeamRows;
-  window.__DBG_TN.readTeamRanks = readTeamRanks;
-  window.__DBG_TN.writeTeamRows = writeTeamRows;
-  window.__DBG_TN.writeTeamRanks = writeTeamRanks;
+  // Note: TN store functions (readTeamRows, etc.) are exposed globally at top of file
   
   // Add data collection functions for testing
   window.__DBG_TN.collectContactData = collectContactData;
@@ -2779,6 +2782,7 @@ function initTeamSelector() {
     setCurrentTeamKey(teamKey);
     updateCalendarForTeam(selectedIndex);
     updateSlotPreferencesForTeam(selectedIndex);
+    updatePracticeSummary(); // Update the practice summary box when switching teams
     
     const teamName = teamNames[selectedIndex] || `Team ${selectedIndex + 1}`;
     teamNameFields.textContent = `Now scheduling: ${teamName}`;
@@ -3034,8 +3038,12 @@ function fillSingleTeamForSubmission() {
   writeTeamRanks('t1', slotRanks);
   console.log('🎯 Step 4: Practice data filled for team 1');
   
-  // Navigate to step 5 (summary)
-  loadStep(5);
+  // Navigate to step 5 (summary) only if wizard is initialized
+  if (wizardMount) {
+    loadStep(5);
+  } else {
+    console.log('🎯 Wizard not initialized, skipping navigation (data filled in sessionStorage)');
+  }
   
   console.log('🎯 fillSingleTeamForSubmission: Complete data created for all steps');
   console.log('🎯 Ready for submission testing with 1 team!');
@@ -3128,8 +3136,12 @@ function fillMultipleTeamsForSubmission() {
   writeTeamRanks('t3', slotRanks);
   console.log('🎯 Step 4: Practice data filled for all 3 teams');
   
-  // Navigate to step 5 (summary)
-  loadStep(5);
+  // Navigate to step 5 (summary) only if wizard is initialized
+  if (wizardMount) {
+    loadStep(5);
+  } else {
+    console.log('🎯 Wizard not initialized, skipping navigation (data filled in sessionStorage)');
+  }
   
   console.log('🎯 fillMultipleTeamsForSubmission: Complete data created for all steps');
   console.log('🎯 Ready for submission testing with 3 teams!');
@@ -3693,6 +3705,7 @@ function handleCopyFromTeam1() {
   writeTeamRanks?.(toKey, srcRanks.slice(0,3));
   updateCalendarForTeam(currentIdx);
   updateSlotPreferencesForTeam(currentIdx);
+  updatePracticeSummary(); // Update the practice summary box
   console.log(`🎯 Copied ${srcRows.length} rows & ${srcRanks.length||0} ranks from ${fromKey} → ${toKey}`);
   
   console.log(`🎯 handleCopyFromTeam1: Copied Team 1 data to Team ${currentTeamIndex + 1}`);
