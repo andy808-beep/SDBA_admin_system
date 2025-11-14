@@ -77,10 +77,14 @@ function setupDebugFunctions() {
   window.buildTNPracticePayload = buildTNPracticePayload;
   window.submitTNForm = submitTNForm;
   
+  // Note: testQuickSubmit functions are exposed at the end of the file after they're defined
+  
   console.log('🎯 Debug functions available:');
   console.log('  - fillSingleTeam() - Fill form with 1 team');
   console.log('  - fillMultipleTeams() - Fill form with 3 teams');
   console.log('  - testSubmission() - Test submission with current data');
+  console.log('  - testQuickSubmit() - Fill form with 3 teams and submit immediately ⚡ (loaded at end of script)');
+  console.log('  - testQuickSubmitSingle() - Fill form with 1 team and submit immediately ⚡ (loaded at end of script)');
   console.log('  - generateFreshTxId() - Generate fresh client_tx_id for testing');
 }
 
@@ -3136,6 +3140,60 @@ function fillMultipleTeamsForSubmission() {
 }
 
 /**
+ * Quick test: Fill form and submit immediately (for console testing on Vercel)
+ * Usage in browser console: testQuickSubmit()
+ */
+async function testQuickSubmit() {
+  console.log('🚀 testQuickSubmit: Starting quick test submission...');
+  
+  try {
+    // Fill all form data
+    fillMultipleTeamsForSubmission();
+    
+    // Wait a moment for data to settle
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    console.log('📝 Form filled with test data. Now submitting...');
+    
+    // Submit the form
+    const result = await submitTNForm();
+    
+    console.log('✅ testQuickSubmit: Submission complete!', result);
+    return result;
+  } catch (error) {
+    console.error('❌ testQuickSubmit failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Quick test with single team (faster, simpler)
+ * Usage in browser console: testQuickSubmitSingle()
+ */
+async function testQuickSubmitSingle() {
+  console.log('🚀 testQuickSubmitSingle: Starting quick test submission with 1 team...');
+  
+  try {
+    // Fill all form data for single team
+    fillSingleTeamForSubmission();
+    
+    // Wait a moment for data to settle
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    console.log('📝 Form filled with single team test data. Now submitting...');
+    
+    // Submit the form
+    const result = await submitTNForm();
+    
+    console.log('✅ testQuickSubmitSingle: Submission complete!', result);
+    return result;
+  } catch (error) {
+    console.error('❌ testQuickSubmitSingle failed:', error);
+    throw error;
+  }
+}
+
+/**
  * Test submission with current form data (for debugging)
  */
 async function testSubmissionWithCurrentData() {
@@ -5676,4 +5734,17 @@ if (window.__DEV__) {
     }
   }
   });
+}
+
+// Expose test functions after they're all defined
+// This runs immediately when the script loads, ensuring functions are available in console
+if (typeof window !== 'undefined') {
+  window.testQuickSubmit = testQuickSubmit;
+  window.testQuickSubmitSingle = testQuickSubmitSingle;
+  window.fillSingleTeamForSubmission = fillSingleTeamForSubmission;
+  window.fillMultipleTeamsForSubmission = fillMultipleTeamsForSubmission;
+  window.testSubmissionWithCurrentData = testSubmissionWithCurrentData;
+  
+  console.log('✅ Quick test functions loaded and ready!');
+  console.log('   Run testQuickSubmitSingle() or testQuickSubmit() in console to test');
 }
