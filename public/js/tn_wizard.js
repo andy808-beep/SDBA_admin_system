@@ -3153,9 +3153,9 @@ async function testSubmissionWithCurrentData() {
     const practice = buildTNPracticePayload();
     
     const raceCategory = sessionStorage.getItem('tn_race_category') || 'mixed_open';
-    const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
-    const opt1Count = parseInt(sessionStorage.getItem('tn_opt1_count'), 10) || 0;
-    const opt2Count = parseInt(sessionStorage.getItem('tn_opt2_count'), 10) || 0;
+    const teamCount = teams.length; // Use actual team count from collected data
+    const opt1Count = teams.filter(t => t.option === 'opt1').length; // Calculate from actual teams
+    const opt2Count = teams.filter(t => t.option === 'opt2').length; // Calculate from actual teams
     
     // Generate unique team names to avoid duplicate key errors
     const uniqueTeamNames = teams.map((t, idx) => 
@@ -5051,9 +5051,9 @@ async function submitTNForm() {
     
     // Get race category from step 1
     const raceCategory = sessionStorage.getItem('tn_race_category') || 'mixed_open';
-    const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
-    const opt1Count = parseInt(sessionStorage.getItem('tn_opt1_count'), 10) || 0;
-    const opt2Count = parseInt(sessionStorage.getItem('tn_opt2_count'), 10) || 0;
+    const teamCount = teams.length; // Use actual team count from collected data
+    const opt1Count = teams.filter(t => t.option === 'opt1').length; // Calculate from actual teams
+    const opt2Count = teams.filter(t => t.option === 'opt2').length; // Calculate from actual teams
     
     // Build payload in server-expected format
     const payload = {
@@ -5362,9 +5362,9 @@ if (window.__DEV__) {
       const practice = buildTNPracticePayload();
       
       const raceCategory = sessionStorage.getItem('tn_race_category') || 'mixed_open';
-      const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
-      const opt1Count = parseInt(sessionStorage.getItem('tn_opt1_count'), 10) || 0;
-      const opt2Count = parseInt(sessionStorage.getItem('tn_opt2_count'), 10) || 0;
+      const teamCount = teams.length; // Use actual team count from collected data
+      const opt1Count = teams.filter(t => t.option === 'opt1').length; // Calculate from actual teams
+      const opt2Count = teams.filter(t => t.option === 'opt2').length; // Calculate from actual teams
       
       const payload = {
         client_tx_id: getClientTxId(),
@@ -5412,9 +5412,9 @@ if (window.__DEV__) {
       const practice = buildTNPracticePayload();
       
       const raceCategory = sessionStorage.getItem('tn_race_category') || 'mixed_open';
-      const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
-      const opt1Count = parseInt(sessionStorage.getItem('tn_opt1_count'), 10) || 0;
-      const opt2Count = parseInt(sessionStorage.getItem('tn_opt2_count'), 10) || 0;
+      const teamCount = teams.length; // Use actual team count from collected data
+      const opt1Count = teams.filter(t => t.option === 'opt1').length; // Calculate from actual teams
+      const opt2Count = teams.filter(t => t.option === 'opt2').length; // Calculate from actual teams
       
       const payload = {
         client_tx_id: getClientTxId(),
