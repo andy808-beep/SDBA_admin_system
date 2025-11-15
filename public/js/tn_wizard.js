@@ -2984,8 +2984,10 @@ function fillSingleTeamForSubmission() {
   sessionStorage.setItem('tn_race_category', 'mixed_open');
   console.log('🎯 Step 1: Set team count to 1');
   
-  // Step 2: Fill team info and contact data
-  const uniqueTeamName = 'Test Team ' + Date.now().toString().slice(-6);
+  // Step 2: Fill team info and contact data with unique random name
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 10000);
+  const uniqueTeamName = `Test Team ${timestamp}_${random}`;
   
   sessionStorage.setItem('tn_team_name_1', uniqueTeamName);
   sessionStorage.setItem('tn_team_category_1', 'Mixed Open');
@@ -3066,10 +3068,12 @@ function fillMultipleTeamsForSubmission() {
   sessionStorage.setItem('tn_race_category', 'mixed_open');
   console.log('🎯 Step 1: Set team count to 3 (2 opt1, 1 opt2)');
   
-  // Step 2: Fill team info and contact data
-  const uniqueTeamName1 = 'Test Team ' + Date.now().toString().slice(-6) + '_1';
-  const uniqueTeamName2 = 'Test Team ' + Date.now().toString().slice(-6) + '_2';
-  const uniqueTeamName3 = 'Test Team ' + Date.now().toString().slice(-6) + '_3';
+  // Step 2: Fill team info and contact data with unique random names
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 10000);
+  const uniqueTeamName1 = `Test Team ${timestamp}_${random}_1`;
+  const uniqueTeamName2 = `Test Team ${timestamp}_${random}_2`;
+  const uniqueTeamName3 = `Test Team ${timestamp}_${random}_3`;
   
   sessionStorage.setItem('tn_team_name_1', uniqueTeamName1);
   sessionStorage.setItem('tn_team_category_1', 'Mixed Open');
@@ -3152,26 +3156,32 @@ function fillMultipleTeamsForSubmission() {
 }
 
 /**
- * Quick test: Fill form and submit immediately (for console testing on Vercel)
+ * Quick test: Fill form with 3 teams and navigate to summary (for console testing on Vercel)
  * Usage in browser console: testQuickSubmit()
  */
 async function testQuickSubmit() {
-  console.log('🚀 testQuickSubmit: Starting quick test submission...');
+  console.log('🚀 testQuickSubmit: Filling form with 3 teams...');
   
   try {
     // Fill all form data
     fillMultipleTeamsForSubmission();
     
     // Wait a moment for data to settle
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
     
-    console.log('📝 Form filled with test data. Now submitting...');
+    // Navigate to summary page if wizard is initialized
+    if (wizardMount) {
+      await loadStep(5);
+      console.log('✅ testQuickSubmit: Form filled! Now on Step 5 (Summary). Click Submit when ready.');
+    } else {
+      console.log('✅ testQuickSubmit: Form filled! Navigate to the TN registration form to see it.');
+    }
     
-    // Submit the form
-    const result = await submitTNForm();
-    
-    console.log('✅ testQuickSubmit: Submission complete!', result);
-    return result;
+    console.log('📝 Team names generated:', {
+      team1: sessionStorage.getItem('tn_team_name_1'),
+      team2: sessionStorage.getItem('tn_team_name_2'),
+      team3: sessionStorage.getItem('tn_team_name_3')
+    });
   } catch (error) {
     console.error('❌ testQuickSubmit failed:', error);
     throw error;
@@ -3179,26 +3189,28 @@ async function testQuickSubmit() {
 }
 
 /**
- * Quick test with single team (faster, simpler)
+ * Quick test with single team and navigate to summary (for console testing on Vercel)
  * Usage in browser console: testQuickSubmitSingle()
  */
 async function testQuickSubmitSingle() {
-  console.log('🚀 testQuickSubmitSingle: Starting quick test submission with 1 team...');
+  console.log('🚀 testQuickSubmitSingle: Filling form with 1 team...');
   
   try {
     // Fill all form data for single team
     fillSingleTeamForSubmission();
     
     // Wait a moment for data to settle
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
     
-    console.log('📝 Form filled with single team test data. Now submitting...');
+    // Navigate to summary page if wizard is initialized
+    if (wizardMount) {
+      await loadStep(5);
+      console.log('✅ testQuickSubmitSingle: Form filled! Now on Step 5 (Summary). Click Submit when ready.');
+    } else {
+      console.log('✅ testQuickSubmitSingle: Form filled! Navigate to the TN registration form to see it.');
+    }
     
-    // Submit the form
-    const result = await submitTNForm();
-    
-    console.log('✅ testQuickSubmitSingle: Submission complete!', result);
-    return result;
+    console.log('📝 Team name generated:', sessionStorage.getItem('tn_team_name_1'));
   } catch (error) {
     console.error('❌ testQuickSubmitSingle failed:', error);
     throw error;
@@ -3773,15 +3785,39 @@ function saveCurrentTeamPracticeData() {
  */
 function validatePracticeRequired() {
   const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
-  for (let i=0;i<teamCount;i++) {
-    const key = `t${i+1}`;
+  
+  for (let i = 0; i < teamCount; i++) {
+    const teamNum = i + 1;
+    const key = `t${teamNum}`;
+    const teamName = sessionStorage.getItem(`tn_team_name_${teamNum}`) || `Team ${teamNum}`;
+    
     const rows = readTeamRows(key) || [];
+    const ranks = readTeamRanks(key) || [];
+    
+    // Check that team has at least one practice date
+    if (rows.length === 0) {
+      return `${teamName}: Please select at least one practice date`;
+    }
+    
+    // Check that team has at least one slot preference
+    if (ranks.length === 0) {
+      return `${teamName}: Please select at least one slot preference`;
+    }
+    
+    // Validate each practice row has complete data
     for (const r of rows) {
-      if (!r.pref_date) return 'Select a date for each row';
-      if (![1,2].includes(Number(r.duration_hours))) return 'Each date needs 1h or 2h';
-      if (!['NONE','S','T','ST'].includes(r.helper)) return 'Each date needs a helper choice';
+      if (!r.pref_date) {
+        return `${teamName}: Select a date for each row`;
+      }
+      if (![1, 2].includes(Number(r.duration_hours))) {
+        return `${teamName}: Each date needs 1h or 2h duration`;
+      }
+      if (!['NONE', 'S', 'T', 'ST'].includes(r.helper)) {
+        return `${teamName}: Each date needs a helper choice`;
+      }
     }
   }
+  
   return null;
 }
 
