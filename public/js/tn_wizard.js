@@ -3067,11 +3067,14 @@ function fillSingleTeamForSubmission() {
   sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
   console.log('🎯 Step 3: Race day data filled');
   
-  // Step 4: Fill practice data for team 1 (only weekdays after 10/27/2025)
+  // Step 4: Fill practice data for team 1 with 12 hours minimum (weekdays after 10/27/2025)
   const practiceRows = [
     { pref_date: '2025-10-29', duration_hours: 2, helper: 'S' }, // Wednesday - 2hr
-    { pref_date: '2025-11-05', duration_hours: 1, helper: 'T' }, // Wednesday - 1hr
-    { pref_date: '2025-11-12', duration_hours: 2, helper: 'S' }  // Wednesday - 2hr
+    { pref_date: '2025-10-31', duration_hours: 2, helper: 'T' }, // Friday - 2hr
+    { pref_date: '2025-11-03', duration_hours: 2, helper: 'S' }, // Monday - 2hr
+    { pref_date: '2025-11-05', duration_hours: 2, helper: 'ST' }, // Wednesday - 2hr
+    { pref_date: '2025-11-07', duration_hours: 2, helper: 'S' }, // Friday - 2hr
+    { pref_date: '2025-11-10', duration_hours: 2, helper: 'T' }  // Monday - 2hr (Total: 12hrs)
   ];
   
   // Slot ranks: 3 for 2hr sessions, 3 for 1hr sessions (using only Saturday slots)
@@ -3161,13 +3164,14 @@ function fillMultipleTeamsForSubmission() {
   sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
   console.log('🎯 Step 3: Race day data filled');
   
-  // Step 4: Fill practice data for all teams (only weekdays after 10/27/2025)
+  // Step 4: Fill practice data for all teams with 12 hours minimum (weekdays after 10/27/2025)
   const practiceRows = [
     { pref_date: '2025-10-29', duration_hours: 2, helper: 'S' }, // Wednesday - 2hr
-    { pref_date: '2025-11-05', duration_hours: 1, helper: 'T' }, // Wednesday - 1hr
-    { pref_date: '2025-11-12', duration_hours: 2, helper: 'S' }, // Wednesday - 2hr
-    { pref_date: '2025-11-19', duration_hours: 1, helper: 'T' }, // Wednesday - 1hr
-    { pref_date: '2025-11-26', duration_hours: 2, helper: 'S' }  // Wednesday - 2hr
+    { pref_date: '2025-10-31', duration_hours: 2, helper: 'T' }, // Friday - 2hr
+    { pref_date: '2025-11-03', duration_hours: 2, helper: 'S' }, // Monday - 2hr
+    { pref_date: '2025-11-05', duration_hours: 2, helper: 'ST' }, // Wednesday - 2hr
+    { pref_date: '2025-11-07', duration_hours: 2, helper: 'S' }, // Friday - 2hr
+    { pref_date: '2025-11-10', duration_hours: 2, helper: 'T' }  // Monday - 2hr (Total: 12hrs)
   ];
   
   // Slot ranks: 3 for 2hr sessions, 3 for 1hr sessions (using only Saturday slots)
@@ -3854,6 +3858,17 @@ function validatePracticeRequired() {
     // Check that team has at least one slot preference
     if (ranks.length === 0) {
       teamErrors.push('Missing slot preferences');
+    }
+    
+    // Calculate total hours for this team
+    let totalHours = 0;
+    for (const r of rows) {
+      totalHours += Number(r.duration_hours) || 0;
+    }
+    
+    // Check minimum 12 hours requirement
+    if (totalHours < 12) {
+      teamErrors.push(`Total practice hours: ${totalHours}h (minimum 12h required)`);
     }
     
     // Validate each practice row has complete data
