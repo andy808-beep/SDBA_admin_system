@@ -432,6 +432,49 @@
       </div>
     </div>
 
+    <!-- Success Page -->
+    <div id="successPage" class="event-picker" style="display: none;">
+      <div class="success-container" style="background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
+        <div style="font-size: 4rem; color: #28a745; margin-bottom: 1rem;">✓</div>
+        <h2 style="color: #28a745; margin-bottom: 1rem;">Application Submitted Successfully!</h2>
+        <p style="font-size: 1.1rem; color: #495057; margin-bottom: 2rem;">
+          Thank you for your registration. Your application has been received.
+        </p>
+        
+        <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+          <h3 style="margin-top: 0; color: #333;">Registration Details</h3>
+          <p style="margin: 0.5rem 0;">
+            <strong>Registration ID:</strong> <span id="successRegistrationId"></span>
+          </p>
+          <p style="margin: 0.5rem 0;">
+            <strong>Team Codes:</strong> <span id="successTeamCodes"></span>
+          </p>
+          <p style="margin: 0.5rem 0;">
+            <strong>Confirmation Email:</strong> <span id="successEmail"></span>
+          </p>
+        </div>
+        
+        <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 1rem;">
+          Please save your Registration ID and Team Codes for your records.
+        </p>
+        
+        <div style="margin-bottom: 2rem;">
+          <button id="copyReceiptBtn" class="btn" style="margin-right: 0.5rem;">
+            📋 Copy Details
+          </button>
+        </div>
+        
+        <div style="background: #e7f3ff; padding: 1rem; border-radius: 8px; border-left: 4px solid #007bff;">
+          <p style="margin: 0; color: #004085;">
+            Redirecting to event selection in <strong id="countdown">8</strong> seconds...
+          </p>
+          <button id="redirectNowBtn" class="btn" style="margin-top: 1rem; background: #6c757d;">
+            Go Now
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Universal Form Container -->
     <div id="formContainer" class="form-container" style="display: none;">
       <!-- TN Wizard Container (scoped for legacy styles) -->
@@ -488,6 +531,95 @@
           document.body.appendChild(template);
         });
       });
+  </script>
+  
+  <!-- Success Page Handler Script -->
+  <script>
+    (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isSuccess = urlParams.get('success') === 'true';
+      
+      if (isSuccess) {
+        // Get receipt from sessionStorage
+        const receiptData = sessionStorage.getItem('success_receipt');
+        
+        if (receiptData) {
+          try {
+            const receipt = JSON.parse(receiptData);
+            
+            // Hide other sections
+            document.getElementById('eventPicker').style.display = 'none';
+            document.getElementById('formContainer').style.display = 'none';
+            
+            // Show success page
+            document.getElementById('successPage').style.display = 'block';
+            
+            // Populate receipt details
+            document.getElementById('successRegistrationId').textContent = receipt.registration_id || 'N/A';
+            document.getElementById('successTeamCodes').textContent = 
+              Array.isArray(receipt.team_codes) ? receipt.team_codes.join(', ') : 'N/A';
+            document.getElementById('successEmail').textContent = receipt.email || 'N/A';
+            
+            // Set up copy button
+            document.getElementById('copyReceiptBtn').addEventListener('click', async function() {
+              const text = `Registration ID: ${receipt.registration_id}\nTeam Codes: ${receipt.team_codes?.join(', ')}\nEmail: ${receipt.email}`;
+              try {
+                await navigator.clipboard.writeText(text);
+                this.textContent = '✓ Copied!';
+                setTimeout(() => {
+                  this.textContent = '📋 Copy Details';
+                }, 2000);
+              } catch (err) {
+                console.error('Failed to copy:', err);
+              }
+            });
+            
+            // Countdown timer (8 seconds)
+            let countdown = 8;
+            const countdownEl = document.getElementById('countdown');
+            const redirectNowBtn = document.getElementById('redirectNowBtn');
+            
+            function redirectToEventSelection() {
+              // Clear session data
+              sessionStorage.removeItem('success_receipt');
+              
+              // Clear TN wizard data
+              const tnKeys = Object.keys(sessionStorage).filter(key => key.startsWith('tn_'));
+              tnKeys.forEach(key => sessionStorage.removeItem(key));
+              
+              // Redirect to event selection (clear URL parameters)
+              window.location.href = '/register.html';
+            }
+            
+            const timer = setInterval(function() {
+              countdown--;
+              if (countdownEl) {
+                countdownEl.textContent = countdown;
+              }
+              
+              if (countdown <= 0) {
+                clearInterval(timer);
+                redirectToEventSelection();
+              }
+            }, 1000);
+            
+            // Set up redirect now button
+            redirectNowBtn.addEventListener('click', function() {
+              clearInterval(timer);
+              redirectToEventSelection();
+            });
+            
+          } catch (error) {
+            console.error('Failed to parse receipt data:', error);
+            // Redirect to event selection if error
+            window.location.href = '/register.html';
+          }
+        } else {
+          // No receipt data, redirect to event selection
+          window.location.href = '/register.html';
+        }
+      }
+    })();
   </script>
   
   <!-- TN Legacy CSS Scoping Script -->

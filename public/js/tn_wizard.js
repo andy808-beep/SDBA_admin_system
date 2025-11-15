@@ -5385,6 +5385,16 @@ function collectManagerData() {
  * Submit TN form
  */
 async function submitTNForm() {
+  // Show loading indicator
+  showLoadingIndicator();
+  
+  // Disable submit button
+  const submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+  }
+  
   try {
     // Collect data
     const contact = collectContactData();
@@ -5455,6 +5465,11 @@ async function submitTNForm() {
     }
     
     if (errors.length > 0) {
+      hideLoadingIndicator();
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Application';
+      }
       showError(errors.join(', '));
       return;
     }
@@ -5478,6 +5493,11 @@ async function submitTNForm() {
       
       // Handle timeout specifically
       if (error.message && error.message.includes('timeout')) {
+        hideLoadingIndicator();
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit Application';
+        }
         showError('Submission timed out. Please try again or contact support if the issue persists.');
         return;
       }
@@ -5510,6 +5530,12 @@ async function submitTNForm() {
       }
       
       // Handle specific error cases
+      hideLoadingIndicator();
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Application';
+      }
+      
       if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
         if (error.message.includes('uniq_teamname_per_div_season_norm')) {
           showError('One or more team names already exist for this division and season. Please choose different team names.');
@@ -5541,18 +5567,126 @@ async function submitTNForm() {
         email: contact.email 
       });
       
-      showConfirmation(receipt);
+      // Hide loading and redirect to success page
+      hideLoadingIndicator();
+      redirectToSuccessPage(receipt);
     } else {
       console.log('⚠️ No data in response, but no error either');
+      hideLoadingIndicator();
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Application';
+      }
       showError('No response received from server. Please try again.');
     }
     
   } catch (error) {
     console.error('Submission error:', error);
+    hideLoadingIndicator();
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Application';
+    }
     showError('Submission failed. Please try again.');
   }
 }
 
+
+/**
+ * Show loading indicator
+ */
+function showLoadingIndicator() {
+  // Create loading overlay if it doesn't exist
+  let loadingOverlay = document.getElementById('loadingOverlay');
+  if (!loadingOverlay) {
+    loadingOverlay = document.createElement('div');
+    loadingOverlay.id = 'loadingOverlay';
+    loadingOverlay.innerHTML = `
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Submitting your application...</p>
+        <p class="loading-subtext">Please do not close or refresh this page</p>
+      </div>
+    `;
+    document.body.appendChild(loadingOverlay);
+    
+    // Add styles for loading overlay
+    const style = document.createElement('style');
+    style.textContent = `
+      #loadingOverlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+      }
+      
+      .loading-spinner {
+        background: white;
+        padding: 2rem 3rem;
+        border-radius: 10px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+      
+      .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #0f6ec7;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      .loading-spinner p {
+        margin: 0.5rem 0;
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #333;
+      }
+      
+      .loading-subtext {
+        font-size: 0.9rem !important;
+        font-weight: normal !important;
+        color: #666 !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  loadingOverlay.style.display = 'flex';
+}
+
+/**
+ * Hide loading indicator
+ */
+function hideLoadingIndicator() {
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  if (loadingOverlay) {
+    loadingOverlay.style.display = 'none';
+  }
+}
+
+/**
+ * Redirect to success page with auto-redirect to event selection
+ */
+function redirectToSuccessPage(receipt) {
+  // Store receipt data for success page
+  sessionStorage.setItem('success_receipt', JSON.stringify(receipt));
+  
+  // Redirect to success page
+  window.location.href = '/register.html?success=true';
+}
 
 /**
  * Show error message
