@@ -4875,6 +4875,8 @@ function validateStep4() {
     return false;
   }
   
+  // Clear any previous errors
+  hideError();
   return true;
 }
 
@@ -5387,7 +5389,37 @@ function showError(message) {
   const msgEl = document.getElementById('formMsg');
   if (msgEl) {
     msgEl.textContent = message;
+    msgEl.className = 'msg error';
+
     msgEl.style.display = 'block';
+    msgEl.style.backgroundColor = '#fee';
+    msgEl.style.border = '2px solid #dc3545';
+    msgEl.style.color = '#721c24';
+    msgEl.style.padding = '1rem';
+    msgEl.style.margin = '1rem 0';
+    msgEl.style.borderRadius = '4px';
+    msgEl.style.whiteSpace = 'pre-wrap';
+    msgEl.style.fontWeight = 'bold';
+    
+    // Scroll to error message
+    msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    console.error('Validation Error:', message);
+  } else {
+    // Fallback: alert if formMsg element doesn't exist
+    console.error('formMsg element not found, using alert');
+    alert(message);
+  }
+}
+
+/**
+ * Hide error message
+ */
+function hideError() {
+  const msgEl = document.getElementById('formMsg');
+  if (msgEl) {
+    msgEl.style.display = 'none';
+    msgEl.textContent = '';
   }
 }
 
