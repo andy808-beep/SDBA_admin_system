@@ -3928,6 +3928,7 @@ function setupCalendarEventListeners(container) {
         dropdowns?.classList.add('hide');
       }
       saveCurrentTeamPracticeData(); // keep single save path
+      updatePracticeSummary(); // Update summary box immediately
     }
     
     // Handle dropdown changes (duration, helpers)
@@ -3946,6 +3947,7 @@ function setupCalendarEventListeners(container) {
         writeTeamRows(key, rows);
       }
       saveCurrentTeamPracticeData();
+      updatePracticeSummary(); // Update summary box immediately
     }
   });
   
@@ -3957,6 +3959,7 @@ function setupCalendarEventListeners(container) {
       // Small delay to allow checkbox state to update
       setTimeout(() => {
         saveCurrentTeamPracticeData();
+        updatePracticeSummary(); // Update summary box after click
       }, 10);
     }
   });
