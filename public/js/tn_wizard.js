@@ -2869,6 +2869,9 @@ function setupSlotPreferenceHandlers() {
         
         // Update duplicate prevention
         setupSlotDuplicatePrevention();
+        
+        // Update practice summary box
+        updatePracticeSummary();
       });
     }
   });
