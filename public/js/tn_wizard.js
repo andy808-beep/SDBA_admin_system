@@ -235,6 +235,53 @@ function initDeepLinking() {
 }
 
 /**
+ * Clear data for a specific step and all steps after it
+ */
+function clearStepDataFromHere(fromStep) {
+  console.log(`🎯 Clearing data from step ${fromStep} onwards`);
+  
+  // Step 2: Team info, org, managers
+  if (fromStep <= 2) {
+    const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+    for (let i = 1; i <= teamCount; i++) {
+      sessionStorage.removeItem(`tn_team_name_${i}`);
+      sessionStorage.removeItem(`tn_team_category_${i}`);
+      sessionStorage.removeItem(`tn_team_option_${i}`);
+    }
+    sessionStorage.removeItem('tn_org_name');
+    sessionStorage.removeItem('tn_mailing_address');
+    sessionStorage.removeItem('tn_manager1_name');
+    sessionStorage.removeItem('tn_manager1_phone');
+    sessionStorage.removeItem('tn_manager1_email');
+    sessionStorage.removeItem('tn_manager2_name');
+    sessionStorage.removeItem('tn_manager2_phone');
+    sessionStorage.removeItem('tn_manager2_email');
+    sessionStorage.removeItem('tn_manager3_name');
+    sessionStorage.removeItem('tn_manager3_phone');
+    sessionStorage.removeItem('tn_manager3_email');
+  }
+  
+  // Step 3: Race day
+  if (fromStep <= 3) {
+    sessionStorage.removeItem('tn_race_day');
+  }
+  
+  // Step 4: Practice data
+  if (fromStep <= 4) {
+    const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+    for (let i = 1; i <= teamCount; i++) {
+      const teamKey = `t${i}`;
+      sessionStorage.removeItem(`tn_practice_team_${teamKey}`);
+      sessionStorage.removeItem(`tn_slot_ranks_${teamKey}`);
+    }
+  }
+  
+  // Step 5: Summary (no specific data to clear)
+  
+  console.log(`✅ Cleared data from step ${fromStep} onwards`);
+}
+
+/**
  * Load a specific step
  */
 async function loadStep(step) {
@@ -1041,6 +1088,7 @@ function setupStep2Navigation() {
   if (backBtn) {
     backBtn.addEventListener('click', () => {
       console.log('🎯 initStep2: Back button clicked, going to step 1');
+      clearStepDataFromHere(1); // Clear step 1 and all after
       loadStep(1);
     });
   }
@@ -1341,6 +1389,7 @@ function setupStep3Navigation() {
   if (backBtn) {
     backBtn.addEventListener('click', () => {
       console.log('🎯 initStep3: Back button clicked, going to step 2');
+      clearStepDataFromHere(2); // Clear step 2 and all after
       loadStep(2);
     });
   }
@@ -3621,6 +3670,7 @@ function setupStep4Navigation() {
   if (backBtn) {
     backBtn.addEventListener('click', () => {
       console.log('🎯 initStep4: Back button clicked, going to step 3');
+      clearStepDataFromHere(3); // Clear step 3 and all after
       loadStep(3);
     });
   }
@@ -4521,8 +4571,9 @@ function setupStepNavigation() {
   if (backBtn) {
     backBtn.addEventListener('click', async () => {
       if (currentStep > 1) {
-        saveCurrentStepData();
-        await loadStep(currentStep - 1);
+        const targetStep = currentStep - 1;
+        clearStepDataFromHere(targetStep); // Clear target step and all after
+        await loadStep(targetStep);
       }
     });
   }
