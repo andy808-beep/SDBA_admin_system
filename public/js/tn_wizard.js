@@ -7,6 +7,16 @@ import { TN_SELECTORS, collectCompleteTNState, validateTNState } from './tn_map.
 import { sb } from '../supabase_config.js';
 import { getCurrentTeamKey, setCurrentTeamKey, readTeamRows, writeTeamRows, readTeamRanks, writeTeamRanks } from './tn_practice_store.js';
 import { EDGE_URL, getClientTxId, getEventShortRef, postJSON, saveReceipt, showConfirmation, mapError } from './submit.js';
+import { 
+  isValidEmail, 
+  isValidHKPhone, 
+  normalizeHKPhone, 
+  extractLocalNumber,
+  validateEmailField, 
+  validatePhoneField,
+  setupEmailValidation,
+  setupPhoneValidation
+} from './validation.js';
 
 // Expose practice store functions globally (needed for summary page)
 window.__DBG_TN = window.__DBG_TN || {};
@@ -1006,13 +1016,19 @@ function createOrganizationForm() {
           </div>
           <div class="form-group">
             <label for="manager1Phone">Phone *</label>
-            <input type="tel" id="manager1Phone" name="manager1Phone" required 
-                   placeholder="Enter phone number" />
+            <div class="phone-input-wrapper">
+              <span class="phone-prefix">+852</span>
+              <input type="tel" id="manager1Phone" name="manager1Phone" required 
+                     placeholder="8-digit number" maxlength="8" inputmode="numeric" 
+                     pattern="[0-9]{8}" />
+            </div>
+            <div class="field-error" id="manager1PhoneError"></div>
           </div>
           <div class="form-group">
             <label for="manager1Email">Email *</label>
             <input type="email" id="manager1Email" name="manager1Email" required 
                    placeholder="Enter email address" />
+            <div class="field-error" id="manager1EmailError"></div>
           </div>
         </div>
       </div>
@@ -1028,13 +1044,19 @@ function createOrganizationForm() {
           </div>
           <div class="form-group">
             <label for="manager2Phone">Phone *</label>
-            <input type="tel" id="manager2Phone" name="manager2Phone" required 
-                   placeholder="Enter phone number" />
+            <div class="phone-input-wrapper">
+              <span class="phone-prefix">+852</span>
+              <input type="tel" id="manager2Phone" name="manager2Phone" required 
+                     placeholder="8-digit number" maxlength="8" inputmode="numeric" 
+                     pattern="[0-9]{8}" />
+            </div>
+            <div class="field-error" id="manager2PhoneError"></div>
           </div>
           <div class="form-group">
             <label for="manager2Email">Email *</label>
             <input type="email" id="manager2Email" name="manager2Email" required 
                    placeholder="Enter email address" />
+            <div class="field-error" id="manager2EmailError"></div>
           </div>
         </div>
       </div>
@@ -1050,13 +1072,19 @@ function createOrganizationForm() {
           </div>
           <div class="form-group">
             <label for="manager3Phone">Phone</label>
-            <input type="tel" id="manager3Phone" name="manager3Phone" 
-                   placeholder="Enter phone number" />
+            <div class="phone-input-wrapper">
+              <span class="phone-prefix">+852</span>
+              <input type="tel" id="manager3Phone" name="manager3Phone" 
+                     placeholder="8-digit number" maxlength="8" inputmode="numeric" 
+                     pattern="[0-9]{8}" />
+            </div>
+            <div class="field-error" id="manager3PhoneError"></div>
           </div>
           <div class="form-group">
             <label for="manager3Email">Email</label>
             <input type="email" id="manager3Email" name="manager3Email" 
                    placeholder="Enter email address" />
+            <div class="field-error" id="manager3EmailError"></div>
           </div>
         </div>
       </div>
@@ -1076,7 +1104,27 @@ function createOrganizationForm() {
   // Set up navigation handlers
   setupStep2Navigation();
   
+  // Set up validation for email and phone fields
+  setupStep2Validation();
+  
   console.log('🎯 initStep2: Organization form created');
+}
+
+/**
+ * Set up email and phone validation for Step 2
+ */
+function setupStep2Validation() {
+  // Set up validation for all email fields
+  setupEmailValidation('manager1Email');
+  setupEmailValidation('manager2Email');
+  setupEmailValidation('manager3Email');
+  
+  // Set up validation for all phone fields
+  setupPhoneValidation('manager1Phone');
+  setupPhoneValidation('manager2Phone');
+  setupPhoneValidation('manager3Phone');
+  
+  console.log('🎯 setupStep2Validation: Email and phone validation configured');
 }
 
 /**
@@ -1139,7 +1187,8 @@ function loadOrganizationData() {
   }
   if (manager1Phone) {
     const el = document.getElementById('manager1Phone');
-    if (el) el.value = manager1Phone;
+    // Extract local number (remove +852 prefix if present)
+    if (el) el.value = extractLocalNumber(manager1Phone);
   }
   if (manager1Email) {
     const el = document.getElementById('manager1Email');
@@ -1157,7 +1206,8 @@ function loadOrganizationData() {
   }
   if (manager2Phone) {
     const el = document.getElementById('manager2Phone');
-    if (el) el.value = manager2Phone;
+    // Extract local number (remove +852 prefix if present)
+    if (el) el.value = extractLocalNumber(manager2Phone);
   }
   if (manager2Email) {
     const el = document.getElementById('manager2Email');
@@ -1175,7 +1225,8 @@ function loadOrganizationData() {
   }
   if (manager3Phone) {
     const el = document.getElementById('manager3Phone');
-    if (el) el.value = manager3Phone;
+    // Extract local number (remove +852 prefix if present)
+    if (el) el.value = extractLocalNumber(manager3Phone);
   }
   if (manager3Email) {
     const el = document.getElementById('manager3Email');
@@ -1985,11 +2036,13 @@ function updatePracticeSummary() {
       totalHours += parseInt(durationSelect.value, 10);
     }
     
-    if (helpersSelect.value === 'trainer' || helpersSelect.value === 'both') {
+    // Check for 'T' (Trainer) or 'ST' (both)
+    if (helpersSelect.value === 'T' || helpersSelect.value === 'ST') {
       trainerCount++;
     }
     
-    if (helpersSelect.value === 'steersman' || helpersSelect.value === 'both') {
+    // Check for 'S' (Steersman) or 'ST' (both)
+    if (helpersSelect.value === 'S' || helpersSelect.value === 'ST') {
       steersmanCount++;
     }
   });
@@ -3050,10 +3103,10 @@ function fillSingleTeamForSubmission() {
   
   // Fill manager data
   sessionStorage.setItem('tn_manager1_name', 'John Doe');
-  sessionStorage.setItem('tn_manager1_phone', '1234567890');
+  sessionStorage.setItem('tn_manager1_phone', '+85291234567');
   sessionStorage.setItem('tn_manager1_email', 'john@test.com');
   sessionStorage.setItem('tn_manager2_name', 'Jane Smith');
-  sessionStorage.setItem('tn_manager2_phone', '0987654321');
+  sessionStorage.setItem('tn_manager2_phone', '+85292345678');
   sessionStorage.setItem('tn_manager2_email', 'jane@test.com');
   console.log('🎯 Step 2: Team info, contact data, and managers filled');
   
@@ -3147,10 +3200,10 @@ function fillMultipleTeamsForSubmission() {
   
   // Fill manager data
   sessionStorage.setItem('tn_manager1_name', 'John Doe');
-  sessionStorage.setItem('tn_manager1_phone', '1234567890');
+  sessionStorage.setItem('tn_manager1_phone', '+85291234567');
   sessionStorage.setItem('tn_manager1_email', 'john@test.com');
   sessionStorage.setItem('tn_manager2_name', 'Jane Smith');
-  sessionStorage.setItem('tn_manager2_phone', '0987654321');
+  sessionStorage.setItem('tn_manager2_phone', '+85292345678');
   sessionStorage.setItem('tn_manager2_email', 'jane@test.com');
   console.log('🎯 Step 2: Team info, contact data, and managers filled');
   
@@ -4791,6 +4844,8 @@ function validateStep2() {
   const manager1Name = document.getElementById('manager1Name');
   const manager1Phone = document.getElementById('manager1Phone');
   const manager1Email = document.getElementById('manager1Email');
+  const manager1PhoneError = document.getElementById('manager1PhoneError');
+  const manager1EmailError = document.getElementById('manager1EmailError');
   
   if (!manager1Name?.value?.trim()) {
     missingFields.push('Team Manager 1 name');
@@ -4800,17 +4855,33 @@ function validateStep2() {
   if (!manager1Phone?.value?.trim()) {
     missingFields.push('Team Manager 1 phone');
     highlightField(manager1Phone);
+  } else if (!isValidHKPhone(manager1Phone.value.trim())) {
+    missingFields.push('Team Manager 1 phone (must be 8 digits)');
+    highlightField(manager1Phone);
+    if (manager1PhoneError) {
+      manager1PhoneError.textContent = 'Please enter an 8-digit Hong Kong phone number.';
+      manager1PhoneError.style.display = 'block';
+    }
   }
   
   if (!manager1Email?.value?.trim()) {
     missingFields.push('Team Manager 1 email');
     highlightField(manager1Email);
+  } else if (!isValidEmail(manager1Email.value.trim())) {
+    missingFields.push('Team Manager 1 email (invalid format)');
+    highlightField(manager1Email);
+    if (manager1EmailError) {
+      manager1EmailError.textContent = 'Please enter a valid email address.';
+      manager1EmailError.style.display = 'block';
+    }
   }
   
   // Validate Team Manager 2 (Required)
   const manager2Name = document.getElementById('manager2Name');
   const manager2Phone = document.getElementById('manager2Phone');
   const manager2Email = document.getElementById('manager2Email');
+  const manager2PhoneError = document.getElementById('manager2PhoneError');
+  const manager2EmailError = document.getElementById('manager2EmailError');
   
   if (!manager2Name?.value?.trim()) {
     missingFields.push('Team Manager 2 name');
@@ -4820,14 +4891,88 @@ function validateStep2() {
   if (!manager2Phone?.value?.trim()) {
     missingFields.push('Team Manager 2 phone');
     highlightField(manager2Phone);
+  } else if (!isValidHKPhone(manager2Phone.value.trim())) {
+    missingFields.push('Team Manager 2 phone (must be 8 digits)');
+    highlightField(manager2Phone);
+    if (manager2PhoneError) {
+      manager2PhoneError.textContent = 'Please enter an 8-digit Hong Kong phone number.';
+      manager2PhoneError.style.display = 'block';
+    }
   }
   
   if (!manager2Email?.value?.trim()) {
     missingFields.push('Team Manager 2 email');
     highlightField(manager2Email);
+  } else if (!isValidEmail(manager2Email.value.trim())) {
+    missingFields.push('Team Manager 2 email (invalid format)');
+    highlightField(manager2Email);
+    if (manager2EmailError) {
+      manager2EmailError.textContent = 'Please enter a valid email address.';
+      manager2EmailError.style.display = 'block';
+    }
   }
   
-  // Team Manager 3 is optional, no validation needed
+  // Validate Team Manager 3 (Optional, but if provided must be valid)
+  const manager3Name = document.getElementById('manager3Name');
+  const manager3Phone = document.getElementById('manager3Phone');
+  const manager3Email = document.getElementById('manager3Email');
+  const manager3PhoneError = document.getElementById('manager3PhoneError');
+  const manager3EmailError = document.getElementById('manager3EmailError');
+  
+  // If Manager 3 name is provided, phone and email should also be provided
+  if (manager3Name?.value?.trim()) {
+    if (!manager3Phone?.value?.trim()) {
+      missingFields.push('Team Manager 3 phone (name provided)');
+      highlightField(manager3Phone);
+    } else if (!isValidHKPhone(manager3Phone.value.trim())) {
+      missingFields.push('Team Manager 3 phone (must be 8 digits)');
+      highlightField(manager3Phone);
+      if (manager3PhoneError) {
+        manager3PhoneError.textContent = 'Please enter an 8-digit Hong Kong phone number.';
+        manager3PhoneError.style.display = 'block';
+      }
+    }
+    
+    if (!manager3Email?.value?.trim()) {
+      missingFields.push('Team Manager 3 email (name provided)');
+      highlightField(manager3Email);
+    } else if (!isValidEmail(manager3Email.value.trim())) {
+      missingFields.push('Team Manager 3 email (invalid format)');
+      highlightField(manager3Email);
+      if (manager3EmailError) {
+        manager3EmailError.textContent = 'Please enter a valid email address.';
+        manager3EmailError.style.display = 'block';
+      }
+    }
+  } else if (manager3Phone?.value?.trim() || manager3Email?.value?.trim()) {
+    // If phone or email is provided, name should also be provided
+    if (!manager3Name?.value?.trim()) {
+      missingFields.push('Team Manager 3 name (contact info provided)');
+      highlightField(manager3Name);
+    }
+    
+    // Validate phone if provided
+    if (manager3Phone?.value?.trim() && !isValidHKPhone(manager3Phone.value.trim())) {
+      missingFields.push('Team Manager 3 phone (must be 8 digits)');
+      highlightField(manager3Phone);
+      if (manager3PhoneError) {
+        manager3PhoneError.textContent = 'Please enter an 8-digit Hong Kong phone number.';
+        manager3PhoneError.style.display = 'block';
+      }
+    }
+    
+    // Validate email if provided
+    if (manager3Email?.value?.trim() && !isValidEmail(manager3Email.value.trim())) {
+      missingFields.push('Team Manager 3 email (invalid format)');
+      highlightField(manager3Email);
+      if (manager3EmailError) {
+        manager3EmailError.textContent = 'Please enter a valid email address.';
+        manager3EmailError.style.display = 'block';
+      }
+    }
+  }
+  
+  // Team Manager 3 is optional, no further validation needed
   
   if (missingFields.length > 0) {
     const message = missingFields.length === 1 
@@ -4966,13 +5111,15 @@ function saveStep2Data() {
   const manager1Email = document.getElementById('manager1Email');
   
   if (manager1Name?.value) {
-    sessionStorage.setItem('tn_manager1_name', manager1Name.value);
+    sessionStorage.setItem('tn_manager1_name', manager1Name.value.trim());
   }
   if (manager1Phone?.value) {
-    sessionStorage.setItem('tn_manager1_phone', manager1Phone.value);
+    // Normalize phone to +852xxxxxxxx format
+    const normalized = normalizeHKPhone(manager1Phone.value);
+    sessionStorage.setItem('tn_manager1_phone', normalized);
   }
   if (manager1Email?.value) {
-    sessionStorage.setItem('tn_manager1_email', manager1Email.value);
+    sessionStorage.setItem('tn_manager1_email', manager1Email.value.trim());
   }
   
   // Save Team Manager 2 data
@@ -4981,13 +5128,15 @@ function saveStep2Data() {
   const manager2Email = document.getElementById('manager2Email');
   
   if (manager2Name?.value) {
-    sessionStorage.setItem('tn_manager2_name', manager2Name.value);
+    sessionStorage.setItem('tn_manager2_name', manager2Name.value.trim());
   }
   if (manager2Phone?.value) {
-    sessionStorage.setItem('tn_manager2_phone', manager2Phone.value);
+    // Normalize phone to +852xxxxxxxx format
+    const normalized = normalizeHKPhone(manager2Phone.value);
+    sessionStorage.setItem('tn_manager2_phone', normalized);
   }
   if (manager2Email?.value) {
-    sessionStorage.setItem('tn_manager2_email', manager2Email.value);
+    sessionStorage.setItem('tn_manager2_email', manager2Email.value.trim());
   }
   
   // Save Team Manager 3 data (optional)
@@ -4996,13 +5145,15 @@ function saveStep2Data() {
   const manager3Email = document.getElementById('manager3Email');
   
   if (manager3Name?.value) {
-    sessionStorage.setItem('tn_manager3_name', manager3Name.value);
+    sessionStorage.setItem('tn_manager3_name', manager3Name.value.trim());
   }
   if (manager3Phone?.value) {
-    sessionStorage.setItem('tn_manager3_phone', manager3Phone.value);
+    // Normalize phone to +852xxxxxxxx format
+    const normalized = normalizeHKPhone(manager3Phone.value);
+    sessionStorage.setItem('tn_manager3_phone', normalized);
   }
   if (manager3Email?.value) {
-    sessionStorage.setItem('tn_manager3_email', manager3Email.value);
+    sessionStorage.setItem('tn_manager3_email', manager3Email.value.trim());
   }
   
   console.log('🎯 saveStep2Data: Organization and manager data saved');
@@ -5709,13 +5860,13 @@ if (window.__DEV__) {
     
     // Manager data
     sessionStorage.setItem('tn_manager1_name', 'Manager One');
-    sessionStorage.setItem('tn_manager1_phone', '123-456-7890');
+    sessionStorage.setItem('tn_manager1_phone', '+85291234567');
     sessionStorage.setItem('tn_manager1_email', 'manager1@test.com');
     sessionStorage.setItem('tn_manager2_name', 'Manager Two');
-    sessionStorage.setItem('tn_manager2_phone', '234-567-8901');
+    sessionStorage.setItem('tn_manager2_phone', '+85292345678');
     sessionStorage.setItem('tn_manager2_email', 'manager2@test.com');
     sessionStorage.setItem('tn_manager3_name', 'Manager Three');
-    sessionStorage.setItem('tn_manager3_phone', '345-678-9012');
+    sessionStorage.setItem('tn_manager3_phone', '+85293456789');
     sessionStorage.setItem('tn_manager3_email', 'manager3@test.com');
     
     // Race day data
