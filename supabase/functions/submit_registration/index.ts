@@ -110,6 +110,60 @@ type Payload = {
 function bad(req: Request, msg: string, extra?: Record<string, unknown>) {
   return respond(req, { error: msg, ...(extra ?? {}) }, 400);
 }
+
+// Email validation: simple, tolerant pattern
+function isValidEmail(email: string): boolean {
+  if (!email || typeof email !== 'string') return false;
+  
+  const trimmed = email.trim();
+  if (trimmed.length === 0) return false;
+  if (trimmed.includes(' ')) return false;
+  
+  const atCount = (trimmed.match(/@/g) || []).length;
+  if (atCount !== 1) return false;
+  
+  const parts = trimmed.split('@');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return false;
+  
+  const domainPart = parts[1];
+  if (!domainPart.includes('.')) return false;
+  
+  const domainParts = domainPart.split('.');
+  for (const part of domainParts) {
+    if (!part || part.length === 0) return false;
+  }
+  
+  return true;
+}
+
+// Hong Kong phone validation: exactly 8 digits
+function isValidHKPhone(phone: string): boolean {
+  if (!phone || typeof phone !== 'string') return false;
+  const trimmed = phone.trim();
+  return /^\d{8}$/.test(trimmed);
+}
+
+// Normalize Hong Kong phone to +852xxxxxxxx format
+function normalizeHKPhone(phone: string): string {
+  if (!phone || typeof phone !== 'string') return '';
+  
+  // Remove whitespace and common separators
+  let cleaned = phone.trim().replace(/[\s\-\(\)]/g, '');
+  
+  // If it starts with +852, extract the 8 digits
+  if (cleaned.startsWith('+852')) {
+    cleaned = cleaned.substring(4);
+  } else if (cleaned.startsWith('852')) {
+    cleaned = cleaned.substring(3);
+  }
+  
+  // Validate the remaining 8 digits
+  if (isValidHKPhone(cleaned)) {
+    return `+852${cleaned}`;
+  }
+  
+  return '';
+}
 function letterFromCategory(cat: string): "M" | "L" | "X" | "C" | null {
   switch ((cat || "").trim().toLowerCase()) {
     case "men_open": return "M";
@@ -183,8 +237,73 @@ Deno.serve(async (req) => {
   }
   if (!org_name?.trim()) return bad(req, "org_name is required");
 
+  // Validate and normalize managers
   const mgrs: Manager[] = Array.isArray(managers) ? managers.slice(0, 3) : [];
   while (mgrs.length < 3) mgrs.push({ name: "", mobile: "", email: "" });
+  
+  // Validate required managers (1 and 2)
+  for (let i = 0; i < 2; i++) {
+    const mgr = mgrs[i];
+    const mgrNum = i + 1;
+    
+    if (!mgr.name?.trim()) {
+      return bad(req, `Team Manager ${mgrNum} name is required`);
+    }
+    
+    if (!mgr.mobile?.trim()) {
+      return bad(req, `Team Manager ${mgrNum} phone is required`);
+    }
+    
+    if (!mgr.email?.trim()) {
+      return bad(req, `Team Manager ${mgrNum} email is required`);
+    }
+    
+    // Validate email format
+    if (!isValidEmail(mgr.email)) {
+      return bad(req, `Team Manager ${mgrNum} email is invalid`);
+    }
+    
+    // Normalize and validate phone
+    const normalizedPhone = normalizeHKPhone(mgr.mobile);
+    if (!normalizedPhone) {
+      return bad(req, `Team Manager ${mgrNum} phone must be an 8-digit Hong Kong number`);
+    }
+    
+    // Update with normalized phone
+    mgr.mobile = normalizedPhone;
+    mgr.email = mgr.email.trim();
+  }
+  
+  // Validate optional manager 3 (if any field is provided, all must be valid)
+  const mgr3 = mgrs[2];
+  if (mgr3.name?.trim() || mgr3.mobile?.trim() || mgr3.email?.trim()) {
+    if (!mgr3.name?.trim()) {
+      return bad(req, "Team Manager 3 name is required when contact info is provided");
+    }
+    
+    if (!mgr3.mobile?.trim()) {
+      return bad(req, "Team Manager 3 phone is required when other info is provided");
+    }
+    
+    if (!mgr3.email?.trim()) {
+      return bad(req, "Team Manager 3 email is required when other info is provided");
+    }
+    
+    // Validate email format
+    if (!isValidEmail(mgr3.email)) {
+      return bad(req, "Team Manager 3 email is invalid");
+    }
+    
+    // Normalize and validate phone
+    const normalizedPhone = normalizeHKPhone(mgr3.mobile);
+    if (!normalizedPhone) {
+      return bad(req, "Team Manager 3 phone must be an 8-digit Hong Kong number");
+    }
+    
+    // Update with normalized phone
+    mgr3.mobile = normalizedPhone;
+    mgr3.email = mgr3.email.trim();
+  }
 
   try {
     // 1) Validate event exists and is enabled

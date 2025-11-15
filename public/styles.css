@@ -446,6 +446,73 @@ button#backBtn:hover {
   color: #6c757d;
 }
 
+/* Validation styles */
+input.invalid,
+select.invalid,
+textarea.invalid {
+  border-color: #dc3545 !important;
+  background-color: #fff5f5;
+}
+
+.field-error {
+  color: #dc3545;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  display: none;
+}
+
+.field-error.show {
+  display: block;
+}
+
+/* Phone number input with fixed +852 prefix */
+.phone-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.phone-prefix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #e9ecef;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-weight: 600;
+  color: #495057;
+  font-size: 1rem;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.phone-input-wrapper input[type="tel"] {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+  min-width: 0; /* Allow flex shrinking */
+}
+
+.phone-input-wrapper input[type="tel"]:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.phone-input-wrapper input[type="tel"].invalid {
+  border-color: #dc3545 !important;
+  background-color: #fff5f5;
+}
+
+/* Email input validation */
+input[type="email"].invalid {
+  border-color: #dc3545 !important;
+  background-color: #fff5f5;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .container {
@@ -458,5 +525,14 @@ button#backBtn:hover {
   
   .event-picker {
     padding: 1rem;
+  }
+  
+  .phone-input-wrapper {
+    flex-wrap: nowrap;
+  }
+  
+  .phone-prefix {
+    padding: 0.75rem 0.75rem;
+    font-size: 0.95rem;
   }
 }

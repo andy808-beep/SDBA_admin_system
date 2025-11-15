@@ -5,6 +5,16 @@
 
 import { sb } from '../supabase_config.js';
 import { EDGE_URL, getClientTxId, getEventShortRef, postJSON, saveReceipt, showConfirmation, mapError } from './submit.js';
+import { 
+  isValidEmail, 
+  isValidHKPhone, 
+  normalizeHKPhone, 
+  extractLocalNumber,
+  validateEmailField, 
+  validatePhoneField,
+  setupEmailValidation,
+  setupPhoneValidation
+} from './validation.js';
 
 // WU/SC Wizard State
 let currentStep = 1;
@@ -160,7 +170,7 @@ function fillStep2TestData() {
   if (manager1Name) manager1Name.value = 'John Doe';
   
   const manager1Phone = document.getElementById('manager1Phone');
-  if (manager1Phone) manager1Phone.value = '91234567';
+  if (manager1Phone) manager1Phone.value = '91234567';  // 8 digits only (no +852 prefix)
   
   const manager1Email = document.getElementById('manager1Email');
   if (manager1Email) manager1Email.value = 'john@test.com';
@@ -170,7 +180,7 @@ function fillStep2TestData() {
   if (manager2Name) manager2Name.value = 'Jane Smith';
   
   const manager2Phone = document.getElementById('manager2Phone');
-  if (manager2Phone) manager2Phone.value = '92345678';
+  if (manager2Phone) manager2Phone.value = '92345678';  // 8 digits only (no +852 prefix)
   
   const manager2Email = document.getElementById('manager2Email');
   if (manager2Email) manager2Email.value = 'jane@test.com';
@@ -180,7 +190,7 @@ function fillStep2TestData() {
   if (manager3Name) manager3Name.value = 'Bob Wilson';
   
   const manager3Phone = document.getElementById('manager3Phone');
-  if (manager3Phone) manager3Phone.value = '93456789';
+  if (manager3Phone) manager3Phone.value = '93456789';  // 8 digits only (no +852 prefix)
   
   const manager3Email = document.getElementById('manager3Email');
   if (manager3Email) manager3Email.value = 'bob@test.com';
@@ -560,6 +570,26 @@ function initStep2() {
   
   // Render manager contact fields
   renderManagerFields();
+  
+  // Set up validation for email and phone fields
+  setupStep2Validation();
+}
+
+/**
+ * Set up email and phone validation for Step 2
+ */
+function setupStep2Validation() {
+  // Set up validation for all email fields
+  setupEmailValidation('manager1Email');
+  setupEmailValidation('manager2Email');
+  setupEmailValidation('manager3Email');
+  
+  // Set up validation for all phone fields
+  setupPhoneValidation('manager1Phone');
+  setupPhoneValidation('manager2Phone');
+  setupPhoneValidation('manager3Phone');
+  
+  console.log('🎯 setupStep2Validation: Email and phone validation configured');
 }
 
 /**
@@ -607,11 +637,18 @@ function renderManagerFields() {
       </div>
       <div class="form-group">
         <label for="manager1Phone">Phone *</label>
-        <input type="tel" id="manager1Phone" name="manager1Phone" required placeholder="Enter phone number" />
+        <div class="phone-input-wrapper">
+          <span class="phone-prefix">+852</span>
+          <input type="tel" id="manager1Phone" name="manager1Phone" required 
+                 placeholder="8-digit number" maxlength="8" inputmode="numeric" 
+                 pattern="[0-9]{8}" />
+        </div>
+        <div class="field-error" id="manager1PhoneError"></div>
       </div>
       <div class="form-group">
         <label for="manager1Email">Email *</label>
         <input type="email" id="manager1Email" name="manager1Email" required placeholder="Enter email address" />
+        <div class="field-error" id="manager1EmailError"></div>
       </div>
     </div>
     
@@ -623,11 +660,18 @@ function renderManagerFields() {
       </div>
       <div class="form-group">
         <label for="manager2Phone">Phone *</label>
-        <input type="tel" id="manager2Phone" name="manager2Phone" required placeholder="Enter phone number" />
+        <div class="phone-input-wrapper">
+          <span class="phone-prefix">+852</span>
+          <input type="tel" id="manager2Phone" name="manager2Phone" required 
+                 placeholder="8-digit number" maxlength="8" inputmode="numeric" 
+                 pattern="[0-9]{8}" />
+        </div>
+        <div class="field-error" id="manager2PhoneError"></div>
       </div>
       <div class="form-group">
         <label for="manager2Email">Email *</label>
         <input type="email" id="manager2Email" name="manager2Email" required placeholder="Enter email address" />
+        <div class="field-error" id="manager2EmailError"></div>
       </div>
     </div>
     
@@ -639,11 +683,18 @@ function renderManagerFields() {
       </div>
       <div class="form-group">
         <label for="manager3Phone">Phone</label>
-        <input type="tel" id="manager3Phone" name="manager3Phone" placeholder="Enter phone number" />
+        <div class="phone-input-wrapper">
+          <span class="phone-prefix">+852</span>
+          <input type="tel" id="manager3Phone" name="manager3Phone" 
+                 placeholder="8-digit number" maxlength="8" inputmode="numeric" 
+                 pattern="[0-9]{8}" />
+        </div>
+        <div class="field-error" id="manager3PhoneError"></div>
       </div>
       <div class="form-group">
         <label for="manager3Email">Email</label>
         <input type="email" id="manager3Email" name="manager3Email" placeholder="Enter email address" />
+        <div class="field-error" id="manager3EmailError"></div>
       </div>
     </div>
   `;
@@ -973,9 +1024,12 @@ function validateStep2() {
     return false;
   }
   
+  // Validate Manager 1 (Required)
   const manager1Name = document.getElementById('manager1Name');
   const manager1Phone = document.getElementById('manager1Phone');
   const manager1Email = document.getElementById('manager1Email');
+  const manager1PhoneError = document.getElementById('manager1PhoneError');
+  const manager1EmailError = document.getElementById('manager1EmailError');
   
   if (!manager1Name || !manager1Name.value.trim()) {
     showError('Please enter Team Manager 1 name');
@@ -985,16 +1039,33 @@ function validateStep2() {
   if (!manager1Phone || !manager1Phone.value.trim()) {
     showError('Please enter Team Manager 1 phone');
     return false;
+  } else if (!isValidHKPhone(manager1Phone.value.trim())) {
+    showError('Team Manager 1 phone must be an 8-digit Hong Kong number');
+    if (manager1PhoneError) {
+      manager1PhoneError.textContent = 'Please enter an 8-digit Hong Kong phone number.';
+      manager1PhoneError.style.display = 'block';
+    }
+    return false;
   }
   
   if (!manager1Email || !manager1Email.value.trim()) {
     showError('Please enter Team Manager 1 email');
     return false;
+  } else if (!isValidEmail(manager1Email.value.trim())) {
+    showError('Team Manager 1 email is invalid');
+    if (manager1EmailError) {
+      manager1EmailError.textContent = 'Please enter a valid email address.';
+      manager1EmailError.style.display = 'block';
+    }
+    return false;
   }
   
+  // Validate Manager 2 (Required)
   const manager2Name = document.getElementById('manager2Name');
   const manager2Phone = document.getElementById('manager2Phone');
   const manager2Email = document.getElementById('manager2Email');
+  const manager2PhoneError = document.getElementById('manager2PhoneError');
+  const manager2EmailError = document.getElementById('manager2EmailError');
   
   if (!manager2Name || !manager2Name.value.trim()) {
     showError('Please enter Team Manager 2 name');
@@ -1004,31 +1075,80 @@ function validateStep2() {
   if (!manager2Phone || !manager2Phone.value.trim()) {
     showError('Please enter Team Manager 2 phone');
     return false;
+  } else if (!isValidHKPhone(manager2Phone.value.trim())) {
+    showError('Team Manager 2 phone must be an 8-digit Hong Kong number');
+    if (manager2PhoneError) {
+      manager2PhoneError.textContent = 'Please enter an 8-digit Hong Kong phone number.';
+      manager2PhoneError.style.display = 'block';
+    }
+    return false;
   }
   
   if (!manager2Email || !manager2Email.value.trim()) {
     showError('Please enter Team Manager 2 email');
     return false;
+  } else if (!isValidEmail(manager2Email.value.trim())) {
+    showError('Team Manager 2 email is invalid');
+    if (manager2EmailError) {
+      manager2EmailError.textContent = 'Please enter a valid email address.';
+      manager2EmailError.style.display = 'block';
+    }
+    return false;
   }
   
-  // Save Step 2 data to sessionStorage
-  sessionStorage.setItem(`${eventType}_orgName`, orgName.value.trim());
-  sessionStorage.setItem(`${eventType}_mailingAddress`, mailingAddress.value.trim());
-  sessionStorage.setItem(`${eventType}_manager1Name`, manager1Name.value.trim());
-  sessionStorage.setItem(`${eventType}_manager1Phone`, manager1Phone.value.trim());
-  sessionStorage.setItem(`${eventType}_manager1Email`, manager1Email.value.trim());
-  sessionStorage.setItem(`${eventType}_manager2Name`, manager2Name.value.trim());
-  sessionStorage.setItem(`${eventType}_manager2Phone`, manager2Phone.value.trim());
-  sessionStorage.setItem(`${eventType}_manager2Email`, manager2Email.value.trim());
-  
-  // Save optional Manager 3
+  // Validate Manager 3 (Optional, but if provided must be valid)
   const manager3Name = document.getElementById('manager3Name');
   const manager3Phone = document.getElementById('manager3Phone');
   const manager3Email = document.getElementById('manager3Email');
+  const manager3PhoneError = document.getElementById('manager3PhoneError');
+  const manager3EmailError = document.getElementById('manager3EmailError');
   
-  if (manager3Name) sessionStorage.setItem(`${eventType}_manager3Name`, manager3Name.value.trim());
-  if (manager3Phone) sessionStorage.setItem(`${eventType}_manager3Phone`, manager3Phone.value.trim());
-  if (manager3Email) sessionStorage.setItem(`${eventType}_manager3Email`, manager3Email.value.trim());
+  if (manager3Name?.value?.trim()) {
+    if (!manager3Phone?.value?.trim()) {
+      showError('Please enter Team Manager 3 phone (name provided)');
+      return false;
+    } else if (!isValidHKPhone(manager3Phone.value.trim())) {
+      showError('Team Manager 3 phone must be an 8-digit Hong Kong number');
+      if (manager3PhoneError) {
+        manager3PhoneError.textContent = 'Please enter an 8-digit Hong Kong phone number.';
+        manager3PhoneError.style.display = 'block';
+      }
+      return false;
+    }
+    
+    if (!manager3Email?.value?.trim()) {
+      showError('Please enter Team Manager 3 email (name provided)');
+      return false;
+    } else if (!isValidEmail(manager3Email.value.trim())) {
+      showError('Team Manager 3 email is invalid');
+      if (manager3EmailError) {
+        manager3EmailError.textContent = 'Please enter a valid email address.';
+        manager3EmailError.style.display = 'block';
+      }
+      return false;
+    }
+  } else if (manager3Phone?.value?.trim() || manager3Email?.value?.trim()) {
+    // If contact info provided but no name
+    showError('Please enter Team Manager 3 name');
+    return false;
+  }
+  
+  // Save Step 2 data to sessionStorage with normalized phone numbers
+  sessionStorage.setItem(`${eventType}_orgName`, orgName.value.trim());
+  sessionStorage.setItem(`${eventType}_mailingAddress`, mailingAddress.value.trim());
+  sessionStorage.setItem(`${eventType}_manager1Name`, manager1Name.value.trim());
+  sessionStorage.setItem(`${eventType}_manager1Phone`, normalizeHKPhone(manager1Phone.value));
+  sessionStorage.setItem(`${eventType}_manager1Email`, manager1Email.value.trim());
+  sessionStorage.setItem(`${eventType}_manager2Name`, manager2Name.value.trim());
+  sessionStorage.setItem(`${eventType}_manager2Phone`, normalizeHKPhone(manager2Phone.value));
+  sessionStorage.setItem(`${eventType}_manager2Email`, manager2Email.value.trim());
+  
+  // Save optional Manager 3
+  if (manager3Name?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager3Name`, manager3Name.value.trim());
+    sessionStorage.setItem(`${eventType}_manager3Phone`, normalizeHKPhone(manager3Phone.value));
+    sessionStorage.setItem(`${eventType}_manager3Email`, manager3Email.value.trim());
+  }
   
   return true;
 }
