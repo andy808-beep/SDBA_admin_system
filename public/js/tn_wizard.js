@@ -3835,6 +3835,7 @@ function saveCurrentTeamPracticeData() {
  */
 function validatePracticeRequired() {
   const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  const errors = [];
   
   for (let i = 0; i < teamCount; i++) {
     const teamNum = i + 1;
@@ -3843,29 +3844,41 @@ function validatePracticeRequired() {
     
     const rows = readTeamRows(key) || [];
     const ranks = readTeamRanks(key) || [];
+    const teamErrors = [];
     
     // Check that team has at least one practice date
     if (rows.length === 0) {
-      return `${teamName}: Please select at least one practice date`;
+      teamErrors.push('Missing practice dates');
     }
     
     // Check that team has at least one slot preference
     if (ranks.length === 0) {
-      return `${teamName}: Please select at least one slot preference`;
+      teamErrors.push('Missing slot preferences');
     }
     
     // Validate each practice row has complete data
-    for (const r of rows) {
+    for (let j = 0; j < rows.length; j++) {
+      const r = rows[j];
       if (!r.pref_date) {
-        return `${teamName}: Select a date for each row`;
+        teamErrors.push(`Date ${j + 1}: Missing date selection`);
       }
       if (![1, 2].includes(Number(r.duration_hours))) {
-        return `${teamName}: Each date needs 1h or 2h duration`;
+        teamErrors.push(`Date ${j + 1}: Duration must be 1h or 2h`);
       }
       if (!['NONE', 'S', 'T', 'ST'].includes(r.helper)) {
-        return `${teamName}: Each date needs a helper choice`;
+        teamErrors.push(`Date ${j + 1}: Helper selection required`);
       }
     }
+    
+    // If team has errors, add to main error list
+    if (teamErrors.length > 0) {
+      errors.push(`\n📌 ${teamName}:\n   • ${teamErrors.join('\n   • ')}`);
+    }
+  }
+  
+  // Return formatted error message if there are errors
+  if (errors.length > 0) {
+    return `Practice booking incomplete for the following teams:\n${errors.join('\n')}`;
   }
   
   return null;
