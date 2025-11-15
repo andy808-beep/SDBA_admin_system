@@ -18,10 +18,32 @@ create extension if not exists "citext";    -- case-insensitive text
 -- DB Config/view.sql
 
 -- ---------- DROP (safe order) ----------
+-- TN (Main Race) Views
 drop view  if exists public.men_open_team_list cascade;
 drop view  if exists public.ladies_open_team_list cascade;
 drop view  if exists public.mixed_open_team_list cascade;
 drop view  if exists public.mixed_corporate_team_list cascade;
+
+-- WU (Warm-Up) Views
+drop view  if exists public.wu_men_std_team_list cascade;
+drop view  if exists public.wu_ladies_std_team_list cascade;
+drop view  if exists public.wu_mixed_std_team_list cascade;
+drop view  if exists public.wu_men_smallboat_team_list cascade;
+drop view  if exists public.wu_ladies_smallboat_team_list cascade;
+drop view  if exists public.wu_mixed_smallboat_team_list cascade;
+drop view  if exists public.wu_youth_open_team_list cascade;
+drop view  if exists public.wu_youth_ladies_team_list cascade;
+drop view  if exists public.wu_disciplinary_forces_team_list cascade;
+
+-- SC (Short Course) Views
+drop view  if exists public.sc_men_std_team_list cascade;
+drop view  if exists public.sc_ladies_std_team_list cascade;
+drop view  if exists public.sc_mixed_std_team_list cascade;
+drop view  if exists public.sc_men_smallboat_team_list cascade;
+drop view  if exists public.sc_ladies_smallboat_team_list cascade;
+drop view  if exists public.sc_mixed_smallboat_team_list cascade;
+drop view  if exists public.sc_post_secondary_team_list cascade;
+drop view  if exists public.sc_hku_invitational_team_list cascade;
 
 drop table if exists public.practice_preferences cascade;
 drop table if exists public.race_day_requests cascade;
@@ -384,6 +406,8 @@ for each row execute function public.trg_audit_team_meta();
 -- =========================================================
 -- CATEGORY VIEWS (security_invoker)
 -- =========================================================
+
+-- ==================== TN (Main Race) - 4 Divisions ====================
 create or replace view public.men_open_team_list
 with (security_invoker = true) as
 select * from public.team_meta where category = 'men_open';
@@ -399,6 +423,84 @@ select * from public.team_meta where category = 'mixed_open';
 create or replace view public.mixed_corporate_team_list
 with (security_invoker = true) as
 select * from public.team_meta where category = 'mixed_corporate';
+
+-- ==================== WU (Warm-Up) - 9 Divisions ====================
+
+-- Standard Boat Divisions
+create or replace view public.wu_men_std_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'WM';
+
+create or replace view public.wu_ladies_std_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'WL';
+
+create or replace view public.wu_mixed_std_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'WX';
+
+-- Small Boat Divisions
+create or replace view public.wu_men_smallboat_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'WPM';
+
+create or replace view public.wu_ladies_smallboat_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'WPL';
+
+create or replace view public.wu_mixed_smallboat_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'WPX';
+
+-- Special Divisions (By Invitation)
+create or replace view public.wu_youth_open_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'Y';
+
+create or replace view public.wu_youth_ladies_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'YL';
+
+create or replace view public.wu_disciplinary_forces_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'D';
+
+-- ==================== SC (Short Course) - 8 Divisions ====================
+
+-- Standard Boat Divisions
+create or replace view public.sc_men_std_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SM';
+
+create or replace view public.sc_ladies_std_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SL';
+
+create or replace view public.sc_mixed_std_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SX';
+
+-- Small Boat Divisions
+create or replace view public.sc_men_smallboat_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SPM';
+
+create or replace view public.sc_ladies_smallboat_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SPL';
+
+create or replace view public.sc_mixed_smallboat_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SPX';
+
+-- Special Divisions (By Invitation)
+create or replace view public.sc_post_secondary_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SU';
+
+create or replace view public.sc_hku_invitational_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'HKU';
 
 -- =========================================================
 -- PRACTICE PREFERENCES (1 row per team per date)
