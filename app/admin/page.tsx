@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from '../../lib/supabaseClient';
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { Spinner, SpinnerWithText } from '@/components/Spinner';
+import { toast } from 'sonner';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 /** Match your vanilla routes */
 type HashPath = "#overview" | "#applications" | "#practice" | "#exports";
@@ -286,7 +288,7 @@ export default function AdminPage() {
       if (!response.ok) {
         if (response.status === 409) {
           // Already processed - soft warn and refetch
-          alert("This registration was already processed. Refreshing...");
+          toast.warning("This registration was already processed. Refreshing...");
           fetchApplications();
           return;
         }
@@ -294,15 +296,14 @@ export default function AdminPage() {
       }
 
       if (data.ok) {
-        // Toast notification (simple alert for now)
-        alert(`Registration approved! Team ID: ${data.team_meta_id}`);
+        toast.success(`Registration approved! Team ID: ${data.team_meta_id}`);
         // Refetch list
         fetchApplications();
       } else {
         throw new Error(data.error || "Failed to approve registration");
       }
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      toast.error(`Error: ${err.message || "Failed to approve registration"}`);
       console.error("approve error:", err);
     } finally {
       setApprovingId(null);
@@ -355,8 +356,9 @@ export default function AdminPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      toast.success(`Export completed: ${filename}`);
     } catch (err: any) {
-      alert(`Export error: ${err.message}`);
+      toast.error(`Export error: ${err.message || "Failed to export data"}`);
       console.error("export error:", err);
     } finally {
       setExporting((prev) => ({ ...prev, [exportKey]: false }));
@@ -380,9 +382,10 @@ export default function AdminPage() {
   const isActive = (p: HashPath) => path === p;
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      {/* Header */}
-      <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gray-50 text-gray-900">
+        {/* Header */}
+        <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-xl bg-gray-900" />
@@ -769,6 +772,7 @@ export default function AdminPage() {
         </main>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }
 
