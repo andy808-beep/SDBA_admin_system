@@ -3,6 +3,14 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { checkAdmin } from "@/lib/auth";
 import { handleApiError, ApiErrors } from "@/lib/api-errors";
 import { logger } from "@/lib/logger";
+import { z } from "zod";
+
+// Request payload validation schema
+const ExportPayload = z.object({
+  mode: z.enum(["tn", "wu", "sc", "all"]),
+  season: z.number().int().min(2000).max(2100).optional(),
+  category: z.enum(["men_open", "ladies_open", "mixed_open", "mixed_corporate"]).optional(),
+});
 
 // Helper to escape CSV field (RFC4180)
 function escapeCsvField(field: unknown): string {
@@ -17,7 +25,7 @@ function escapeCsvField(field: unknown): string {
 }
 
 // Helper to convert row to CSV line
-function rowToCsv(row: Record<string, any>, headers: string[]): string {
+function rowToCsv(row: Record<string, unknown>, headers: string[]): string {
   return headers.map((header) => escapeCsvField(row[header])).join(",");
 }
 
@@ -29,17 +37,13 @@ export async function POST(req: NextRequest) {
       throw ApiErrors.forbidden();
     }
 
-    // Parse request body
+    // Parse and validate request body
     const body = await req.json();
-    const { mode, season, category } = body;
+    const { mode, season, category } = ExportPayload.parse(body);
 
-    if (!mode || !["tn", "wu", "sc", "all"].includes(mode)) {
-      throw ApiErrors.badRequest("Invalid mode. Must be 'tn', 'wu', 'sc', or 'all'");
-    }
-
-    let rows: Record<string, any>[] = [];
+    let rows: Record<string, unknown>[] = [];
     let headers: string[] = [];
-    let filenameMode = mode;
+    let filenameMode: string = mode;
 
     // Fetch data based on mode using service role client
     if (mode === "tn") {
@@ -84,7 +88,7 @@ export async function POST(req: NextRequest) {
         query = query.eq("season", season);
       }
       const { data, error } = await query;
-      if (error) throw new Error(error.message);
+      if (error) throw ApiErrors.badRequest(error.message);
       rows = data || [];
     } else if (mode === "sc") {
       // SC: Fetch from sc_team_meta
@@ -93,7 +97,7 @@ export async function POST(req: NextRequest) {
         query = query.eq("season", season);
       }
       const { data, error } = await query;
-      if (error) throw new Error(error.message);
+      if (error) throw ApiErrors.badRequest(error.message);
       rows = data || [];
     } else if (mode === "all") {
       // All: Union of all tables (simplified - just return error for now)
