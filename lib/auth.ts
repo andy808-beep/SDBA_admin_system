@@ -27,7 +27,7 @@ export function isAdminUser(user: User | null | undefined): boolean {
  */
 export async function checkAdmin(req: NextRequest) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createServerClient(
       env.NEXT_PUBLIC_SUPABASE_URL,
       env.NEXT_PUBLIC_SUPABASE_ANON_KEY,

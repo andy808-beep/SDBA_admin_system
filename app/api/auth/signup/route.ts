@@ -63,12 +63,6 @@ export async function POST(req: NextRequest) {
         details: fetchError.message 
       }, { status: 500 });
     }
-
-    return NextResponse.json({
-      success: true,
-      user: data.user,
-      message: "Account created successfully! You can now log in.",
-    });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || "Internal server error" },

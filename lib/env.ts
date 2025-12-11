@@ -3,9 +3,15 @@
 
 /**
  * Validates that all required environment variables are present
- * Throws an error immediately if any are missing (fail-fast)
+ * Call this function at runtime (e.g., in API routes) to validate env vars
+ * @throws Error if any required env vars are missing
  */
-function validateEnv() {
+export function validateEnv() {
+  // Skip validation during build (Next.js build phase)
+  if (typeof window === 'undefined' && process.env.NEXT_PHASE === 'phase-production-build') {
+    return;
+  }
+
   const required = [
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
@@ -28,16 +34,23 @@ function validateEnv() {
   }
 }
 
-// Validate on module load (fail-fast)
-validateEnv();
-
 /**
- * Validated environment variables
- * These are guaranteed to be defined after validateEnv() runs
+ * Environment variables
+ * Note: Validation should be called at runtime using validateEnv()
+ * We don't validate at module load to allow builds to succeed
  */
 export const env = {
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  get NEXT_PUBLIC_SUPABASE_URL() {
+    validateEnv();
+    return process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  },
+  get NEXT_PUBLIC_SUPABASE_ANON_KEY() {
+    validateEnv();
+    return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  },
+  get SUPABASE_SERVICE_ROLE_KEY() {
+    validateEnv();
+    return process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  },
 } as const;
 
