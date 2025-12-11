@@ -1,52 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { supabaseServer } from "@/lib/supabaseServer";
-
-// Reuse admin check logic from middleware.ts
-function isAdminUser(user: any) {
-  const roles = (user?.app_metadata?.roles ?? user?.user_metadata?.roles ?? []) as string[];
-  const role = (user?.app_metadata?.role ?? user?.user_metadata?.role) as string | undefined;
-  return roles?.includes("admin") || role === "admin" || user?.user_metadata?.is_admin === true;
-}
-
-async function checkAdmin(req: NextRequest) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              );
-            } catch (err) {
-              // Ignore cookie setting errors in API routes
-              console.warn("Cookie set error:", err);
-            }
-          },
-        },
-      }
-    );
-
-    const { data: { user }, error } = await supabase.auth.getUser();
-    
-    if (error || !user) {
-      return { isAdmin: false, user: null };
-    }
-
-    return { isAdmin: isAdminUser(user), user };
-  } catch (err) {
-    console.error("checkAdmin error:", err);
-    return { isAdmin: false, user: null };
-  }
-}
+import { checkAdmin } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {

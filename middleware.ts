@@ -1,12 +1,8 @@
 // middleware.ts
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-
-function isAdminUser(user: any) {
-  const roles = (user?.app_metadata?.roles ?? user?.user_metadata?.roles ?? []) as string[];
-  const role = (user?.app_metadata?.role ?? user?.user_metadata?.role) as string | undefined;
-  return roles?.includes("admin") || role === "admin" || user?.user_metadata?.is_admin === true;
-}
+import { isAdminUser } from "@/lib/auth";
+import { env } from "@/lib/env";
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
@@ -14,8 +10,8 @@ export async function middleware(req: NextRequest) {
 
   if (url.pathname.startsWith("/admin")) {
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      env.NEXT_PUBLIC_SUPABASE_URL,
+      env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         cookies: {
           getAll() {
@@ -47,8 +43,8 @@ export async function middleware(req: NextRequest) {
 
   if (url.pathname === "/auth") {
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      env.NEXT_PUBLIC_SUPABASE_URL,
+      env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         cookies: {
           getAll() {

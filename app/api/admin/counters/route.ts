@@ -1,80 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { supabaseServer } from "@/lib/supabaseServer";
-
-// Reuse admin check logic from middleware.ts
-function isAdminUser(user: any) {
-  const roles = (user?.app_metadata?.roles ?? user?.user_metadata?.roles ?? []) as string[];
-  const role = (user?.app_metadata?.role ?? user?.user_metadata?.role) as string | undefined;
-  return roles?.includes("admin") || role === "admin" || user?.user_metadata?.is_admin === true;
-}
-
-async function checkAdmin(req: NextRequest) {
-  console.log("[checkAdmin] Starting admin check...");
-  try {
-    console.log("[checkAdmin] Getting cookies...");
-    const cookieStore = cookies();
-    console.log("[checkAdmin] Cookies retrieved, count:", cookieStore.getAll().length);
-    
-    console.log("[checkAdmin] Creating Supabase client...");
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    console.log("[checkAdmin] Env vars:", { 
-      hasUrl: !!supabaseUrl, 
-      hasAnonKey: !!supabaseAnonKey,
-      urlLength: supabaseUrl?.length || 0
-    });
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error("[checkAdmin] Missing Supabase env vars");
-      return { isAdmin: false, user: null };
-    }
-    
-    const supabase = createServerClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              );
-            } catch (err) {
-              // Ignore cookie setting errors in API routes
-              console.warn("[checkAdmin] Cookie set error:", err);
-            }
-          },
-        },
-      }
-    );
-
-    console.log("[checkAdmin] Getting user from Supabase...");
-    const { data: { user }, error } = await supabase.auth.getUser();
-    console.log("[checkAdmin] User fetch result:", { 
-      hasUser: !!user, 
-      hasError: !!error,
-      errorMessage: error?.message 
-    });
-    
-    if (error || !user) {
-      console.log("[checkAdmin] No user or error:", error?.message);
-      return { isAdmin: false, user: null };
-    }
-
-    const adminCheck = isAdminUser(user);
-    console.log("[checkAdmin] Admin check result:", adminCheck);
-    return { isAdmin: adminCheck, user };
-  } catch (err) {
-    console.error("[checkAdmin] Exception caught:", err);
-    console.error("[checkAdmin] Error stack:", err instanceof Error ? err.stack : "No stack");
-    return { isAdmin: false, user: null };
-  }
-}
+import { checkAdmin } from "@/lib/auth";
+import { env } from "@/lib/env";
 
 export async function GET(req: NextRequest) {
   console.log("[Counters API] GET request received");
@@ -89,19 +16,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
 
-    // Verify environment variables
-    console.log("[Counters API] Checking environment variables...");
-    const hasUrl = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const hasKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-    console.log("[Counters API] Env vars:", { hasUrl, hasKey });
-    
-    if (!hasUrl || !hasKey) {
-      console.error("[Counters API] Missing Supabase environment variables");
-      return NextResponse.json(
-        { ok: false, error: "Server configuration error" },
-        { status: 500 }
-      );
-    }
+    // Environment variables are validated at startup via lib/env.ts
+    // No need to check here - if we got this far, they're valid
 
     // Get local midnight for today (in UTC)
     // Create date at start of today in UTC

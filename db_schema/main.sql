@@ -902,6 +902,16 @@ ORDER BY approved_at DESC;
 -- HELPER FUNCTIONS FOR ADMIN WORKFLOW
 -- =========================================================
 
+-- =========================================================
+-- APPROVE REGISTRATION FUNCTION
+-- =========================================================
+-- Version: 2 (Fixed 2024)
+-- Changes: 
+--   - Removed team_name_normalized from INSERT (GENERATED ALWAYS column)
+--   - Added FOR UPDATE SKIP LOCKED for race condition protection
+--   - Improved error handling with specific error codes
+-- Migration: migrations/002_fix_approve_function.sql
+-- =========================================================
 -- Function to approve a registration (move to appropriate team table based on event_type)
 CREATE OR REPLACE FUNCTION public.approve_registration(reg_id uuid, admin_user_id uuid, notes text DEFAULT NULL)
 RETURNS uuid
@@ -912,28 +922,34 @@ DECLARE
   reg_record public.registration_meta%ROWTYPE;
   new_team_id uuid;
 BEGIN
-  -- Get the registration record
+  -- Get the registration record with row-level lock to prevent race conditions
+  -- SKIP LOCKED allows other transactions to proceed if this row is already locked
   SELECT * INTO reg_record
   FROM public.registration_meta
-  WHERE id = reg_id AND status = 'pending';
+  WHERE id = reg_id AND status = 'pending'
+  FOR UPDATE SKIP LOCKED;
   
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Registration not found or not pending: %', reg_id;
+    RAISE EXCEPTION USING 
+      ERRCODE = 'P0001',
+      MESSAGE = 'Registration not found or not pending',
+      HINT = format('Registration %s is not in pending status or is being processed by another admin', reg_id);
   END IF;
   
   -- Route to appropriate team table based on event_type
   IF reg_record.event_type = 'tn' THEN
     -- Insert into team_meta for TN
+    -- NOTE: team_name_normalized is GENERATED ALWAYS and cannot be inserted manually
     INSERT INTO public.team_meta (
       user_id, season, category, division_code, option_choice,
-      team_code, team_name, team_name_normalized, org_name, org_address,
+      team_code, team_name, org_name, org_address,
       team_manager_1, mobile_1, email_1,
       team_manager_2, mobile_2, email_2,
       team_manager_3, mobile_3, email_3,
       registration_id
     ) VALUES (
       reg_record.user_id, reg_record.season, reg_record.category, reg_record.division_code, reg_record.option_choice,
-      reg_record.team_code, reg_record.team_name, reg_record.team_name_normalized, reg_record.org_name, reg_record.org_address,
+      reg_record.team_code, reg_record.team_name, reg_record.org_name, reg_record.org_address,
       reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
       reg_record.team_manager_2, reg_record.mobile_2, reg_record.email_2,
       reg_record.team_manager_3, reg_record.mobile_3, reg_record.email_3,
@@ -980,7 +996,7 @@ BEGIN
     RAISE EXCEPTION 'Unknown event_type: %', reg_record.event_type;
   END IF;
   
-  -- Update registration status
+  -- Update registration status (verify update succeeded)
   UPDATE public.registration_meta
   SET 
     status = 'approved',
@@ -989,7 +1005,15 @@ BEGIN
     approved_at = now()
   WHERE id = reg_id;
   
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Failed to update registration status for %', reg_id;
+  END IF;
+  
   RETURN new_team_id;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Re-raise the exception with context
+    RAISE;
 END;
 $$;
 

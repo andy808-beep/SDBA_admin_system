@@ -1,45 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { supabaseServer } from "@/lib/supabaseServer";
-
-function isAdminUser(user: any) {
-  const roles = (user?.app_metadata?.roles ?? user?.user_metadata?.roles ?? []) as string[];
-  const role = (user?.app_metadata?.role ?? user?.user_metadata?.role) as string | undefined;
-  return roles?.includes("admin") || role === "admin" || user?.user_metadata?.is_admin === true;
-}
-
-async function checkAdmin(req: NextRequest) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch (err) {
-            console.warn("Cookie set error:", err);
-          }
-        },
-      },
-    }
-  );
-
-  const { data: { user }, error } = await supabase.auth.getUser();
-  
-  if (error || !user) {
-    return { isAdmin: false, user: null };
-  }
-
-  return { isAdmin: isAdminUser(user), user };
-}
+import { checkAdmin } from "@/lib/auth";
 
 // Helper to escape CSV field (RFC4180)
 function escapeCsvField(field: any): string {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { env } from "@/lib/env";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,21 +13,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log("[Signup API] URL:", process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30));
-    console.log("[Signup API] Has Service Key:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-    console.log("[Signup API] Key length:", process.env.SUPABASE_SERVICE_ROLE_KEY?.length);
-    console.log("[Signup API] Key first 20 chars:", process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 20));
+    console.log("[Signup API] URL:", env.NEXT_PUBLIC_SUPABASE_URL.substring(0, 30));
+    console.log("[Signup API] Has Service Key:", !!env.SUPABASE_SERVICE_ROLE_KEY);
+    console.log("[Signup API] Key length:", env.SUPABASE_SERVICE_ROLE_KEY.length);
+    console.log("[Signup API] Key first 20 chars:", env.SUPABASE_SERVICE_ROLE_KEY.substring(0, 20));
 
     // Test: Try to make a direct API call to see what Supabase returns
     try {
       const testResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users`,
+        `${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "apikey": process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-            "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
           },
           body: JSON.stringify({
             email,

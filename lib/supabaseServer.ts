@@ -1,8 +1,9 @@
 // lib/supabaseServer.ts (server-only)
 import { createClient } from "@supabase/supabase-js";
+import { env } from "./env";
 
 export const supabaseServer = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,        // same URL
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,       // SERVER KEY (never expose)
+  env.NEXT_PUBLIC_SUPABASE_URL,        // same URL
+  env.SUPABASE_SERVICE_ROLE_KEY,       // SERVER KEY (never expose)
   { auth: { persistSession: false } }
 );
