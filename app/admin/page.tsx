@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from '../../lib/supabaseClient';
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { Spinner, SpinnerWithText } from '@/components/Spinner';
 
 /** Match your vanilla routes */
 type HashPath = "#overview" | "#applications" | "#practice" | "#exports";
@@ -469,7 +470,9 @@ export default function AdminPage() {
             </div>
 
             {countersLoading && (
-              <div className="mt-4 text-sm text-gray-500">Loading...</div>
+              <div className="mt-4">
+                <SpinnerWithText text="Loading counters..." />
+              </div>
             )}
             <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
               <div className="kpi rounded-xl border p-4">
@@ -521,7 +524,9 @@ export default function AdminPage() {
 
               {/* Loading indicator */}
               {isLoading && (
-                <div className="mt-4 text-sm text-gray-500">Loading...</div>
+                <div className="mt-4">
+                  <SpinnerWithText text="Loading applications..." />
+                </div>
               )}
 
               {/* Filters */}
@@ -617,8 +622,9 @@ export default function AdminPage() {
                                   handleApprove(r.id);
                                 }}
                                 disabled={approvingId === r.id || isLoading}
-                                className="rounded-xl bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
+                                {approvingId === r.id && <Spinner size="sm" className="border-white border-t-transparent" />}
                                 {approvingId === r.id ? "Approving..." : "Approve"}
                               </button>
                             )}
@@ -689,36 +695,41 @@ export default function AdminPage() {
                   <button
                     onClick={() => handleExport('tn')}
                     disabled={exporting['tn']}
-                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
+                    {exporting['tn'] && <Spinner size="sm" />}
                     {exporting['tn'] ? "Exporting..." : "Export All"}
                   </button>
                   <button
                     onClick={() => handleExport('tn', 'men_open')}
                     disabled={exporting['tn_men_open']}
-                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
+                    {exporting['tn_men_open'] && <Spinner size="sm" />}
                     {exporting['tn_men_open'] ? "Exporting..." : "Men Open"}
                   </button>
                   <button
                     onClick={() => handleExport('tn', 'ladies_open')}
                     disabled={exporting['tn_ladies_open']}
-                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
+                    {exporting['tn_ladies_open'] && <Spinner size="sm" />}
                     {exporting['tn_ladies_open'] ? "Exporting..." : "Ladies Open"}
                   </button>
                   <button
                     onClick={() => handleExport('tn', 'mixed_open')}
                     disabled={exporting['tn_mixed_open']}
-                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
+                    {exporting['tn_mixed_open'] && <Spinner size="sm" />}
                     {exporting['tn_mixed_open'] ? "Exporting..." : "Mixed Open"}
                   </button>
                   <button
                     onClick={() => handleExport('tn', 'mixed_corporate')}
                     disabled={exporting['tn_mixed_corporate']}
-                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
+                    {exporting['tn_mixed_corporate'] && <Spinner size="sm" />}
                     {exporting['tn_mixed_corporate'] ? "Exporting..." : "Mixed Corporate"}
                   </button>
                 </div>
@@ -731,8 +742,9 @@ export default function AdminPage() {
                   <button
                     onClick={() => handleExport('wu')}
                     disabled={exporting['wu']}
-                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
+                    {exporting['wu'] && <Spinner size="sm" />}
                     {exporting['wu'] ? "Exporting..." : "Export WU"}
                   </button>
                 </div>
@@ -745,8 +757,9 @@ export default function AdminPage() {
                   <button
                     onClick={() => handleExport('sc')}
                     disabled={exporting['sc']}
-                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
+                    {exporting['sc'] && <Spinner size="sm" />}
                     {exporting['sc'] ? "Exporting..." : "Export SC"}
                   </button>
                 </div>
