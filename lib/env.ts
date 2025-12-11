@@ -35,31 +35,37 @@ export function validateEnv() {
 }
 
 /**
+ * Check if we're in a build context
+ */
+const isBuildTime = typeof window === 'undefined' && 
+  (process.env.NEXT_PHASE === 'phase-production-build' || !process.env.NEXT_PUBLIC_SUPABASE_URL);
+
+/**
  * Environment variables
- * Note: During build, these may be undefined. Validation happens at runtime.
+ * Note: During build, returns placeholder values. Validation happens at runtime.
  * Vercel will set these environment variables during deployment.
  */
 export const env = {
   get NEXT_PUBLIC_SUPABASE_URL() {
-    const value = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!value && typeof window === 'undefined' && process.env.NEXT_PHASE !== 'phase-production-build') {
-      validateEnv();
+    if (isBuildTime) {
+      return 'https://placeholder.supabase.co'; // Placeholder for build
     }
-    return value || '';
+    validateEnv();
+    return process.env.NEXT_PUBLIC_SUPABASE_URL!;
   },
   get NEXT_PUBLIC_SUPABASE_ANON_KEY() {
-    const value = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!value && typeof window === 'undefined' && process.env.NEXT_PHASE !== 'phase-production-build') {
-      validateEnv();
+    if (isBuildTime) {
+      return 'placeholder-anon-key'; // Placeholder for build
     }
-    return value || '';
+    validateEnv();
+    return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   },
   get SUPABASE_SERVICE_ROLE_KEY() {
-    const value = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!value && typeof window === 'undefined' && process.env.NEXT_PHASE !== 'phase-production-build') {
-      validateEnv();
+    if (isBuildTime) {
+      return 'placeholder-service-role-key'; // Placeholder for build
     }
-    return value || '';
+    validateEnv();
+    return process.env.SUPABASE_SERVICE_ROLE_KEY!;
   },
 } as const;
 
