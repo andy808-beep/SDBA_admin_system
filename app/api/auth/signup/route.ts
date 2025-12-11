@@ -56,16 +56,16 @@ export async function POST(req: NextRequest) {
         user: result,
         message: "Account created successfully! You can now log in.",
       });
-    } catch (fetchError: any) {
+    } catch (fetchError) {
       console.error("[Signup API] Direct fetch error:", fetchError);
       return NextResponse.json({ 
         error: "Failed to create user",
-        details: fetchError.message 
+        details: fetchError instanceof Error ? fetchError.message : String(fetchError)
       }, { status: 500 });
     }
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     );
   }

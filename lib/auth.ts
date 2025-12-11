@@ -4,15 +4,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
-import type { User } from "@supabase/supabase-js";
 import { env } from "./env";
+import type { AdminUser, AdminCheckResult } from "@/types/auth";
 
 /**
  * Check if a user has admin privileges
  * @param user - Supabase user object
  * @returns true if user is an admin
  */
-export function isAdminUser(user: User | null | undefined): boolean {
+export function isAdminUser(user: AdminUser | null | undefined): boolean {
   if (!user) return false;
   
   const roles = (user.app_metadata?.roles ?? user.user_metadata?.roles ?? []) as string[];
@@ -25,7 +25,7 @@ export function isAdminUser(user: User | null | undefined): boolean {
  * @param req - Next.js request object
  * @returns Object with isAdmin boolean and user object (or null)
  */
-export async function checkAdmin(req: NextRequest) {
+export async function checkAdmin(req: NextRequest): Promise<AdminCheckResult> {
   try {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -56,7 +56,7 @@ export async function checkAdmin(req: NextRequest) {
       return { isAdmin: false, user: null };
     }
 
-    return { isAdmin: isAdminUser(user), user };
+    return { isAdmin: isAdminUser(user as AdminUser), user: user as AdminUser };
   } catch (err) {
     console.error("checkAdmin error:", err);
     return { isAdmin: false, user: null };

@@ -3,7 +3,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { checkAdmin } from "@/lib/auth";
 
 // Helper to escape CSV field (RFC4180)
-function escapeCsvField(field: any): string {
+function escapeCsvField(field: unknown): string {
   if (field === null || field === undefined) {
     return "";
   }
@@ -131,10 +131,10 @@ export async function POST(req: NextRequest) {
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Export error:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     );
   }
