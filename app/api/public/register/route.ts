@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseServer } from "@/lib/supabaseServer"; // service role
+import { supabaseServer } from "@/lib/supabaseServer";
+import { handleApiError, ApiErrors } from "@/lib/api-errors";
 
 const Payload = z.object({
   // Page 1
@@ -29,31 +30,27 @@ const Payload = z.object({
 });
 
 export async function POST(req: Request) {
-  let p: z.infer<typeof Payload>;
   try {
     const body = await req.json();
-    p = Payload.parse(body);
-  } catch (e) {
-    return NextResponse.json({ error: "Invalid input", detail: String(e) }, { status: 422 });
-  }
+    const p = Payload.parse(body);
 
-  // 1) Header row
-  const { data: reg, error: e1 } = await supabaseServer
-    .from("registration_meta")
-    .insert([{
-      race_category: p.race_category,
-      num_teams: p.num_teams,
-      num_teams_opt1: p.num_teams_opt1,
-      num_teams_opt2: p.num_teams_opt2,
-      season: p.season,
-      org_name: p.org_name,
-      org_address: p.org_address ?? null,
-      managers_json: p.managers,
-    }])
-    .select("id")
-    .single();
+    // 1) Header row
+    const { data: reg, error: e1 } = await supabaseServer
+      .from("registration_meta")
+      .insert([{
+        race_category: p.race_category,
+        num_teams: p.num_teams,
+        num_teams_opt1: p.num_teams_opt1,
+        num_teams_opt2: p.num_teams_opt2,
+        season: p.season,
+        org_name: p.org_name,
+        org_address: p.org_address ?? null,
+        managers_json: p.managers,
+      }])
+      .select("id")
+      .single();
 
-  if (e1) return NextResponse.json({ error: e1.message }, { status: 400 });
+    if (e1) throw ApiErrors.badRequest(e1.message);
 
   // 2) Fan out team rows
   const rows = p.team_names.map((name, i) => ({
@@ -75,15 +72,18 @@ export async function POST(req: Request) {
     email_3: p.managers.manager3_email ?? null,
   }));
 
-  const { data: teams, error: e2 } = await supabaseServer
-    .from("team_meta")
-    .insert(rows)
-    .select("id, team_code");
+    const { data: teams, error: e2 } = await supabaseServer
+      .from("team_meta")
+      .insert(rows)
+      .select("id, team_code");
 
-  if (e2) return NextResponse.json({ error: e2.message }, { status: 400 });
+    if (e2) throw ApiErrors.badRequest(e2.message);
 
-  return NextResponse.json({
-    registration_id: reg.id,
-    teams: teams, // includes generated team_code per row (e.g., S25-M001)
-  }, { status: 201 });
+    return NextResponse.json({
+      registration_id: reg.id,
+      teams: teams, // includes generated team_code per row (e.g., S25-M001)
+    }, { status: 201 });
+  } catch (error) {
+    return handleApiError(error);
+  }
 }

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { checkAdmin } from "@/lib/auth";
+import { handleApiError, ApiErrors } from "@/lib/api-errors";
 
 export async function GET(req: NextRequest) {
   try {
     // Check admin authentication
     const { isAdmin } = await checkAdmin(req);
     if (!isAdmin) {
-      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      throw ApiErrors.forbidden();
     }
 
     // Parse query parameters
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
     const { data, error, count: totalCount } = await query;
 
     if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+      throw ApiErrors.badRequest(error.message);
     }
 
     // Transform response items
@@ -100,10 +101,7 @@ export async function GET(req: NextRequest) {
       items,
     });
   } catch (error) {
-    return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

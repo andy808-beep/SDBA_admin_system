@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { checkAdmin } from "@/lib/auth";
+import { handleApiError, ApiErrors } from "@/lib/api-errors";
+import { logger } from "@/lib/logger";
 
 // Helper to escape CSV field (RFC4180)
 function escapeCsvField(field: unknown): string {
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest) {
     // Check admin authentication
     const { isAdmin } = await checkAdmin(req);
     if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      throw ApiErrors.forbidden();
     }
 
     // Parse request body
@@ -32,10 +34,7 @@ export async function POST(req: NextRequest) {
     const { mode, season, category } = body;
 
     if (!mode || !["tn", "wu", "sc", "all"].includes(mode)) {
-      return NextResponse.json(
-        { error: "Invalid mode. Must be 'tn', 'wu', 'sc', or 'all'" },
-        { status: 400 }
-      );
+      throw ApiErrors.badRequest("Invalid mode. Must be 'tn', 'wu', 'sc', or 'all'");
     }
 
     let rows: Record<string, any>[] = [];
@@ -65,7 +64,7 @@ export async function POST(req: NextRequest) {
           query = query.eq("season", season);
         }
         const { data, error } = await query;
-        if (error) throw new Error(error.message);
+        if (error) throw ApiErrors.badRequest(error.message);
         rows = data || [];
       }
 
@@ -75,7 +74,7 @@ export async function POST(req: NextRequest) {
           query = query.eq("season", season);
         }
         const { data, error } = await query;
-        if (error) throw new Error(error.message);
+        if (error) throw ApiErrors.badRequest(error.message);
         rows = data || [];
       }
     } else if (mode === "wu") {
@@ -98,17 +97,11 @@ export async function POST(req: NextRequest) {
       rows = data || [];
     } else if (mode === "all") {
       // All: Union of all tables (simplified - just return error for now)
-      return NextResponse.json(
-        { error: "Mode 'all' not yet implemented. Please export TN, WU, and SC separately." },
-        { status: 400 }
-      );
+      throw ApiErrors.badRequest("Mode 'all' not yet implemented. Please export TN, WU, and SC separately.");
     }
 
     if (rows.length === 0) {
-      return NextResponse.json(
-        { error: "No data found" },
-        { status: 404 }
-      );
+      throw ApiErrors.notFound("No data found");
     }
 
     // Extract headers from first row
@@ -132,11 +125,8 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Export error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+    logger.error("Export error:", error);
+    return handleApiError(error);
   }
 }
 

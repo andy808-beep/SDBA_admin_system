@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { checkAdmin } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { handleApiError, ApiErrors } from "@/lib/api-errors";
 
 export async function GET(req: NextRequest) {
   logger.debug("[Counters API] GET request received");
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
     
     if (!isAdmin) {
       logger.debug("[Counters API] Access denied - not admin");
-      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      throw ApiErrors.forbidden();
     }
 
     // Get local midnight for today (in UTC)
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     if (totalError) {
       logger.error("[Counters API] totalError:", totalError);
-      return NextResponse.json({ ok: false, error: totalError.message }, { status: 400 });
+      throw ApiErrors.badRequest(totalError.message);
     }
     logger.debug("[Counters API] Total count:", total);
 
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
 
     if (pendingError) {
       logger.error("[Counters API] pendingError:", pendingError);
-      return NextResponse.json({ ok: false, error: pendingError.message }, { status: 400 });
+      throw ApiErrors.badRequest(pendingError.message);
     }
 
     // Get approved count
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
 
     if (approvedError) {
       logger.error("[Counters API] approvedError:", approvedError);
-      return NextResponse.json({ ok: false, error: approvedError.message }, { status: 400 });
+      throw ApiErrors.badRequest(approvedError.message);
     }
 
     // Get rejected count
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
 
     if (rejectedError) {
       logger.error("[Counters API] rejectedError:", rejectedError);
-      return NextResponse.json({ ok: false, error: rejectedError.message }, { status: 400 });
+      throw ApiErrors.badRequest(rejectedError.message);
     }
 
     // Get new_today count (created_at >= local midnight)
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
 
     if (newTodayError) {
       logger.error("[Counters API] newTodayError:", newTodayError);
-      return NextResponse.json({ ok: false, error: newTodayError.message }, { status: 400 });
+      throw ApiErrors.badRequest(newTodayError.message);
     }
 
     return NextResponse.json({
@@ -92,14 +93,7 @@ export async function GET(req: NextRequest) {
     if (error instanceof Error) {
       logger.error("[Counters API] Error stack:", error.stack);
     }
-    return NextResponse.json(
-      { 
-        ok: false, 
-        error: error instanceof Error ? error.message : "Internal server error",
-        details: process.env.NODE_ENV === 'development' ? String(error) : undefined
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

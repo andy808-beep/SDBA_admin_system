@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { env } from "@/lib/env";
+import { handleApiError, ApiErrors } from "@/lib/api-errors";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: "Email and password are required" },
-        { status: 400 }
-      );
+      throw ApiErrors.badRequest("Email and password are required");
     }
 
     // Debug logging removed - use logger.debug() if needed for development
@@ -38,11 +37,7 @@ export async function POST(req: NextRequest) {
       const responseText = await testResponse.text();
       
       if (!testResponse.ok) {
-        return NextResponse.json({ 
-          error: "Supabase API error",
-          details: responseText,
-          status: testResponse.status 
-        }, { status: 400 });
+        throw ApiErrors.badRequest(`Supabase API error: ${responseText}`);
       }
 
       const result = JSON.parse(responseText);
@@ -52,17 +47,13 @@ export async function POST(req: NextRequest) {
         message: "Account created successfully! You can now log in.",
       });
     } catch (fetchError) {
-      console.error("[Signup API] Direct fetch error:", fetchError);
-      return NextResponse.json({ 
-        error: "Failed to create user",
-        details: fetchError instanceof Error ? fetchError.message : String(fetchError)
-      }, { status: 500 });
+      logger.error("[Signup API] Direct fetch error:", fetchError);
+      throw ApiErrors.internalServerError(
+        fetchError instanceof Error ? fetchError.message : "Failed to create user"
+      );
     }
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
