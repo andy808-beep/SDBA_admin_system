@@ -5,20 +5,19 @@ import type { User } from '@supabase/supabase-js';
 
 /**
  * Extended User type with admin metadata
+ * Uses intersection type to properly extend User's metadata types
  */
-export interface AdminUser extends User {
-  app_metadata?: {
+export type AdminUser = User & {
+  app_metadata?: (User['app_metadata'] & {
     roles?: string[];
     role?: string;
-    [key: string]: unknown;
-  };
-  user_metadata?: {
+  }) | null;
+  user_metadata?: (User['user_metadata'] & {
     roles?: string[];
     role?: string;
     is_admin?: boolean;
-    [key: string]: unknown;
-  };
-}
+  }) | null;
+};
 
 /**
  * Admin check result
