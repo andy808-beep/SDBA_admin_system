@@ -5,6 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { env } from "./env";
+import { logger } from "./logger";
 import type { AdminUser, AdminCheckResult } from "@/types/auth";
 
 /**
@@ -43,7 +44,7 @@ export async function checkAdmin(req: NextRequest): Promise<AdminCheckResult> {
               );
             } catch (err) {
               // Ignore cookie setting errors in API routes
-              console.warn("Cookie set error:", err);
+              logger.warn("Cookie set error:", err);
             }
           },
         },
@@ -58,7 +59,7 @@ export async function checkAdmin(req: NextRequest): Promise<AdminCheckResult> {
 
     return { isAdmin: isAdminUser(user as AdminUser), user: user as AdminUser };
   } catch (err) {
-    console.error("checkAdmin error:", err);
+    logger.error("checkAdmin error:", err);
     return { isAdmin: false, user: null };
   }
 }

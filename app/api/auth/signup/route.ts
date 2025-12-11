@@ -13,10 +13,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log("[Signup API] URL:", env.NEXT_PUBLIC_SUPABASE_URL.substring(0, 30));
-    console.log("[Signup API] Has Service Key:", !!env.SUPABASE_SERVICE_ROLE_KEY);
-    console.log("[Signup API] Key length:", env.SUPABASE_SERVICE_ROLE_KEY.length);
-    console.log("[Signup API] Key first 20 chars:", env.SUPABASE_SERVICE_ROLE_KEY.substring(0, 20));
+    // Debug logging removed - use logger.debug() if needed for development
 
     // Test: Try to make a direct API call to see what Supabase returns
     try {
@@ -39,8 +36,6 @@ export async function POST(req: NextRequest) {
       );
 
       const responseText = await testResponse.text();
-      console.log("[Signup API] Direct fetch status:", testResponse.status);
-      console.log("[Signup API] Direct fetch response:", responseText);
       
       if (!testResponse.ok) {
         return NextResponse.json({ 

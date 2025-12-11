@@ -3,6 +3,9 @@
 // lib/supabaseClient.ts
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+// Note: Can't use logger here as it's server-side only
+// Client-side logging should be minimal
+
 // Lazy initialization - only create client when actually used (browser only)
 let supabaseInstance: SupabaseClient | null = null;
 

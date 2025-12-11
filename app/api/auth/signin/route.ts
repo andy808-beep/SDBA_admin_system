@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
-    console.log("[Signin] Login successful, cookies set");
+    // Login successful - cookies set automatically by Supabase
     return response;
   } catch (error) {
     return NextResponse.json(
