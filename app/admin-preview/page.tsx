@@ -317,8 +317,8 @@ export default function AdminPage() {
 
     try {
       // Get Supabase URL and anon key
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
       
       // Get current session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
