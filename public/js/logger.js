@@ -14,6 +14,11 @@
  * @returns {boolean} True if in development mode
  */
 function isDevelopment() {
+  // Check force debug flag first (highest priority)
+  if (typeof window !== 'undefined' && window.__FORCE_DEBUG__ !== undefined) {
+    return window.__FORCE_DEBUG__ === true;
+  }
+  
   // Check window.__DEV__ flag (set in env.js)
   if (typeof window !== 'undefined' && window.__DEV__ !== undefined) {
     return window.__DEV__ === true;
@@ -193,15 +198,6 @@ const Logger = {
     }
   }
 };
-
-// Update isDevelopment to check force flag
-const originalIsDevelopment = isDevelopment;
-function isDevelopment() {
-  if (typeof window !== 'undefined' && window.__FORCE_DEBUG__ !== undefined) {
-    return window.__FORCE_DEBUG__ === true;
-  }
-  return originalIsDevelopment();
-}
 
 // Make Logger available globally
 if (typeof window !== 'undefined') {

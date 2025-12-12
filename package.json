@@ -20,5 +20,8 @@
   "homepage": "https://github.com/andy808-beep/SDBA_admin_system#readme",
   "dependencies": {
     "@supabase/supabase-js": "^2.75.1"
+  },
+  "devDependencies": {
+    "vercel": "^50.0.0"
   }
 }
