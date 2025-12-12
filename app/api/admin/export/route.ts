@@ -4,6 +4,7 @@ import { checkAdmin } from "@/lib/auth";
 import { handleApiError, ApiErrors } from "@/lib/api-errors";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
+import { executeQuery } from "@/lib/db-utils";
 
 // Request payload validation schema
 const ExportPayload = z.object({
@@ -29,8 +30,84 @@ function rowToCsv(row: Record<string, unknown>, headers: string[]): string {
   return headers.map((header) => escapeCsvField(row[header])).join(",");
 }
 
+/**
+ * @swagger
+ * /api/admin/export:
+ *   post:
+ *     tags:
+ *       - Admin
+ *     summary: Export team data as CSV
+ *     description: Export team data for a specific mode and optional filters. Requires admin authentication and CSRF token.
+ *     security:
+ *       - cookieAuth: []
+ *       - csrfToken: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - mode
+ *             properties:
+ *               mode:
+ *                 type: string
+ *                 enum: [tn, wu, sc, all]
+ *                 description: Export mode
+ *               season:
+ *                 type: integer
+ *                 minimum: 2000
+ *                 maximum: 2100
+ *                 description: Filter by season (optional)
+ *               category:
+ *                 type: string
+ *                 enum: [men_open, ladies_open, mixed_open, mixed_corporate]
+ *                 description: Filter by category (optional, only for TN mode)
+ *           examples:
+ *             tn_all:
+ *               summary: Export all TN teams
+ *               value:
+ *                 mode: "tn"
+ *             tn_season:
+ *               summary: Export TN teams for specific season
+ *               value:
+ *                 mode: "tn"
+ *                 season: 2025
+ *             tn_category:
+ *               summary: Export TN teams for specific category
+ *               value:
+ *                 mode: "tn"
+ *                 category: "men_open"
+ *                 season: 2025
+ *     responses:
+ *       200:
+ *         description: CSV file
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *         headers:
+ *           Content-Disposition:
+ *             schema:
+ *               type: string
+ *               example: 'attachment; filename="SDBA_tn_men_open_2025-01-01T12-00.csv"'
+ *       400:
+ *         description: Bad request
+ *       403:
+ *         description: Forbidden - authentication required or insufficient permissions
+ *       404:
+ *         description: No data found
+ *       422:
+ *         description: Validation error
+ *       500:
+ *         description: Internal server error
+ */
 export async function POST(req: NextRequest) {
   try {
+    // Note: CSRF protection is handled in middleware.ts
+    // This route only processes requests that have passed CSRF validation
+    
     // Check admin authentication
     const { isAdmin } = await checkAdmin(req);
     if (!isAdmin) {
@@ -63,40 +140,63 @@ export async function POST(req: NextRequest) {
         filenameMode = "tn_mixed_corporate";
       } else {
         // All TN categories - fetch from team_meta
+        // Uses index: idx_team_meta_season for season filter
+        // Uses index: idx_team_meta_created_at for sorting
         let query = supabaseServer.from("team_meta").select("*").order("created_at", { ascending: false });
         if (season) {
           query = query.eq("season", season);
         }
-        const { data, error } = await query;
+        const { data, error } = await executeQuery(
+          () => query,
+          "export_tn_all",
+          "team_meta"
+        );
         if (error) throw ApiErrors.badRequest(error.message);
         rows = data || [];
       }
 
       if (viewName) {
+        // Views inherit indexes from underlying tables
         let query = supabaseServer.from(viewName).select("*").order("created_at", { ascending: false });
         if (season) {
           query = query.eq("season", season);
         }
-        const { data, error } = await query;
+        const { data, error } = await executeQuery(
+          () => query,
+          `export_tn_${viewName}`,
+          viewName
+        );
         if (error) throw ApiErrors.badRequest(error.message);
         rows = data || [];
       }
     } else if (mode === "wu") {
       // WU: Fetch from wu_team_meta
+      // Uses index: idx_wu_team_meta_season for season filter
+      // Uses index: idx_wu_team_meta_created_at for sorting
       let query = supabaseServer.from("wu_team_meta").select("*").order("created_at", { ascending: false });
       if (season) {
         query = query.eq("season", season);
       }
-      const { data, error } = await query;
+      const { data, error } = await executeQuery(
+        () => query,
+        "export_wu",
+        "wu_team_meta"
+      );
       if (error) throw ApiErrors.badRequest(error.message);
       rows = data || [];
     } else if (mode === "sc") {
       // SC: Fetch from sc_team_meta
+      // Uses index: idx_sc_team_meta_season for season filter
+      // Uses index: idx_sc_team_meta_created_at for sorting
       let query = supabaseServer.from("sc_team_meta").select("*").order("created_at", { ascending: false });
       if (season) {
         query = query.eq("season", season);
       }
-      const { data, error } = await query;
+      const { data, error } = await executeQuery(
+        () => query,
+        "export_sc",
+        "sc_team_meta"
+      );
       if (error) throw ApiErrors.badRequest(error.message);
       rows = data || [];
     } else if (mode === "all") {

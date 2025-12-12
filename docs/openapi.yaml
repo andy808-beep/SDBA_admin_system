@@ -1,0 +1,741 @@
+openapi: 3.0.3
+info:
+  title: SDBA Admin System API
+  description: |
+    API documentation for the SDBA Admin System.
+    
+    ## Authentication
+    Admin endpoints require authentication via Supabase Auth. Include the session cookie in requests.
+    
+    ## CSRF Protection
+    All state-changing requests (POST, PUT, DELETE, PATCH) require a CSRF token in the `X-CSRF-Token` header.
+    Get the CSRF token from the `/api/csrf-token` endpoint or from the `__Host-csrf-token` cookie.
+    
+    ## Rate Limiting
+    - Public API: 10 requests per 10 seconds per IP
+    - Admin API: 100 requests per minute per authenticated user
+    
+    ## Error Handling
+    All errors follow a consistent format:
+    ```json
+    {
+      "ok": false,
+      "error": "Error message",
+      "code": "ERROR_CODE"
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: SDBA Admin Support
+    email: support@sdba.example.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://your-domain.com
+    description: Production server
+
+tags:
+  - name: Admin
+    description: Admin-only endpoints (require authentication)
+  - name: Public
+    description: Public endpoints (no authentication required)
+  - name: Auth
+    description: Authentication endpoints
+
+paths:
+  /api/public/register:
+    post:
+      tags:
+        - Public
+      summary: Register a new team
+      description: Submit a new team registration. This endpoint is public and does not require authentication.
+      operationId: registerTeam
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+            examples:
+              men_open:
+                summary: Men's Open Registration
+                value:
+                  race_category: "men_open"
+                  num_teams: 2
+                  num_teams_opt1: 1
+                  num_teams_opt2: 0
+                  season: 2025
+                  org_name: "Example Organization"
+                  org_address: "123 Main St"
+                  team_names: ["Team Alpha", "Team Beta"]
+                  team_options: ["Option 1", "Option 2"]
+                  managers:
+                    manager1_name: "John Doe"
+                    manager1_mobile: "1234567890"
+                    manager1_email: "john@example.com"
+                    manager2_name: "Jane Smith"
+                    manager2_mobile: "0987654321"
+                    manager2_email: "jane@example.com"
+      responses:
+        '201':
+          description: Registration created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+              example:
+                registration_id: "550e8400-e29b-41d4-a716-446655440000"
+                teams:
+                  - id: "660e8400-e29b-41d4-a716-446655440001"
+                    team_code: "S25-M001"
+                  - id: "660e8400-e29b-41d4-a716-446655440002"
+                    team_code: "S25-M002"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/admin/approve:
+    post:
+      tags:
+        - Admin
+      summary: Approve a registration
+      description: Approve a pending registration. Requires admin authentication and CSRF token.
+      operationId: approveRegistration
+      security:
+        - cookieAuth: []
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveRequest'
+            example:
+              registration_id: "550e8400-e29b-41d4-a716-446655440000"
+              notes: "Approved after review"
+      responses:
+        '200':
+          description: Registration approved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApproveResponse'
+              example:
+                ok: true
+                team_meta_id: "660e8400-e29b-41d4-a716-446655440001"
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/admin/reject:
+    post:
+      tags:
+        - Admin
+      summary: Reject a registration
+      description: Reject a pending registration. Requires admin authentication, CSRF token, and rejection notes.
+      operationId: rejectRegistration
+      security:
+        - cookieAuth: []
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectRequest'
+            example:
+              registration_id: "550e8400-e29b-41d4-a716-446655440000"
+              notes: "Incomplete information provided"
+      responses:
+        '200':
+          description: Registration rejected successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RejectResponse'
+              example:
+                ok: true
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/admin/list:
+    get:
+      tags:
+        - Admin
+      summary: List registrations
+      description: Get a paginated list of registrations with filtering and search. Requires admin authentication.
+      operationId: listRegistrations
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          description: Number of items per page (max 100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: q
+          in: query
+          description: Search term (searches team_name, org_name, email_1, team_code)
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by status
+          required: false
+          schema:
+            type: string
+            enum: [all, pending, approved, rejected]
+            default: all
+        - name: event
+          in: query
+          description: Filter by event type
+          required: false
+          schema:
+            type: string
+            enum: [all, tn, wu, sc]
+            default: all
+        - name: season
+          in: query
+          description: Filter by season (year)
+          required: false
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 2100
+      responses:
+        '200':
+          description: List of registrations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+              example:
+                ok: true
+                page: 1
+                pageSize: 50
+                total: 100
+                items:
+                  - id: "550e8400-e29b-41d4-a716-446655440000"
+                    season: 2025
+                    event_type: "tn"
+                    division_code: "M"
+                    category: "men_open"
+                    option_choice: "Option 1"
+                    team_code: "S25-M001"
+                    team_name: "Team Alpha"
+                    org_name: "Example Org"
+                    status: "pending"
+                    created_at: "2025-01-01T00:00:00Z"
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/admin/counters:
+    get:
+      tags:
+        - Admin
+      summary: Get registration counters
+      description: Get counts of registrations by status and new registrations today. Requires admin authentication.
+      operationId: getCounters
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Registration counters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CountersResponse'
+              example:
+                ok: true
+                total: 150
+                pending: 25
+                approved: 100
+                rejected: 25
+                new_today: 5
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/admin/export:
+    post:
+      tags:
+        - Admin
+      summary: Export team data as CSV
+      description: Export team data for a specific mode and optional filters. Requires admin authentication and CSRF token.
+      operationId: exportData
+      security:
+        - cookieAuth: []
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+            examples:
+              tn_all:
+                summary: Export all TN teams
+                value:
+                  mode: "tn"
+              tn_season:
+                summary: Export TN teams for specific season
+                value:
+                  mode: "tn"
+                  season: 2025
+              tn_category:
+                summary: Export TN teams for specific category
+                value:
+                  mode: "tn"
+                  category: "men_open"
+                  season: 2025
+              wu:
+                summary: Export WU teams
+                value:
+                  mode: "wu"
+                  season: 2025
+      responses:
+        '200':
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: 'attachment; filename="SDBA_tn_men_open_2025-01-01T12-00.csv"'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/csrf-token:
+    get:
+      tags:
+        - Auth
+      summary: Get CSRF token
+      description: Get a CSRF token for state-changing requests. The token is also set in a cookie.
+      operationId: getCsrfToken
+      responses:
+        '200':
+          description: CSRF token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfTokenResponse'
+              example:
+                ok: true
+                token: "abc123.def456"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sb-access-token
+      description: Supabase session cookie (set automatically on login)
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: CSRF token (get from /api/csrf-token or __Host-csrf-token cookie)
+
+  schemas:
+    RegistrationRequest:
+      type: object
+      required:
+        - race_category
+        - num_teams
+        - num_teams_opt1
+        - num_teams_opt2
+        - season
+        - org_name
+        - team_names
+        - team_options
+        - managers
+      properties:
+        race_category:
+          type: string
+          enum: [men_open, ladies_open, mixed_open, mixed_corporate]
+          description: Race category
+        num_teams:
+          type: integer
+          minimum: 1
+          description: Total number of teams
+        num_teams_opt1:
+          type: integer
+          minimum: 0
+          description: Number of teams choosing Option 1
+        num_teams_opt2:
+          type: integer
+          minimum: 0
+          description: Number of teams choosing Option 2
+        season:
+          type: integer
+          minimum: 2000
+          maximum: 2100
+          description: Season year
+        org_name:
+          type: string
+          minLength: 1
+          description: Organization name
+        org_address:
+          type: string
+          description: Organization address (optional)
+        team_names:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          description: Array of team names
+        team_options:
+          type: array
+          items:
+            type: string
+            enum: [Option 1, Option 2]
+          description: Array of team options (must match team_names length)
+        managers:
+          $ref: '#/components/schemas/Managers'
+
+    Managers:
+      type: object
+      required:
+        - manager1_name
+        - manager2_name
+      properties:
+        manager1_name:
+          type: string
+          minLength: 1
+        manager1_mobile:
+          type: string
+        manager1_email:
+          type: string
+          format: email
+        manager2_name:
+          type: string
+          minLength: 1
+        manager2_mobile:
+          type: string
+        manager2_email:
+          type: string
+          format: email
+        manager3_name:
+          type: string
+        manager3_mobile:
+          type: string
+        manager3_email:
+          type: string
+          format: email
+
+    RegistrationResponse:
+      type: object
+      properties:
+        registration_id:
+          type: string
+          format: uuid
+        teams:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              team_code:
+                type: string
+                example: "S25-M001"
+
+    ApproveRequest:
+      type: object
+      required:
+        - registration_id
+      properties:
+        registration_id:
+          type: string
+          format: uuid
+          description: UUID of the registration to approve
+        notes:
+          type: string
+          description: Optional approval notes
+
+    ApproveResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        team_meta_id:
+          type: string
+          format: uuid
+          description: ID of the created team_meta record
+
+    RejectRequest:
+      type: object
+      required:
+        - registration_id
+        - notes
+      properties:
+        registration_id:
+          type: string
+          format: uuid
+          description: UUID of the registration to reject
+        notes:
+          type: string
+          minLength: 1
+          description: Rejection notes (required)
+
+    RejectResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+
+    ListResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        page:
+          type: integer
+          description: Current page number
+        pageSize:
+          type: integer
+          description: Number of items per page
+        total:
+          type: integer
+          description: Total number of items
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegistrationItem'
+
+    RegistrationItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        season:
+          type: integer
+        event_type:
+          type: string
+          enum: [tn, wu, sc]
+        division_code:
+          type: string
+        category:
+          type: string
+        option_choice:
+          type: string
+          enum: [Option 1, Option 2]
+        team_code:
+          type: string
+        team_name:
+          type: string
+        org_name:
+          type: string
+        org_address:
+          type: string
+        manager_name:
+          type: string
+        manager_email:
+          type: string
+        manager_mobile:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        approved_by:
+          type: string
+          format: uuid
+          nullable: true
+        approved_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    CountersResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        total:
+          type: integer
+          description: Total number of registrations
+        pending:
+          type: integer
+          description: Number of pending registrations
+        approved:
+          type: integer
+          description: Number of approved registrations
+        rejected:
+          type: integer
+          description: Number of rejected registrations
+        new_today:
+          type: integer
+          description: Number of new registrations today
+
+    ExportRequest:
+      type: object
+      required:
+        - mode
+      properties:
+        mode:
+          type: string
+          enum: [tn, wu, sc, all]
+          description: Export mode
+        season:
+          type: integer
+          minimum: 2000
+          maximum: 2100
+          description: Filter by season (optional)
+        category:
+          type: string
+          enum: [men_open, ladies_open, mixed_open, mixed_corporate]
+          description: Filter by category (optional, only for TN mode)
+
+    CsrfTokenResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        token:
+          type: string
+          description: CSRF token to include in X-CSRF-Token header
+
+    ErrorResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        detail:
+          type: array
+          items:
+            type: object
+          description: Validation error details (only for 422 errors)
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            ok: false
+            error: "Bad request"
+            code: "BAD_REQUEST"
+
+    Forbidden:
+      description: Forbidden - authentication required or insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            ok: false
+            error: "Forbidden"
+            code: "FORBIDDEN"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            ok: false
+            error: "Resource not found"
+            code: "NOT_FOUND"
+
+    Conflict:
+      description: Conflict - resource already processed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            ok: false
+            error: "Registration already processed or not found"
+            code: "ALREADY_PROCESSED"
+
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            ok: false
+            error: "Invalid input"
+            detail:
+              - path: ["registration_id"]
+                message: "Invalid uuid"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            ok: false
+            error: "Internal server error"
+            code: "INTERNAL_ERROR"
+

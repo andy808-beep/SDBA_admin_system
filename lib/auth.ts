@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
 import { env } from "./env";
 import { logger } from "./logger";
 import type { AdminUser, AdminCheckResult } from "@/types/auth";
+import { trackAuthFailure } from "./instrumentation/server";
 
 /**
  * Check if a user has admin privileges
@@ -54,12 +55,20 @@ export async function checkAdmin(req: NextRequest): Promise<AdminCheckResult> {
     const { data: { user }, error } = await supabase.auth.getUser();
     
     if (error || !user) {
+      trackAuthFailure(error?.message || "No user found", undefined, undefined);
       return { isAdmin: false, user: null };
     }
 
-    return { isAdmin: isAdminUser(user as AdminUser), user: user as AdminUser };
+    const isAdmin = isAdminUser(user as AdminUser);
+    
+    if (!isAdmin) {
+      trackAuthFailure("User is not an admin", user.id, user.email);
+    }
+
+    return { isAdmin, user: user as AdminUser };
   } catch (err) {
     logger.error("checkAdmin error:", err);
+    trackAuthFailure("checkAdmin exception", undefined, undefined);
     return { isAdmin: false, user: null };
   }
 }

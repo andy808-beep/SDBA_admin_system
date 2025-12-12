@@ -2,57 +2,42 @@
 // Environment variable validation and access
 
 /**
- * Validates server-side environment variables
- * Only validates SUPABASE_SERVICE_ROLE_KEY (server-only)
- * @throws Error if SUPABASE_SERVICE_ROLE_KEY is missing
+ * Validates that all required environment variables are present
+ * Throws an error immediately if any are missing (fail-fast)
  */
-export function validateServerEnv() {
-  // Skip validation during build
-  if (typeof window === 'undefined' && process.env.NEXT_PHASE === 'phase-production-build') {
-    return;
+function validateEnv() {
+  const required = [
+    'NEXT_PUBLIC_SUPABASE_URL',
+    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+  ] as const;
+
+  const missing: string[] = [];
+  
+  for (const key of required) {
+    if (!process.env[key]) {
+      missing.push(key);
+    }
   }
 
-  // Only validate server-side env vars
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (missing.length > 0) {
     throw new Error(
-      'Missing required environment variable: SUPABASE_SERVICE_ROLE_KEY\n' +
+      `Missing required environment variables: ${missing.join(', ')}\n` +
       'Please check your .env.local file or environment configuration.'
     );
   }
 }
 
-/**
- * Check if we're in a build context
- */
-const isBuildTime = typeof window === 'undefined' && 
-  (process.env.NEXT_PHASE === 'phase-production-build' || !process.env.NEXT_PUBLIC_SUPABASE_URL);
+// Validate on module load (fail-fast)
+validateEnv();
 
 /**
- * Server-side environment variables (includes service role key)
- * Only use this in server-side code (API routes, server components, etc.)
+ * Validated environment variables
+ * These are guaranteed to be defined after validateEnv() runs
  */
 export const env = {
-  get NEXT_PUBLIC_SUPABASE_URL() {
-    if (isBuildTime) {
-      return 'https://placeholder.supabase.co';
-    }
-    return process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  },
-  get NEXT_PUBLIC_SUPABASE_ANON_KEY() {
-    if (isBuildTime) {
-      return 'placeholder-anon-key';
-    }
-    return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-  },
-  get SUPABASE_SERVICE_ROLE_KEY() {
-    if (isBuildTime) {
-      return 'placeholder-service-role-key';
-    }
-    // Only validate on server-side
-    if (typeof window === 'undefined') {
-      validateServerEnv();
-    }
-    return process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  },
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY!,
 } as const;
 

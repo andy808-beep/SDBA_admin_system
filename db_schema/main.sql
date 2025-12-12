@@ -910,9 +910,15 @@ ORDER BY approved_at DESC;
 --   - Removed team_name_normalized from INSERT (GENERATED ALWAYS column)
 --   - Added FOR UPDATE SKIP LOCKED for race condition protection
 --   - Improved error handling with specific error codes
+--   - Added verification that UPDATE succeeded
 -- Migration: migrations/002_fix_approve_function.sql
 -- =========================================================
 -- Function to approve a registration (move to appropriate team table based on event_type)
+-- Uses explicit row-level locking to prevent concurrent processing
+-- When two admins approve the same registration simultaneously:
+--   - First admin gets the lock and succeeds
+--   - Second admin gets "Registration not found or not pending" error
+--   - Only one approval is processed
 CREATE OR REPLACE FUNCTION public.approve_registration(reg_id uuid, admin_user_id uuid, notes text DEFAULT NULL)
 RETURNS uuid
 LANGUAGE plpgsql
@@ -1006,7 +1012,10 @@ BEGIN
   WHERE id = reg_id;
   
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Failed to update registration status for %', reg_id;
+    RAISE EXCEPTION USING
+      ERRCODE = 'P0001',
+      MESSAGE = 'Failed to update registration status',
+      HINT = format('Registration %s could not be updated', reg_id);
   END IF;
   
   RETURN new_team_id;
@@ -1017,24 +1026,64 @@ EXCEPTION
 END;
 $$;
 
+-- =========================================================
+-- REJECT REGISTRATION FUNCTION
+-- =========================================================
+-- Version: 2 (Fixed 2024)
+-- Changes:
+--   - Added FOR UPDATE SKIP LOCKED for race condition protection
+--   - Improved error handling with specific error codes
+--   - Added verification that UPDATE succeeded
+--   - Consistent error messages with approve_registration
+-- Migration: migrations/003_add_reject_locking.sql
+-- =========================================================
 -- Function to reject a registration
+-- Uses explicit row-level locking to prevent concurrent processing
+-- When two admins reject the same registration simultaneously:
+--   - First admin gets the lock and succeeds
+--   - Second admin gets "Registration not found or not pending" error
+--   - Only one rejection is processed
 CREATE OR REPLACE FUNCTION public.reject_registration(reg_id uuid, admin_user_id uuid, notes text)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+  reg_record public.registration_meta%ROWTYPE;
 BEGIN
+  -- Get the registration record with row-level lock to prevent race conditions
+  -- SKIP LOCKED allows other transactions to proceed if this row is already locked
+  SELECT * INTO reg_record
+  FROM public.registration_meta
+  WHERE id = reg_id AND status = 'pending'
+  FOR UPDATE SKIP LOCKED;
+  
+  IF NOT FOUND THEN
+    RAISE EXCEPTION USING 
+      ERRCODE = 'P0001',
+      MESSAGE = 'Registration not found or not pending',
+      HINT = format('Registration %s is not in pending status or is being processed by another admin', reg_id);
+  END IF;
+  
+  -- Update registration status (verify update succeeded)
   UPDATE public.registration_meta
   SET 
     status = 'rejected',
     admin_notes = notes,
     approved_by = admin_user_id,
     approved_at = now()
-  WHERE id = reg_id AND status = 'pending';
+  WHERE id = reg_id;
   
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Registration not found or not pending: %', reg_id;
+    RAISE EXCEPTION USING
+      ERRCODE = 'P0001',
+      MESSAGE = 'Failed to update registration status',
+      HINT = format('Registration %s could not be updated', reg_id);
   END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Re-raise the exception with context
+    RAISE;
 END;
 $$;
 

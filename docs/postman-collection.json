@@ -1,0 +1,532 @@
+{
+  "info": {
+    "name": "SDBA Admin System API",
+    "description": "API documentation for the SDBA Admin System.\n\n## Authentication\nAdmin endpoints require authentication via Supabase Auth. Include the session cookie in requests.\n\n## CSRF Protection\nAll state-changing requests (POST, PUT, DELETE, PATCH) require a CSRF token in the `X-CSRF-Token` header.\nGet the CSRF token from the `/api/csrf-token` endpoint or from the `__Host-csrf-token` cookie.\n\n## Rate Limiting\n- Public API: 10 requests per 10 seconds per IP\n- Admin API: 100 requests per minute per authenticated user\n\n## Error Handling\nAll errors follow a consistent format:\n```json\n{\n  \"ok\": false,\n  \"error\": \"Error message\",\n  \"code\": \"ERROR_CODE\"\n}\n```\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "sdba-admin-system"
+  },
+  "item": [
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "Register a new team",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "register"
+              ]
+            },
+            "description": {
+              "type": "text",
+              "content": "Submit a new team registration. This endpoint is public and does not require authentication."
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"race_category\": \"men_open\",\n  \"num_teams\": 2,\n  \"num_teams_opt1\": 1,\n  \"num_teams_opt2\": 0,\n  \"season\": 2025,\n  \"org_name\": \"Example Organization\",\n  \"org_address\": \"123 Main St\",\n  \"team_names\": [\n    \"Team Alpha\",\n    \"Team Beta\"\n  ],\n  \"team_options\": [\n    \"Option 1\",\n    \"Option 2\"\n  ],\n  \"managers\": {\n    \"manager1_name\": \"John Doe\",\n    \"manager1_mobile\": \"1234567890\",\n    \"manager1_email\": \"john@example.com\",\n    \"manager2_name\": \"Jane Smith\",\n    \"manager2_mobile\": \"0987654321\",\n    \"manager2_email\": \"jane@example.com\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Registration created successfully",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/public/register",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "public",
+                    "register"
+                  ]
+                }
+              },
+              "status": "201",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"registration_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"teams\": [\n    {\n      \"id\": \"660e8400-e29b-41d4-a716-446655440001\",\n      \"team_code\": \"S25-M001\"\n    },\n    {\n      \"id\": \"660e8400-e29b-41d4-a716-446655440002\",\n      \"team_code\": \"S25-M002\"\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Approve a registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "approve"
+              ]
+            },
+            "description": {
+              "type": "text",
+              "content": "Approve a pending registration. Requires admin authentication and CSRF token."
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 Registration approved successfully",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-CSRF-Token",
+                    "value": "{{csrfToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/approve",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "approve"
+                  ]
+                }
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"ok\": true,\n  \"team_meta_id\": \"660e8400-e29b-41d4-a716-446655440001\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Reject a registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "reject"
+              ]
+            },
+            "description": {
+              "type": "text",
+              "content": "Reject a pending registration. Requires admin authentication, CSRF token, and rejection notes."
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 Registration rejected successfully",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-CSRF-Token",
+                    "value": "{{csrfToken}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/reject",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "reject"
+                  ]
+                }
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"ok\": true\n}"
+            }
+          ]
+        },
+        {
+          "name": "List registrations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "list"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (1-indexed)"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "50",
+                  "description": "Number of items per page (max 100)"
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Search term (searches team_name, org_name, email_1, team_code)"
+                },
+                {
+                  "key": "status",
+                  "value": "all",
+                  "description": "Filter by status"
+                },
+                {
+                  "key": "event",
+                  "value": "all",
+                  "description": "Filter by event type"
+                },
+                {
+                  "key": "season",
+                  "value": "",
+                  "description": "Filter by season (year)"
+                }
+              ]
+            },
+            "description": {
+              "type": "text",
+              "content": "Get a paginated list of registrations with filtering and search. Requires admin authentication."
+            }
+          },
+          "response": [
+            {
+              "name": "200 List of registrations",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/list",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "list"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "description": "Page number (1-indexed)"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "50",
+                      "description": "Number of items per page (max 100)"
+                    },
+                    {
+                      "key": "q",
+                      "value": "",
+                      "description": "Search term (searches team_name, org_name, email_1, team_code)"
+                    },
+                    {
+                      "key": "status",
+                      "value": "all",
+                      "description": "Filter by status"
+                    },
+                    {
+                      "key": "event",
+                      "value": "all",
+                      "description": "Filter by event type"
+                    },
+                    {
+                      "key": "season",
+                      "value": "",
+                      "description": "Filter by season (year)"
+                    }
+                  ]
+                }
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"ok\": true,\n  \"page\": 1,\n  \"pageSize\": 50,\n  \"total\": 100,\n  \"items\": [\n    {\n      \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"season\": 2025,\n      \"event_type\": \"tn\",\n      \"division_code\": \"M\",\n      \"category\": \"men_open\",\n      \"option_choice\": \"Option 1\",\n      \"team_code\": \"S25-M001\",\n      \"team_name\": \"Team Alpha\",\n      \"org_name\": \"Example Org\",\n      \"status\": \"pending\",\n      \"created_at\": \"2025-01-01T00:00:00Z\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get registration counters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/counters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "counters"
+              ]
+            },
+            "description": {
+              "type": "text",
+              "content": "Get counts of registrations by status and new registrations today. Requires admin authentication."
+            }
+          },
+          "response": [
+            {
+              "name": "200 Registration counters",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/counters",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "counters"
+                  ]
+                }
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"ok\": true,\n  \"total\": 150,\n  \"pending\": 25,\n  \"approved\": 100,\n  \"rejected\": 25,\n  \"new_today\": 5\n}"
+            }
+          ]
+        },
+        {
+          "name": "Export team data as CSV",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/export",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "export"
+              ]
+            },
+            "description": {
+              "type": "text",
+              "content": "Export team data for a specific mode and optional filters. Requires admin authentication and CSRF token."
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"tn\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Get CSRF token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/csrf-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "csrf-token"
+              ]
+            },
+            "description": {
+              "type": "text",
+              "content": "Get a CSRF token for state-changing requests. The token is also set in a cookie."
+            }
+          },
+          "response": [
+            {
+              "name": "200 CSRF token",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/csrf-token",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "csrf-token"
+                  ]
+                }
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"ok\": true,\n  \"token\": \"abc123.def456\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}

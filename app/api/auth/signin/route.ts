@@ -2,18 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { env } from "@/lib/env";
-import { handleApiError, ApiErrors } from "@/lib/api-errors";
-import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
 
     if (!email || !password) {
-      throw ApiErrors.badRequest("Email and password are required");
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400 }
+      );
     }
 
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const response = NextResponse.json({
       success: true,
       message: "Logged in successfully",
@@ -48,13 +49,16 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
-      throw ApiErrors.unauthorized(error.message);
+      return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
-    // Login successful - cookies set automatically by Supabase
+    console.log("[Signin] Login successful, cookies set");
     return response;
-  } catch (error) {
-    return handleApiError(error);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
