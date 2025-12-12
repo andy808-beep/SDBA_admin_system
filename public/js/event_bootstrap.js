@@ -13,6 +13,9 @@ import { initFormForEvent } from './ui_bindings.js';
 import bindTotals from './totals.js';
 import bindSubmit from './submit.js';
 import { initTNWizard } from './tn_wizard.js';
+import { addBreadcrumb, logError } from './error-handler.js';
+import Logger from './logger.js';
+import { fetchWithErrorHandling } from './api-client.js';
 
 const LS_EVENT_KEY = 'raceApp:last_event_ref';
 
@@ -102,7 +105,7 @@ export function createTNConfig() {
   // Set the config globally
   window.__CONFIG = tnConfig;
   
-  console.log('TN fallback configuration created');
+  Logger.debug('TN fallback configuration created');
 }
 
 /**
@@ -111,24 +114,28 @@ export function createTNConfig() {
  */
 async function loadTNTemplates() {
   try {
-    console.log('🎯 loadTNTemplates: Starting template loading');
+    Logger.debug('🎯 loadTNTemplates: Starting template loading');
     // Check if templates are already loaded
     const existingTemplate = document.getElementById('tn-step-1');
     if (existingTemplate) {
-      console.log('🎯 loadTNTemplates: TN templates already loaded');
+      Logger.debug('🎯 loadTNTemplates: TN templates already loaded');
       return;
     }
     
     // Load templates from tn_templates.html
-    console.log('🎯 loadTNTemplates: Fetching tn_templates.html');
-    const response = await fetch('./tn_templates.html');
-    console.log('🎯 loadTNTemplates: Response status:', response.status, response.statusText);
-    if (!response.ok) {
-      throw new Error(`Failed to load TN templates: ${response.statusText}`);
+    Logger.debug('🎯 loadTNTemplates: Fetching tn_templates.html');
+    const result = await fetchWithErrorHandling('./tn_templates.html', {
+      method: 'GET',
+      context: 'load_tn_templates',
+      maxRetries: 2
+    });
+    
+    if (!result.ok) {
+      throw new Error(result.userMessage || `Failed to load TN templates: ${result.error}`);
     }
     
-    const html = await response.text();
-    console.log('🎯 loadTNTemplates: HTML loaded, length:', html.length);
+    const html = typeof result.data === 'string' ? result.data : '';
+    Logger.debug('🎯 loadTNTemplates: HTML loaded, length:', html.length);
     
     // Create a temporary container to parse the HTML
     const tempDiv = document.createElement('div');
@@ -136,37 +143,37 @@ async function loadTNTemplates() {
     
     // Extract and append templates to document head
     const templates = tempDiv.querySelectorAll('template');
-    console.log(`loadTNTemplates: Found ${templates.length} templates`);
+    Logger.debug(`loadTNTemplates: Found ${templates.length} templates`);
     templates.forEach(template => {
       document.head.appendChild(template.cloneNode(true));
     });
     
-    console.log('TN templates loaded successfully');
+    Logger.info('TN templates loaded successfully');
   } catch (error) {
-    console.error('Failed to load TN templates:', error);
+    Logger.error('Failed to load TN templates:', error);
     throw error;
   }
 }
 
 function showPicker(message) {
-  console.log('🎯 showPicker: Showing event picker');
+  Logger.debug('🎯 showPicker: Showing event picker');
   const picker = q('eventPicker');
   const form = q('formContainer');
   
-  console.log('🎯 showPicker: Picker element found:', !!picker);
-  console.log('🎯 showPicker: Form element found:', !!form);
+  Logger.debug('🎯 showPicker: Picker element found:', !!picker);
+  Logger.debug('🎯 showPicker: Form element found:', !!form);
   
   if (form) {
     form.style.display = 'none';
-    console.log('🎯 showPicker: Form hidden');
+    Logger.debug('🎯 showPicker: Form hidden');
   }
   if (picker) {
     picker.style.display = 'block';
-    console.log('🎯 showPicker: Picker shown');
-    console.log('🎯 showPicker: Picker display style:', picker.style.display);
-    console.log('🎯 showPicker: Picker computed style:', window.getComputedStyle(picker).display);
+    Logger.debug('🎯 showPicker: Picker shown');
+    Logger.debug('🎯 showPicker: Picker display style:', picker.style.display);
+    Logger.debug('🎯 showPicker: Picker computed style:', window.getComputedStyle(picker).display);
   } else {
-    console.error('🎯 showPicker: Picker element not found!');
+    Logger.error('🎯 showPicker: Picker element not found!');
   }
   if (message) {
     const box = q('errorBox');
@@ -202,20 +209,20 @@ function escapeHtml(text) {
 
 async function loadPicker() {
   try {
-    console.log('🎯 loadPicker: Starting event picker loading');
+    Logger.debug('🎯 loadPicker: Starting event picker loading');
     const loading = q('eventLoading');
     if (loading) {
       loading.style.display = 'block';
-      console.log('🎯 loadPicker: Loading indicator shown');
+      Logger.debug('🎯 loadPicker: Loading indicator shown');
     }
     
     // Try to load events from database first
     let events = [];
     try {
-      console.log('🎯 loadPicker: Attempting to load events from database');
+      Logger.debug('🎯 loadPicker: Attempting to load events from database');
       const dbEvents = await fetchEvents();
       if (dbEvents && dbEvents.length > 0) {
-        console.log('🎯 loadPicker: Loaded', dbEvents.length, 'events from database');
+        Logger.info('🎯 loadPicker: Loaded', dbEvents.length, 'events from database');
         events = dbEvents.map(ev => {
           // Map database event references to expected format
           let mappedRef = ev.event_short_ref;
@@ -238,7 +245,7 @@ async function loadPicker() {
         throw new Error('No events found in database');
       }
     } catch (dbError) {
-      console.warn('🎯 loadPicker: Database loading failed, using fallback events:', dbError.message);
+      Logger.warn('🎯 loadPicker: Database loading failed, using fallback events:', dbError.message);
       // Fallback to static events if database fails
       events = [
         {
@@ -262,55 +269,67 @@ async function loadPicker() {
       ];
     }
     
-    console.log('🎯 loadPicker: Using', events.length, 'events');
+    Logger.info('🎯 loadPicker: Using', events.length, 'events');
     renderEventCards(events);
   } catch (err) {
     showPicker('Unable to load events. Please try again later.');
-    console.warn('loadPicker failed', err);
+    Logger.warn('loadPicker failed', err);
   }
 }
 
 function renderEventCards(events) {
-  console.log('🎯 renderEventCards: Starting to render', events.length, 'events');
+  Logger.debug('🎯 renderEventCards: Starting to render', events.length, 'events');
   const grid = q('eventGrid');
   const loading = q('eventLoading');
   
-  console.log('🎯 renderEventCards: Grid element found:', !!grid);
-  console.log('🎯 renderEventCards: Loading element found:', !!loading);
+  Logger.debug('🎯 renderEventCards: Grid element found:', !!grid);
+  Logger.debug('🎯 renderEventCards: Loading element found:', !!loading);
   
   if (loading) {
     loading.style.display = 'none';
-    console.log('🎯 renderEventCards: Loading indicator hidden');
+    Logger.debug('🎯 renderEventCards: Loading indicator hidden');
   }
   if (!grid) {
-    console.error('🎯 renderEventCards: Grid element not found!');
+    Logger.error('🎯 renderEventCards: Grid element not found!');
     return;
   }
   
   grid.innerHTML = '';
-  console.log('🎯 renderEventCards: Grid cleared');
+  Logger.debug('🎯 renderEventCards: Grid cleared');
   
   events.forEach((event, index) => {
-    console.log(`🎯 renderEventCards: Creating card ${index + 1} for ${event.name}`);
+    Logger.debug(`🎯 renderEventCards: Creating card ${index + 1} for ${event.name}`);
     const card = document.createElement('div');
     card.className = 'event-card';
     card.setAttribute('data-event', event.ref); // Add data-event for theme colors
     card.onclick = () => selectEvent(event.ref);
     
+    // XSS FIX: Escape event data (event.name, event.description, event.details) before inserting into HTML
+    // Event data comes from database/config, but should be escaped as defense-in-depth
+    const safeName = escapeHtml(event.name);
+    const safeDescription = escapeHtml(event.description);
+    const safeDetails = escapeHtml(event.details);
+    
     card.innerHTML = `
-      <h3>${event.name}</h3>
-      <p>${event.description}</p>
-      <div class="description">${event.details}</div>
+      <h3>${safeName}</h3>
+      <p>${safeDescription}</p>
+      <div class="description">${safeDetails}</div>
     `;
     
     grid.appendChild(card);
   });
   
-  console.log('🎯 renderEventCards: All cards rendered, grid children count:', grid.children.length);
+  Logger.debug('🎯 renderEventCards: All cards rendered, grid children count:', grid.children.length);
 }
 
 async function selectEvent(ref) {
   if (!ref) return;
+  
+  // Add breadcrumb for event selection
+  addBreadcrumb('Event selected', 'user', 'info', {
+    eventRef: ref,
+    action: 'event_selection'
+  });
   
   // Set URL parameter and reload
   const url = new URL(window.location);
@@ -322,18 +341,24 @@ async function attemptLoad(ref) {
   try {
     hidePicker();
     
+    // Add breadcrumb for event loading
+    addBreadcrumb('Loading event', 'navigation', 'info', {
+      eventRef: ref,
+      action: 'event_load_start'
+    });
+    
     // Set body dataset for CSS scoping
     document.body.dataset.event = ref;
     
     // Sanity hooks (dev only)
     window.__MODE = (ref === 'tn') ? 'tn_wizard' : 'single_page';
     window.__PRACTICE_ENABLED = (window.__MODE === 'tn_wizard');
-    console.info('Boot → event=', ref, 'mode=', window.__MODE);
+    Logger.info('Boot → event=', ref, 'mode=', window.__MODE);
     
     // Boot rules: if e=tn → tn_wizard, if e=wu|sc → single_page
     if (ref === 'tn') {
       // TN Legacy Wizard Path
-      console.log('🎯 TN Mode: Loading templates and initializing wizard');
+      Logger.debug('🎯 TN Mode: Loading templates and initializing wizard');
       
       // Guarantee TN config exists before wizard starts
       if (!window.__CONFIG || !window.__CONFIG.practice) {
@@ -342,7 +367,7 @@ async function attemptLoad(ref) {
         if (!window.__CONFIG || !window.__CONFIG.practice) createTNConfig();
       }
       console.assert(window.__CONFIG?.practice, 'TN: practice config missing before wizard init');
-      console.log('🎯 TN Mode: Config verified, proceeding with wizard initialization');
+      Logger.debug('🎯 TN Mode: Config verified, proceeding with wizard initialization');
       
       await loadTNTemplates();
       await initTNWizard();
@@ -360,7 +385,7 @@ async function attemptLoad(ref) {
       }
     } else {
       // WU/SC Single Page Form Path
-      console.log('🎯 Single Page Mode: Loading config and initializing form');
+      Logger.debug('🎯 Single Page Mode: Loading config and initializing form');
       const cfg = await loadEventConfig(ref, { useCache: true });
       // Version-aware cache refresh: if a cache exists but version changed, force refresh
       if (cfg && typeof cfg.config_version === 'number') {
@@ -386,8 +411,20 @@ async function attemptLoad(ref) {
     }
     
     showForm();
+    
+    // Add breadcrumb for successful event load
+    addBreadcrumb('Event loaded successfully', 'navigation', 'info', {
+      eventRef: ref,
+      mode: window.__MODE,
+      action: 'event_load_success'
+    });
   } catch (err) {
-    console.warn('attemptLoad failed', err);
+    logError(err, {
+      action: 'event_load_failed',
+      eventRef: ref
+    }, 'error', ['event_loading']);
+    
+    Logger.warn('attemptLoad failed', err);
     showPicker('Failed to load event. Please pick another or try again.');
     await loadPicker();
   }
@@ -402,24 +439,24 @@ function resolveInitialRef() {
 }
 
 async function boot() {
-  console.log('🚀 Boot: Starting bootstrap sequence');
+  Logger.info('🚀 Boot: Starting bootstrap sequence');
   const ref = resolveInitialRef();
-  console.log('🚀 Boot: Resolved ref =', ref);
+  Logger.debug('🚀 Boot: Resolved ref =', ref);
   
   if (ref) {
     // Set theme color via data attribute
     document.body.setAttribute('data-event', ref.toLowerCase());
-    console.log(`🎨 Theme: Applied ${ref.toUpperCase()} theme colors`);
+    Logger.debug(`🎨 Theme: Applied ${ref.toUpperCase()} theme colors`);
     
     // Determine mode and log banner
     const mode = ref === 'tn' ? 'tn_wizard' : 'single_page';
-    console.log(`🚀 Boot → event=${ref}, mode=${mode}`);
+    Logger.info(`🚀 Boot → event=${ref}, mode=${mode}`);
     
     await attemptLoad(ref);
   } else {
     // No event specified, show event picker
-    console.log('🚀 Boot → event=<none>, mode=picker');
-    console.log('🚀 Boot: Showing event picker for no event parameter');
+    Logger.debug('🚀 Boot → event=<none>, mode=picker');
+    Logger.debug('🚀 Boot: Showing event picker for no event parameter');
     showPicker();
     await loadPicker();
   }
@@ -439,7 +476,7 @@ if (window.__DEV__) {
         const { collectStateFromForm } = await import('./ui_bindings.js');
         return collectStateFromForm();
       } catch (e) {
-        console.error('dumpState failed:', e);
+        Logger.error('dumpState failed:', e);
         return null;
       }
     },
@@ -457,12 +494,12 @@ if (window.__DEV__) {
           initFormForEvent(ref);
           bindTotals();
           bindSubmit();
-          console.log('Config refreshed for:', ref);
+          Logger.info('Config refreshed for:', ref);
         } else {
-          console.warn('No event ref to refresh');
+          Logger.warn('No event ref to refresh');
         }
       } catch (e) {
-        console.error('refreshConfig failed:', e);
+        Logger.error('refreshConfig failed:', e);
       }
     },
     clearCache: () => {
@@ -470,9 +507,9 @@ if (window.__DEV__) {
         const keys = Object.keys(localStorage);
         const raceKeys = keys.filter(k => k.startsWith('raceApp:'));
         raceKeys.forEach(k => localStorage.removeItem(k));
-        console.log(`Cleared ${raceKeys.length} cache keys`);
+        Logger.info(`Cleared ${raceKeys.length} cache keys`);
       } catch (e) {
-        console.error('clearCache failed:', e);
+        Logger.error('clearCache failed:', e);
       }
     }
   };

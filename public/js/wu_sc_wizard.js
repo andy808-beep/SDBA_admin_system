@@ -15,6 +15,9 @@ import {
   setupEmailValidation,
   setupPhoneValidation
 } from './validation.js';
+import { SafeDOM } from './safe-dom.js';
+import Logger from './logger.js';
+import { fetchWithErrorHandling } from './api-client.js';
 
 // WU/SC Wizard State
 let currentStep = 1;
@@ -28,14 +31,14 @@ let eventType = null; // 'wu' or 'sc'
  * Initialize WU/SC wizard
  */
 export function initWUSCWizard(eventShortRef) {
-  console.log('🎯 initWUSCWizard called with:', eventShortRef);
+	Logger.debug('🎯 initWUSCWizard called with:', eventShortRef);
   
   eventType = eventShortRef;
   wuScScope = document.getElementById('wuScContainer');
   wizardMount = document.getElementById('wuScWizardMount');
   
   if (!wuScScope || !wizardMount) {
-    console.error('WU/SC wizard containers not found');
+	Logger.error('WU/SC wizard containers not found');
     return;
   }
   
@@ -51,7 +54,7 @@ export function initWUSCWizard(eventShortRef) {
   // Set up debug functions
   setupDebugFunctions();
   
-  console.log('✅ WU/SC wizard initialized');
+	Logger.debug('✅ WU/SC wizard initialized');
 }
 
 /**
@@ -60,7 +63,7 @@ export function initWUSCWizard(eventShortRef) {
 function setupDebugFunctions() {
   if (!window.__DEV__) return;
   
-  console.log('🎯 Setting up WU/SC debug functions');
+	Logger.debug('🎯 Setting up WU/SC debug functions');
   
   window.__DBG_WUSC = {
     fillStep1: fillStep1TestData,
@@ -76,18 +79,18 @@ function setupDebugFunctions() {
   window.fillWUSCStep3 = fillStep3TestData;
   window.fillWUSCAll = fillAllTestData;
   
-  console.log('🎯 Debug functions available:');
-  console.log('  - fillWUSCStep1() - Fill Step 1 with 3 teams (1 SB, 2 STD)');
-  console.log('  - fillWUSCStep2() - Fill Step 2 with org and manager data');
-  console.log('  - fillWUSCStep3() - Fill Step 3 with race day data');
-  console.log('  - fillWUSCAll() - Fill all steps and navigate to Step 3');
+	Logger.debug('🎯 Debug functions available:');
+	Logger.debug('  - fillWUSCStep1() - Fill Step 1 with 3 teams (1 SB, 2 STD)');
+	Logger.debug('  - fillWUSCStep2() - Fill Step 2 with org and manager data');
+	Logger.debug('  - fillWUSCStep3() - Fill Step 3 with race day data');
+	Logger.debug('  - fillWUSCAll() - Fill all steps and navigate to Step 3');
 }
 
 /**
  * Fill Step 1 with test data: 3 teams (1 Small Boat, 2 Standard Boats)
  */
 async function fillStep1TestData() {
-  console.log('🎯 Filling Step 1 with test data...');
+	Logger.debug('🎯 Filling Step 1 with test data...');
   
   // Fill team count
   const teamCountInput = document.getElementById('teamCount');
@@ -149,7 +152,7 @@ async function fillStep1TestData() {
       }
     }
     
-    console.log('✅ Step 1 filled with test data');
+	Logger.debug('✅ Step 1 filled with test data');
   }
 }
 
@@ -157,7 +160,7 @@ async function fillStep1TestData() {
  * Fill Step 2 with test data
  */
 function fillStep2TestData() {
-  console.log('🎯 Filling Step 2 with test data...');
+	Logger.debug('🎯 Filling Step 2 with test data...');
   
   const orgName = document.getElementById('orgName');
   if (orgName) orgName.value = 'Test Organization Ltd';
@@ -195,14 +198,14 @@ function fillStep2TestData() {
   const manager3Email = document.getElementById('manager3Email');
   if (manager3Email) manager3Email.value = 'bob@test.com';
   
-  console.log('✅ Step 2 filled with test data');
+	Logger.debug('✅ Step 2 filled with test data');
 }
 
 /**
  * Fill Step 3 with test data
  */
 function fillStep3TestData() {
-  console.log('🎯 Filling Step 3 with test data...');
+	Logger.debug('🎯 Filling Step 3 with test data...');
   
   const marqueeQty = document.getElementById('marqueeQty');
   if (marqueeQty) marqueeQty.value = '2';
@@ -225,14 +228,14 @@ function fillStep3TestData() {
   const speedboatQty = document.getElementById('speedboatQty');
   if (speedboatQty) speedboatQty.value = '0';
   
-  console.log('✅ Step 3 filled with test data');
+	Logger.debug('✅ Step 3 filled with test data');
 }
 
 /**
  * Fill all steps and navigate to Step 3
  */
 async function fillAllTestData() {
-  console.log('🎯 Filling all steps with test data...');
+	Logger.debug('🎯 Filling all steps with test data...');
   
   // Make sure we're on Step 1
   await loadStep(1);
@@ -267,12 +270,12 @@ async function fillAllTestData() {
       // Go to Step 4 (Summary)
       await loadStep(4);
       
-      console.log('✅ All steps filled! You are now on Step 4 (Summary)');
+	Logger.debug('✅ All steps filled! You are now on Step 4 (Summary)');
     } else {
-      console.error('❌ Step 2 validation failed');
+	Logger.error('❌ Step 2 validation failed');
     }
   } else {
-    console.error('❌ Step 1 validation failed');
+	Logger.error('❌ Step 1 validation failed');
   }
 }
 
@@ -301,7 +304,7 @@ function initStepper() {
  */
 async function loadStep(step) {
   if (step < 1 || step > totalSteps) {
-    console.error(`Invalid step: ${step}`);
+	Logger.error(`Invalid step: ${step}`);
     return;
   }
   
@@ -340,19 +343,19 @@ function updateStepper() {
  * Load step content from template
  */
 async function loadStepContent(step) {
-  console.log(`loadStepContent: Loading step ${step}`);
+	Logger.debug(`loadStepContent: Loading step ${step}`);
   if (!wizardMount) {
-    console.error('loadStepContent: wizardMount not found');
+	Logger.error('loadStepContent: wizardMount not found');
     return;
   }
   
   const templateId = `wu-sc-step-${step}`;
   const template = document.getElementById(templateId);
   
-  console.log(`loadStepContent: Template ${templateId} found:`, !!template);
+	Logger.debug(`loadStepContent: Template ${templateId} found:`, !!template);
   
   if (!template) {
-    console.error(`Template not found: ${templateId}`);
+	Logger.error(`Template not found: ${templateId}`);
     return;
   }
   
@@ -388,21 +391,21 @@ async function loadStepContent(step) {
  * Initialize Step 1: Team Details (Boat Type + Division)
  */
 function initStep1() {
-  console.log('🎯 initStep1: Initializing team details step');
+	Logger.debug('🎯 initStep1: Initializing team details step');
   
   const teamCountInput = document.getElementById('teamCount');
   const teamDetailsContainer = document.getElementById('teamDetailsContainer');
   const teamDetailsList = document.getElementById('teamDetailsList');
   
   if (!teamCountInput || !teamDetailsContainer || !teamDetailsList) {
-    console.error('Step 1 elements not found');
+	Logger.error('Step 1 elements not found');
     return;
   }
   
   // Handle team count change (both input and change events)
   const handleTeamCountChange = async (e) => {
     const count = parseInt(e.target.value) || 0;
-    console.log('Team count changed to:', count);
+	Logger.debug('Team count changed to:', count);
     
     if (count > 0) {
       teamDetailsContainer.hidden = false;
@@ -429,7 +432,7 @@ async function renderTeamDetails(count) {
   // Load configuration
   const cfg = window.__CONFIG;
   if (!cfg) {
-    console.error('Configuration not loaded');
+	Logger.error('Configuration not loaded');
     return;
   }
   
@@ -478,9 +481,12 @@ async function loadBoatTypesForTeam(teamIndex, cfg) {
   validPackages.forEach((pkg, index) => {
     const label = document.createElement('label');
     label.className = 'radio-label';
+    // XSS FIX: Escape package data (pkg.title_en) before inserting into HTML
+    // Package data comes from config, but should be escaped as defense-in-depth
+    const safeTitleEn = SafeDOM.escapeHtml(pkg.title_en);
     label.innerHTML = `
-      <input type="radio" id="boatType${teamIndex}_${index}" name="boatType${teamIndex}" value="${pkg.title_en}" required />
-      ${pkg.title_en} - HK$${pkg.listed_unit_price.toLocaleString()}
+      <input type="radio" id="boatType${teamIndex}_${index}" name="boatType${teamIndex}" value="${safeTitleEn}" required />
+      ${safeTitleEn} - HK$${pkg.listed_unit_price.toLocaleString()}
     `;
     container.appendChild(label);
     
@@ -548,9 +554,12 @@ function showDivisionRow(teamIndex) {
   filteredDivisions.forEach((div, index) => {
     const label = document.createElement('label');
     label.className = 'radio-label';
+    // XSS FIX: Escape division data (div.name_en) before inserting into HTML
+    // Division data comes from config, but should be escaped as defense-in-depth
+    const safeNameEn = SafeDOM.escapeHtml(div.name_en);
     label.innerHTML = `
-      <input type="radio" id="division${teamIndex}_${index}" name="division${teamIndex}" value="${div.name_en}" required />
-      ${div.name_en}
+      <input type="radio" id="division${teamIndex}_${index}" name="division${teamIndex}" value="${safeNameEn}" required />
+      ${safeNameEn}
     `;
     divisionContainer.appendChild(label);
   });
@@ -563,7 +572,7 @@ function showDivisionRow(teamIndex) {
  * Initialize Step 2: Team Information
  */
 function initStep2() {
-  console.log('🎯 initStep2: Initializing team information step');
+	Logger.debug('🎯 initStep2: Initializing team information step');
   
   // Render team name fields (read-only, from Step 1)
   renderTeamNameFields();
@@ -589,7 +598,7 @@ function setupStep2Validation() {
   setupPhoneValidation('manager2Phone');
   setupPhoneValidation('manager3Phone');
   
-  console.log('🎯 setupStep2Validation: Email and phone validation configured');
+	Logger.debug('🎯 setupStep2Validation: Email and phone validation configured');
 }
 
 /**
@@ -704,7 +713,7 @@ function renderManagerFields() {
  * Initialize Step 3: Race Day Arrangement
  */
 function initStep3() {
-  console.log('🎯 initStep3: Initializing race day step');
+	Logger.debug('🎯 initStep3: Initializing race day step');
   
   // This will be similar to TN Step 3
   // Load race day items and pricing
@@ -714,7 +723,7 @@ function initStep3() {
  * Initialize Step 4: Summary
  */
 function initStep4() {
-  console.log('🎯 initStep4: Initializing summary step');
+	Logger.debug('🎯 initStep4: Initializing summary step');
   
   // Populate summary with all collected data
   populateSummary();
@@ -724,9 +733,9 @@ function initStep4() {
  * Populate the summary page with all form data
  */
 function populateSummary() {
-  console.log('🎯 Populating summary...');
-  console.log('🎯 Event type:', eventType);
-  console.log('🎯 SessionStorage keys:', Object.keys(sessionStorage).filter(k => k.includes(eventType)));
+	Logger.debug('🎯 Populating summary...');
+	Logger.debug('🎯 Event type:', eventType);
+	Logger.debug('🎯 SessionStorage keys:', Object.keys(sessionStorage).filter(k => k.includes(eventType)));
   
   const cfg = window.__CONFIG;
   
@@ -736,12 +745,12 @@ function populateSummary() {
   
   const sumOrg = document.getElementById('sumOrg');
   const orgName = sessionStorage.getItem(`${eventType}_orgName`) || document.getElementById('orgName')?.value || '—';
-  console.log('🎯 Org name:', orgName);
+	Logger.debug('🎯 Org name:', orgName);
   if (sumOrg) sumOrg.textContent = orgName;
   
   const sumAddress = document.getElementById('sumAddress');
   const mailingAddress = sessionStorage.getItem(`${eventType}_mailingAddress`) || document.getElementById('mailingAddress')?.value || '—';
-  console.log('🎯 Mailing address:', mailingAddress);
+	Logger.debug('🎯 Mailing address:', mailingAddress);
   if (sumAddress) sumAddress.textContent = mailingAddress;
   
   // Teams
@@ -777,12 +786,18 @@ function populateTeamsSummary() {
     const boatType = sessionStorage.getItem(`${eventType}_team${i}_boatType`) || '—';
     const division = sessionStorage.getItem(`${eventType}_team${i}_division`) || '—';
     
+    // XSS FIX: Escape user input (teamName, boatType, division) before inserting into HTML
+    // These values come from sessionStorage (user input), so they must be escaped
+    const safeTeamName = SafeDOM.escapeHtml(teamName);
+    const safeBoatType = SafeDOM.escapeHtml(boatType);
+    const safeDivision = SafeDOM.escapeHtml(division);
+    
     html += `
       <tr>
         <td>${i}</td>
-        <td>${teamName}</td>
-        <td>${boatType}</td>
-        <td>${division}</td>
+        <td>${safeTeamName}</td>
+        <td>${safeBoatType}</td>
+        <td>${safeDivision}</td>
       </tr>
     `;
   }
@@ -800,9 +815,16 @@ function populateManagersSummary() {
   const manager1Phone = sessionStorage.getItem(`${eventType}_manager1Phone`) || '';
   const manager1Email = sessionStorage.getItem(`${eventType}_manager1Email`) || '';
   if (sumManager1) {
-    sumManager1.innerHTML = manager1Name !== '—' 
-      ? `${manager1Name}<br/>${manager1Phone}<br/>${manager1Email}` 
-      : '—';
+    // XSS FIX: Escape user input (manager names, phone, email) before inserting into HTML
+    // These values come from sessionStorage (user input), so they must be escaped
+    if (manager1Name !== '—') {
+      const safeName = SafeDOM.escapeHtml(manager1Name);
+      const safePhone = SafeDOM.escapeHtml(manager1Phone);
+      const safeEmail = SafeDOM.escapeHtml(manager1Email);
+      sumManager1.innerHTML = `${safeName}<br/>${safePhone}<br/>${safeEmail}`;
+    } else {
+      sumManager1.textContent = '—';
+    }
   }
   
   // Manager 2
@@ -811,9 +833,15 @@ function populateManagersSummary() {
   const manager2Phone = sessionStorage.getItem(`${eventType}_manager2Phone`) || '';
   const manager2Email = sessionStorage.getItem(`${eventType}_manager2Email`) || '';
   if (sumManager2) {
-    sumManager2.innerHTML = manager2Name !== '—' 
-      ? `${manager2Name}<br/>${manager2Phone}<br/>${manager2Email}` 
-      : '—';
+    // XSS FIX: Escape user input (manager names, phone, email) before inserting into HTML
+    if (manager2Name !== '—') {
+      const safeName = SafeDOM.escapeHtml(manager2Name);
+      const safePhone = SafeDOM.escapeHtml(manager2Phone);
+      const safeEmail = SafeDOM.escapeHtml(manager2Email);
+      sumManager2.innerHTML = `${safeName}<br/>${safePhone}<br/>${safeEmail}`;
+    } else {
+      sumManager2.textContent = '—';
+    }
   }
   
   // Manager 3 (Optional)
@@ -822,8 +850,12 @@ function populateManagersSummary() {
   const manager3Phone = sessionStorage.getItem(`${eventType}_manager3Phone`) || '';
   const manager3Email = sessionStorage.getItem(`${eventType}_manager3Email`) || '';
   if (sumManager3) {
+    // XSS FIX: Escape user input (manager names, phone, email) before inserting into HTML
     if (manager3Name) {
-      sumManager3.innerHTML = `${manager3Name}<br/>${manager3Phone}<br/>${manager3Email}`;
+      const safeName = SafeDOM.escapeHtml(manager3Name);
+      const safePhone = SafeDOM.escapeHtml(manager3Phone);
+      const safeEmail = SafeDOM.escapeHtml(manager3Email);
+      sumManager3.innerHTML = `${safeName}<br/>${safePhone}<br/>${safeEmail}`;
     } else {
       sumManager3.textContent = '—';
     }
@@ -1202,47 +1234,45 @@ function showError(message) {
  * Submit WU/SC form
  */
 async function submitWUSCForm() {
-  console.log('🎯 submitWUSCForm: Submitting WU/SC form');
+	Logger.debug('🎯 submitWUSCForm: Submitting WU/SC form');
   
   try {
     // Collect form data from sessionStorage
     const formData = collectFormData();
-    console.log('🎯 Form data collected:', formData);
+	Logger.debug('🎯 Form data collected:', formData);
     
     // Generate client transaction ID
     const clientTxId = getClientTxId();
     formData.client_tx_id = clientTxId;
     
-    console.log('🎯 Submitting to edge function:', EDGE_URL);
+	Logger.debug('🎯 Submitting to edge function:', EDGE_URL);
     
     // Submit to edge function
-    const response = await fetch(EDGE_URL, {
+    const result = await fetchWithErrorHandling(EDGE_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(formData)
+      body: JSON.stringify(formData),
+      context: 'wu_sc_form_submission',
+      timeout: 60000 // 60 seconds for form submission
     });
     
-    console.log('🎯 Response status:', response.status);
-    
-    if (response.ok) {
-      const result = await response.json();
-      console.log('✅ Submission successful:', result);
+    if (result.ok) {
+      Logger.debug('✅ Submission successful:', result.data);
       
       // Save receipt and show confirmation
       saveReceipt(clientTxId, formData);
-      showConfirmation(result);
+      showConfirmation(result.data);
       
       // Clear sessionStorage
       clearSessionData();
     } else {
-      const error = await response.json();
-      console.error('❌ Submission error:', error);
-      throw new Error(error.error || 'Submission failed');
+      Logger.error('❌ Submission error:', result.error);
+      throw new Error(result.userMessage || result.error || 'Submission failed');
     }
   } catch (error) {
-    console.error('❌ Submission error:', error);
+    Logger.error('❌ Submission error:', error);
     showError(error.message || 'Submission failed. Please try again.');
   }
 }
@@ -1326,5 +1356,5 @@ function collectFormData() {
 function clearSessionData() {
   const keys = Object.keys(sessionStorage).filter(k => k.startsWith(`${eventType}_`));
   keys.forEach(key => sessionStorage.removeItem(key));
-  console.log('🎯 Session data cleared');
+	Logger.debug('🎯 Session data cleared');
 }

@@ -1,0 +1,72 @@
+# Netlify Headers Configuration
+# 
+# This file configures HTTP headers for all responses.
+# See: https://docs.netlify.com/routing/headers/
+
+# Security headers for all pages
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+
+# Content Security Policy
+# Adjust based on your needs - this is a restrictive policy
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://browser.sentry-cdn.com https://esm.sh https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.supabase.in https://*.ingest.sentry.io wss://*.supabase.co; frame-ancestors 'none';
+
+# CORS headers for API endpoints (if serving APIs)
+# Note: CORS is typically handled by Supabase Edge Functions
+/api/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization, apikey
+  Access-Control-Max-Age: 86400
+
+# Cache control for HTML files (short cache, revalidate)
+/*.html
+  Cache-Control: public, max-age=300, must-revalidate
+
+# Cache control for JavaScript files (no cache for easier updates)
+/js/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Cache control for CSS files (1 hour cache)
+/css/*
+  Cache-Control: public, max-age=3600
+
+# Cache control for images (1 day cache)
+/*.jpg
+  Cache-Control: public, max-age=86400
+/*.jpeg
+  Cache-Control: public, max-age=86400
+/*.png
+  Cache-Control: public, max-age=86400
+/*.gif
+  Cache-Control: public, max-age=86400
+/*.svg
+  Cache-Control: public, max-age=86400
+/*.webp
+  Cache-Control: public, max-age=86400
+
+# Cache control for fonts (1 week cache)
+/*.woff
+  Cache-Control: public, max-age=604800
+/*.woff2
+  Cache-Control: public, max-age=604800
+/*.ttf
+  Cache-Control: public, max-age=604800
+/*.otf
+  Cache-Control: public, max-age=604800
+
+# Security headers for sensitive files
+/env.js
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Allow iframe embedding for specific pages (if needed)
+# Uncomment and adjust if you need to embed specific pages
+# /embed/*
+#   X-Frame-Options: SAMEORIGIN
+

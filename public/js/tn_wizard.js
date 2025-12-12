@@ -17,6 +17,10 @@ import {
   setupEmailValidation,
   setupPhoneValidation
 } from './validation.js';
+import { SafeDOM } from './safe-dom.js';
+import { addBreadcrumb, logError } from './error-handler.js';
+import Logger from './logger.js';
+import { fetchWithErrorHandling } from './api-client.js';
 
 // Expose practice store functions globally (needed for summary page)
 window.__DBG_TN = window.__DBG_TN || {};
@@ -31,7 +35,7 @@ window.__DBG_TN.writeTeamRanks = writeTeamRanks;
 function setupDebugFunctions() {
   if (!window.__DEV__) return;
   
-  console.log('🎯 setupDebugFunctions: Setting up debug functions');
+	Logger.debug('🎯 setupDebugFunctions: Setting up debug functions');
   
   // Create debug namespace
   window.__DBG_TN = window.__DBG_TN || {};
@@ -92,13 +96,13 @@ function setupDebugFunctions() {
   
   // Note: testQuickSubmit functions are exposed at the end of the file after they're defined
   
-  console.log('🎯 Debug functions available:');
-  console.log('  - fillSingleTeam() - Fill form with 1 team');
-  console.log('  - fillMultipleTeams() - Fill form with 3 teams');
-  console.log('  - testSubmission() - Test submission with current data');
-  console.log('  - testQuickSubmit() - Fill form with 3 teams and submit immediately ⚡ (loaded at end of script)');
-  console.log('  - testQuickSubmitSingle() - Fill form with 1 team and submit immediately ⚡ (loaded at end of script)');
-  console.log('  - generateFreshTxId() - Generate fresh client_tx_id for testing');
+	Logger.debug('🎯 Debug functions available:');
+	Logger.debug('  - fillSingleTeam() - Fill form with 1 team');
+	Logger.debug('  - fillMultipleTeams() - Fill form with 3 teams');
+	Logger.debug('  - testSubmission() - Test submission with current data');
+	Logger.debug('  - testQuickSubmit() - Fill form with 3 teams and submit immediately ⚡ (loaded at end of script)');
+	Logger.debug('  - testQuickSubmitSingle() - Fill form with 1 team and submit immediately ⚡ (loaded at end of script)');
+	Logger.debug('  - generateFreshTxId() - Generate fresh client_tx_id for testing');
 }
 
 // TN Wizard State
@@ -122,10 +126,10 @@ function checkAndCleanPreviewData() {
   const freshStart = urlParams.get('fresh') === 'true' || urlParams.get('clear') === 'true';
   
   if (freshStart) {
-    console.log('🎯 checkAndCleanPreviewData: Fresh start requested, clearing all data');
+	Logger.debug('🎯 checkAndCleanPreviewData: Fresh start requested, clearing all data');
     clearAllData();
   } else {
-    console.log('🎯 checkAndCleanPreviewData: Continuing with existing data (use ?fresh=true to start clean)');
+	Logger.debug('🎯 checkAndCleanPreviewData: Continuing with existing data (use ?fresh=true to start clean)');
   }
 }
 
@@ -134,15 +138,15 @@ function checkAndCleanPreviewData() {
  * Sets up the multi-step wizard with legacy templates
  */
 export function initTNWizard() {
-  console.log('initTNWizard: Starting TN wizard initialization');
+	Logger.debug('initTNWizard: Starting TN wizard initialization');
   tnScope = document.getElementById('tnScope');
   wizardMount = document.getElementById('wizardMount');
   stepper = document.getElementById('stepper');
   
-  console.log('initTNWizard: Containers found:', { tnScope: !!tnScope, wizardMount: !!wizardMount, stepper: !!stepper });
+	Logger.debug('initTNWizard: Containers found:', { tnScope: !!tnScope, wizardMount: !!wizardMount, stepper: !!stepper });
   
   if (!tnScope || !wizardMount) {
-    console.error('TN wizard containers not found');
+	Logger.error('TN wizard containers not found');
     return;
   }
   
@@ -156,13 +160,13 @@ export function initTNWizard() {
   initStepNavigation();
   
   // Load step 1 (category selection)
-  console.log('initTNWizard: Loading step 1');
+	Logger.debug('initTNWizard: Loading step 1');
   loadStep(1);
   
   // Set up deep linking
   initDeepLinking();
   
-  console.log('TN Wizard initialized');
+	Logger.debug('TN Wizard initialized');
 }
 
 /**
@@ -248,7 +252,7 @@ function initDeepLinking() {
  * Clear data for a specific step and all steps after it
  */
 function clearStepDataFromHere(fromStep) {
-  console.log(`🎯 Clearing data from step ${fromStep} onwards`);
+	Logger.debug(`🎯 Clearing data from step ${fromStep} onwards`);
   
   // Step 2: Team info, org, managers
   if (fromStep <= 2) {
@@ -288,7 +292,7 @@ function clearStepDataFromHere(fromStep) {
   
   // Step 5: Summary (no specific data to clear)
   
-  console.log(`✅ Cleared data from step ${fromStep} onwards`);
+	Logger.debug(`✅ Cleared data from step ${fromStep} onwards`);
 }
 
 /**
@@ -296,9 +300,16 @@ function clearStepDataFromHere(fromStep) {
  */
 async function loadStep(step) {
   if (step < 1 || step > totalSteps) {
-    console.error(`Invalid step: ${step}`);
+	Logger.error(`Invalid step: ${step}`);
     return;
   }
+  
+  // Add breadcrumb for step navigation
+  addBreadcrumb(`Navigating to step ${step}`, 'navigation', 'info', {
+    step,
+    previousStep: currentStep,
+    wizard: 'tn'
+  });
   
   currentStep = step;
   
@@ -341,19 +352,19 @@ function updateStepper() {
  * Load step content from templates
  */
 async function loadStepContent(step) {
-  console.log(`loadStepContent: Loading step ${step}`);
+	Logger.debug(`loadStepContent: Loading step ${step}`);
   if (!wizardMount) {
-    console.error('loadStepContent: wizardMount not found');
+	Logger.error('loadStepContent: wizardMount not found');
     return;
   }
   
   const templateId = `tn-step-${step}`;
   const template = document.getElementById(templateId);
   
-  console.log(`loadStepContent: Template ${templateId} found:`, !!template);
+	Logger.debug(`loadStepContent: Template ${templateId} found:`, !!template);
   
   if (!template) {
-    console.error(`Template not found: ${templateId}`);
+	Logger.error(`Template not found: ${templateId}`);
     return;
   }
   
@@ -363,7 +374,7 @@ async function loadStepContent(step) {
   wizardMount.appendChild(content);
   
   // Ensure content is properly scoped within #tnScope
-  console.log('loadStepContent: Content loaded into #tnScope container');
+	Logger.debug('loadStepContent: Content loaded into #tnScope container');
   
   // Initialize step-specific functionality
   switch (step) {
@@ -395,7 +406,7 @@ async function loadStepContent(step) {
  * Initialize Step 1 - Category Selection
  */
 function initStep1() {
-  console.log('🎯 initStep1: Starting team count selection');
+	Logger.debug('🎯 initStep1: Starting team count selection');
   
   // Create team count selection UI
   createTeamCountSelector();
@@ -446,7 +457,7 @@ function createTeamCountSelector() {
   container.innerHTML = '';
   container.appendChild(teamCountSection);
   
-  console.log('🎯 initStep1: Team count selector created');
+	Logger.debug('🎯 initStep1: Team count selector created');
 }
 
 /**
@@ -458,7 +469,7 @@ function setupTeamCountHandler() {
   
   teamCountSelect.addEventListener('change', async (event) => {
     const teamCount = parseInt(event.target.value, 10);
-    console.log('🎯 initStep1: Team count selected:', teamCount);
+	Logger.debug('🎯 initStep1: Team count selected:', teamCount);
     
     if (teamCount > 0) {
       // Store team count in session storage
@@ -493,15 +504,15 @@ function setupTeamCountHandler() {
   const nextButton = document.getElementById('nextToStep2');
   if (nextButton) {
     nextButton.addEventListener('click', () => {
-      console.log('🎯 initStep1: Next button clicked, validating step 1');
+	Logger.debug('🎯 initStep1: Next button clicked, validating step 1');
       
       // Validate all team information before proceeding
       if (validateStep1()) {
-        console.log('🎯 initStep1: Validation passed, saving data and proceeding to step 2');
+	Logger.debug('🎯 initStep1: Validation passed, saving data and proceeding to step 2');
         saveStep1Data();
         loadStep(2);
       } else {
-        console.log('🎯 initStep1: Validation failed, staying on step 1');
+	Logger.debug('🎯 initStep1: Validation failed, staying on step 1');
       }
     });
   }
@@ -664,7 +675,7 @@ async function generateTeamFields(teamCount) {
   const container = document.getElementById('teamFieldsContainer');
   if (!container) return;
   
-  console.log('🎯 generateTeamFields: Creating', teamCount, 'team fields');
+	Logger.debug('🎯 generateTeamFields: Creating', teamCount, 'team fields');
   
   // Clear existing team fields
   container.innerHTML = '';
@@ -672,7 +683,7 @@ async function generateTeamFields(teamCount) {
   // Load categories from database
   let categories = [];
   try {
-    console.log('🎯 generateTeamFields: Loading categories from database');
+	Logger.debug('🎯 generateTeamFields: Loading categories from database');
     // Try to load categories from v_divisions_public view
     const { data, error } = await sb
       .from('v_divisions_public')
@@ -683,11 +694,11 @@ async function generateTeamFields(teamCount) {
     
     if (error) throw error;
     categories = data || [];
-    console.log('🎯 generateTeamFields: Loaded', categories.length, 'categories from database');
+	Logger.debug('🎯 generateTeamFields: Loaded', categories.length, 'categories from database');
     
     // If no categories found, use fallback
     if (categories.length === 0) {
-      console.warn('🎯 generateTeamFields: No categories found in database, using fallback');
+	Logger.warn('🎯 generateTeamFields: No categories found in database, using fallback');
       categories = [
         { division_code: 'M', name_en: 'Open Division – Men' },
         { division_code: 'L', name_en: 'Open Division – Ladies' },
@@ -696,7 +707,7 @@ async function generateTeamFields(teamCount) {
       ];
     }
   } catch (err) {
-    console.warn('🎯 generateTeamFields: Failed to load categories, using fallback:', err.message);
+	Logger.warn('🎯 generateTeamFields: Failed to load categories, using fallback:', err.message);
     // Fallback categories (matching main race divisions)
     categories = [
       { division_code: 'M', name_en: 'Open Division – Men' },
@@ -709,7 +720,7 @@ async function generateTeamFields(teamCount) {
   // Load packages from database
   let packages = [];
   try {
-    console.log('🎯 generateTeamFields: Loading packages from database');
+	Logger.debug('🎯 generateTeamFields: Loading packages from database');
     const { data: packageData, error: packageError } = await sb
       .from('v_packages_public')
       .select('package_code, title_en, listed_unit_price, included_practice_hours_per_team, tees_qty, padded_shorts_qty, dry_bag_qty')
@@ -719,12 +730,12 @@ async function generateTeamFields(teamCount) {
     
     if (packageError) throw packageError;
     packages = packageData || [];
-    console.log('🎯 generateTeamFields: Loaded', packages.length, 'packages from database');
+	Logger.debug('🎯 generateTeamFields: Loaded', packages.length, 'packages from database');
     
     // Store packages globally for use in populatePackageOptions
     window.__PACKAGES = packages;
   } catch (err) {
-    console.warn('🎯 generateTeamFields: Failed to load packages, using fallback:', err.message);
+	Logger.warn('🎯 generateTeamFields: Failed to load packages, using fallback:', err.message);
     // Fallback packages (from order.sql)
     packages = [
       { package_code: 'option_1_non_corp', title_en: 'Option I', listed_unit_price: 20900, included_practice_hours_per_team: 12, tees_qty: 20, padded_shorts_qty: 20, dry_bag_qty: 1 },
@@ -784,7 +795,7 @@ async function generateTeamFields(teamCount) {
   // Set up category change handlers to show/hide entry options
   setupCategoryChangeHandlers(teamCount);
   
-  console.log('🎯 generateTeamFields: Created', teamCount, 'team input fields');
+	Logger.debug('🎯 generateTeamFields: Created', teamCount, 'team input fields');
 }
 
 /**
@@ -805,13 +816,13 @@ function setupCategoryChangeHandlers(teamCount) {
           // Populate package options based on division code
           populatePackageOptions(i, event.target.value);
           
-          console.log(`🎯 Team ${i}: Category selected, showing entry options`);
+	Logger.debug(`🎯 Team ${i}: Category selected, showing entry options`);
         } else {
           // Hide entry option when category is cleared
           optionGroup.style.display = 'none';
           // Clear the option boxes
           optionBoxes.innerHTML = '';
-          console.log(`🎯 Team ${i}: Category cleared, hiding entry options`);
+	Logger.debug(`🎯 Team ${i}: Category cleared, hiding entry options`);
         }
       });
     }
@@ -842,15 +853,20 @@ function populatePackageOptions(teamIndex, divisionCode) {
     );
   }
   
-  console.log(`🎯 Team ${teamIndex}: Showing packages for division ${divisionCode}:`, relevantPackages);
+	Logger.debug(`🎯 Team ${teamIndex}: Showing packages for division ${divisionCode}:`, relevantPackages);
   
   // Generate package boxes
-  optionBoxes.innerHTML = relevantPackages.map((pkg, index) => `
-    <div class="package-option" data-package-code="${pkg.package_code}" data-team-index="${teamIndex}">
-      <input type="radio" id="teamOption${teamIndex}_${index}" name="teamOption${teamIndex}" value="${pkg.package_code}" required style="display: none;">
+  // XSS FIX: Escape package data (pkg.title_en, pkg.package_code) before inserting into HTML
+  // Package data comes from config, but should be escaped as a defense-in-depth measure
+  optionBoxes.innerHTML = relevantPackages.map((pkg, index) => {
+    const safePackageCode = SafeDOM.escapeHtml(pkg.package_code);
+    const safeTitleEn = SafeDOM.escapeHtml(pkg.title_en);
+    return `
+    <div class="package-option" data-package-code="${safePackageCode}" data-team-index="${teamIndex}">
+      <input type="radio" id="teamOption${teamIndex}_${index}" name="teamOption${teamIndex}" value="${safePackageCode}" required style="display: none;">
       <div class="package-box" data-option-index="${index}">
         <div class="package-header">
-          <h4>${pkg.title_en}</h4>
+          <h4>${safeTitleEn}</h4>
           <div class="package-price">HK$${pkg.listed_unit_price.toLocaleString()}</div>
         </div>
         <div class="package-details">
@@ -876,7 +892,8 @@ function populatePackageOptions(teamIndex, divisionCode) {
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
   
   // Add click handlers for package selection
   setupPackageBoxHandlers(teamIndex);
@@ -890,7 +907,7 @@ function setupPackageBoxHandlers(teamIndex) {
   
   packageBoxes.forEach((box, index) => {
     box.addEventListener('click', () => {
-      console.log(`🎯 Team ${teamIndex}: Package box ${index} clicked`);
+	Logger.debug(`🎯 Team ${teamIndex}: Package box ${index} clicked`);
       
       // Clear previous selections for this team
       const teamOptions = document.querySelectorAll(`[data-team-index="${teamIndex}"]`);
@@ -924,9 +941,9 @@ function setupPackageBoxHandlers(teamIndex) {
         radio.checked = true;
         
         // Debug: Verify radio button is checked
-        console.log(`🎯 Team ${teamIndex}: Radio button checked:`, radio.checked);
-        console.log(`🎯 Team ${teamIndex}: Radio button name:`, radio.name);
-        console.log(`🎯 Team ${teamIndex}: Radio button value:`, radio.value);
+	Logger.debug(`🎯 Team ${teamIndex}: Radio button checked:`, radio.checked);
+	Logger.debug(`🎯 Team ${teamIndex}: Radio button name:`, radio.name);
+	Logger.debug(`🎯 Team ${teamIndex}: Radio button value:`, radio.value);
         
         // Update selection text
         const selectionText = packageOption.querySelector('.selection-text');
@@ -935,8 +952,8 @@ function setupPackageBoxHandlers(teamIndex) {
         }
         
         // Debug: Check if class was added
-        console.log(`🎯 Team ${teamIndex}: Package option classes:`, packageOption.className);
-        console.log(`🎯 Team ${teamIndex}: Package box element:`, packageOption.querySelector('.package-box'));
+	Logger.debug(`🎯 Team ${teamIndex}: Package option classes:`, packageOption.className);
+	Logger.debug(`🎯 Team ${teamIndex}: Package box element:`, packageOption.querySelector('.package-box'));
         
         // Force styling with inline styles as backup
         const packageBox = packageOption.querySelector('.package-box');
@@ -945,13 +962,13 @@ function setupPackageBoxHandlers(teamIndex) {
           packageBox.style.border = '2px solid #f7b500';
           packageBox.style.boxShadow = '0 2px 8px rgba(247, 181, 0, 0.2)';
           packageBox.style.borderRadius = '12px';
-          console.log(`🎯 Team ${teamIndex}: Applied inline styles to package box`);
+	Logger.debug(`🎯 Team ${teamIndex}: Applied inline styles to package box`);
         }
         
         // Trigger change event for validation
         radio.dispatchEvent(new Event('change', { bubbles: true }));
         
-        console.log(`🎯 Team ${teamIndex}: Selected package ${radio.value}`);
+	Logger.debug(`🎯 Team ${teamIndex}: Selected package ${radio.value}`);
       }
     });
   });
@@ -961,12 +978,12 @@ function setupPackageBoxHandlers(teamIndex) {
  * Initialize Step 2 - Team Information
  */
 async function initStep2() {
-  console.log('🎯 initStep2: Starting team information step');
+	Logger.debug('🎯 initStep2: Starting team information step');
   
   // Load team count from step 1
   const teamCount = sessionStorage.getItem('tn_team_count');
   if (!teamCount) {
-    console.warn('🎯 initStep2: No team count found, redirecting to step 1');
+	Logger.warn('🎯 initStep2: No team count found, redirecting to step 1');
     loadStep(1);
     return;
   }
@@ -1107,7 +1124,7 @@ function createOrganizationForm() {
   // Set up validation for email and phone fields
   setupStep2Validation();
   
-  console.log('🎯 initStep2: Organization form created');
+	Logger.debug('🎯 initStep2: Organization form created');
 }
 
 /**
@@ -1124,7 +1141,7 @@ function setupStep2Validation() {
   setupPhoneValidation('manager2Phone');
   setupPhoneValidation('manager3Phone');
   
-  console.log('🎯 setupStep2Validation: Email and phone validation configured');
+	Logger.debug('🎯 setupStep2Validation: Email and phone validation configured');
 }
 
 /**
@@ -1135,7 +1152,7 @@ function setupStep2Navigation() {
   const backBtn = document.getElementById('backToStep1');
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      console.log('🎯 initStep2: Back button clicked, going to step 1');
+	Logger.debug('🎯 initStep2: Back button clicked, going to step 1');
       clearStepDataFromHere(1); // Clear step 1 and all after
       loadStep(1);
     });
@@ -1145,14 +1162,14 @@ function setupStep2Navigation() {
   const nextBtn = document.getElementById('nextToStep3');
   if (nextBtn) {
     nextBtn.addEventListener('click', () => {
-      console.log('🎯 initStep2: Next button clicked, validating step 2');
+	Logger.debug('🎯 initStep2: Next button clicked, validating step 2');
       
       if (validateStep2()) {
-        console.log('🎯 initStep2: Validation passed, saving data and proceeding to step 3');
+	Logger.debug('🎯 initStep2: Validation passed, saving data and proceeding to step 3');
         saveStep2Data();
         loadStep(3);
       } else {
-        console.log('🎯 initStep2: Validation failed, staying on step 2');
+	Logger.debug('🎯 initStep2: Validation failed, staying on step 2');
       }
     });
   }
@@ -1241,7 +1258,7 @@ function loadTeamData() {
   const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10);
   if (!teamCount) return;
   
-  console.log('🎯 loadTeamData: Loading data for', teamCount, 'teams');
+	Logger.debug('🎯 loadTeamData: Loading data for', teamCount, 'teams');
   
   for (let i = 1; i <= teamCount; i++) {
     const teamName = sessionStorage.getItem(`tn_team_name_${i}`);
@@ -1272,7 +1289,7 @@ function saveTeamData() {
   const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10);
   if (!teamCount) return;
   
-  console.log('🎯 saveTeamData: Saving data for', teamCount, 'teams');
+	Logger.debug('🎯 saveTeamData: Saving data for', teamCount, 'teams');
   
   for (let i = 1; i <= teamCount; i++) {
     const nameEl = document.getElementById(`teamName${i}`);
@@ -1299,7 +1316,7 @@ function saveTeamData() {
  * Initialize Step 3 - Race Day Arrangement
  */
 async function initStep3() {
-  console.log('🎯 initStep3: Starting race day arrangements step');
+	Logger.debug('🎯 initStep3: Starting race day arrangements step');
   
   // Create race day form with database items
   await createRaceDayForm();
@@ -1316,7 +1333,7 @@ async function createRaceDayForm() {
   if (!container) return;
   
   try {
-    console.log('🎯 createRaceDayForm: Loading race day items from database');
+	Logger.debug('🎯 createRaceDayForm: Loading race day items from database');
     
     // Load race day items from database
     const { data: raceDayItems, error } = await sb
@@ -1326,11 +1343,11 @@ async function createRaceDayForm() {
       .order('sort_order');
     
     if (error) {
-      console.error('🎯 createRaceDayForm: Database error:', error);
+	Logger.error('🎯 createRaceDayForm: Database error:', error);
       throw error;
     }
     
-    console.log('🎯 createRaceDayForm: Loaded', raceDayItems?.length || 0, 'race day items');
+	Logger.debug('🎯 createRaceDayForm: Loaded', raceDayItems?.length || 0, 'race day items');
     
     // Group items by category for better organization
     const groupedItems = groupRaceDayItems(raceDayItems || []);
@@ -1378,10 +1395,10 @@ async function createRaceDayForm() {
     // Set up navigation handlers
     setupStep3Navigation();
     
-    console.log('🎯 createRaceDayForm: Race day form created successfully');
+	Logger.debug('🎯 createRaceDayForm: Race day form created successfully');
     
   } catch (error) {
-    console.error('🎯 createRaceDayForm: Error creating form:', error);
+	Logger.error('🎯 createRaceDayForm: Error creating form:', error);
     
     // Fallback to basic form if database fails
     container.innerHTML = `
@@ -1439,7 +1456,7 @@ function setupStep3Navigation() {
   const backBtn = document.getElementById('backToStep2');
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      console.log('🎯 initStep3: Back button clicked, going to step 2');
+	Logger.debug('🎯 initStep3: Back button clicked, going to step 2');
       clearStepDataFromHere(2); // Clear step 2 and all after
       loadStep(2);
     });
@@ -1449,14 +1466,14 @@ function setupStep3Navigation() {
   const nextBtn = document.getElementById('nextToStep4');
   if (nextBtn) {
     nextBtn.addEventListener('click', () => {
-      console.log('🎯 initStep3: Next button clicked, validating step 3');
+	Logger.debug('🎯 initStep3: Next button clicked, validating step 3');
       
       if (validateStep3()) {
-        console.log('🎯 initStep3: Validation passed, saving data and proceeding to step 4');
+	Logger.debug('🎯 initStep3: Validation passed, saving data and proceeding to step 4');
         saveStep3Data();
         loadStep(4);
       } else {
-        console.log('🎯 initStep3: Validation failed, staying on step 3');
+	Logger.debug('🎯 initStep3: Validation failed, staying on step 3');
       }
     });
   }
@@ -1469,12 +1486,12 @@ function loadRaceDayData() {
   try {
     const savedData = sessionStorage.getItem('tn_race_day');
     if (!savedData) {
-      console.log('🎯 loadRaceDayData: No saved race day data found');
+	Logger.debug('🎯 loadRaceDayData: No saved race day data found');
       return;
     }
     
     const raceDayData = JSON.parse(savedData);
-    console.log('🎯 loadRaceDayData: Loading saved data:', raceDayData);
+	Logger.debug('🎯 loadRaceDayData: Loading saved data:', raceDayData);
     
     // Restore values to form inputs
     Object.entries(raceDayData).forEach(([inputId, value]) => {
@@ -1484,10 +1501,10 @@ function loadRaceDayData() {
       }
     });
     
-    console.log('🎯 loadRaceDayData: Race day data restored successfully');
+	Logger.debug('🎯 loadRaceDayData: Race day data restored successfully');
     
   } catch (error) {
-    console.error('🎯 loadRaceDayData: Error loading saved data:', error);
+	Logger.error('🎯 loadRaceDayData: Error loading saved data:', error);
   }
 }
 
@@ -1496,26 +1513,26 @@ function loadRaceDayData() {
  * This is the main practice functionality
  */
 function initStep4() {
-  console.log('🎯 initStep4: Starting step 4 initialization');
+	Logger.debug('🎯 initStep4: Starting step 4 initialization');
   const startTime = performance.now();
   
   // Initialize practice configuration
-  console.log('🎯 initStep4: Initializing practice configuration');
+	Logger.debug('🎯 initStep4: Initializing practice configuration');
   initPracticeConfig();
   
   // Confirm the cloned DOM contains #calendarContainer
   const calendarEl = document.getElementById('calendarContainer');
   if (!calendarEl) {
-    console.error('🎯 initStep4: #calendarContainer not found after mount');
+	Logger.error('🎯 initStep4: #calendarContainer not found after mount');
     return;
   }
-  console.log('🎯 initStep4: #calendarContainer found, proceeding with calendar init');
+	Logger.debug('🎯 initStep4: #calendarContainer found, proceeding with calendar init');
   
   // Set up calendar container
   initCalendarContainer();
   
   // Populate slot preference selects
-  console.log('🎯 initStep4: Populating slot preferences');
+	Logger.debug('🎯 initStep4: Populating slot preferences');
   populateSlotPreferences();
   
   // Set up duplicate prevention
@@ -1538,7 +1555,7 @@ function initStep4() {
   hideCopyFromTeam1Option();
   
   const endTime = performance.now();
-  console.log(`🎯 initStep4: Completed in ${(endTime - startTime).toFixed(2)}ms`);
+	Logger.debug(`🎯 initStep4: Completed in ${(endTime - startTime).toFixed(2)}ms`);
 }
 
 /**
@@ -1564,8 +1581,8 @@ function initPracticeConfig() {
     return slot;
   });
   
-  console.log('🎯 initPracticeConfig: Loaded', practiceSlots.length, 'practice slots');
-  console.log('🎯 initPracticeConfig: Slots:', practiceSlots);
+	Logger.debug('🎯 initPracticeConfig: Loaded', practiceSlots.length, 'practice slots');
+	Logger.debug('🎯 initPracticeConfig: Slots:', practiceSlots);
   
   // Update practice window header
   if (practiceConfig.practice_start_date && practiceConfig.practice_end_date) {
@@ -1580,7 +1597,7 @@ function initPracticeConfig() {
         headerEl.textContent = `🛶 Practice Booking (${startStr}–${endStr})`;
       }
     } catch (e) {
-      console.warn('Invalid practice dates in config:', e);
+	Logger.warn('Invalid practice dates in config:', e);
     }
   }
 }
@@ -1592,19 +1609,19 @@ function initPracticeConfig() {
 function initCalendarContainer() {
   const calendarEl = document.getElementById('calendarContainer');
   if (!calendarEl) { 
-    console.warn('TN: #calendarContainer not found after mount'); 
+	Logger.warn('TN: #calendarContainer not found after mount'); 
     return; 
   }
   
   // Replace double-init guard with step-based check
   if (calendarEl.dataset.initStep === '4') {
-    console.log('TN: calendar already inited for step 4'); 
+	Logger.debug('TN: calendar already inited for step 4'); 
     return;
   }
   
   // Legacy vs fallback
   const hasLegacy = typeof window.initCalendar === 'function';
-  console.log('TN: calendar init path', { hasLegacy });
+	Logger.debug('TN: calendar init path', { hasLegacy });
   
   if (hasLegacy) {
     window.initCalendar();
@@ -1631,11 +1648,11 @@ function initCalendarContainer() {
  * @param {Array} options.allowedWeekdays - Allowed weekdays (1-7, 1=Monday)
  */
 function initTNCalendar(options) {
-  console.log('initTNCalendar: Initializing calendar with options:', options);
+	Logger.debug('initTNCalendar: Initializing calendar with options:', options);
   
   const container = document.querySelector(options.mount);
   if (!container) {
-    console.error('initTNCalendar: Container not found:', options.mount);
+	Logger.error('initTNCalendar: Container not found:', options.mount);
     return;
   }
   
@@ -1649,15 +1666,15 @@ function initTNCalendar(options) {
  */
 function logCalendarState() {
   const el = document.getElementById('calendarContainer');
-  console.log('📅 Calendar State:');
-  console.log('  - Config:', window.__CONFIG?.practice);
-  console.log('  - Container:', el);
-  console.log('  - Initialized:', el?.dataset.initialized);
-  console.log('  - Init Step:', el?.dataset.initStep);
-  console.log('  - Window start:', window.__CONFIG?.practice?.practice_start_date);
-  console.log('  - Window end:', window.__CONFIG?.practice?.practice_end_date);
-  console.log('  - Allowed weekdays:', window.__CONFIG?.practice?.allowed_weekdays);
-  console.log('  - Visible:', !!(el && el.offsetParent), 'Rect:', el?.getBoundingClientRect?.());
+	Logger.debug('📅 Calendar State:');
+	Logger.debug('  - Config:', window.__CONFIG?.practice);
+	Logger.debug('  - Container:', el);
+	Logger.debug('  - Initialized:', el?.dataset.initialized);
+	Logger.debug('  - Init Step:', el?.dataset.initStep);
+	Logger.debug('  - Window start:', window.__CONFIG?.practice?.practice_start_date);
+	Logger.debug('  - Window end:', window.__CONFIG?.practice?.practice_end_date);
+	Logger.debug('  - Allowed weekdays:', window.__CONFIG?.practice?.allowed_weekdays);
+	Logger.debug('  - Visible:', !!(el && el.offsetParent), 'Rect:', el?.getBoundingClientRect?.());
 }
 
 /**
@@ -1673,10 +1690,10 @@ function createTNCalendar(container, options = {}) {
   const allowedWeekdays = options.allowedWeekdays || practiceConfig.allowed_weekdays || [0,1,2,3,4,5,6];
   
   // Guard logs for missing dates
-  if (!startDate) console.warn('TN calendar: windowStart missing from config');
-  if (!endDate) console.warn('TN calendar: windowEnd missing from config');
+  if (!startDate) Logger.warn('TN calendar: windowStart missing from config');
+  if (!endDate) Logger.warn('TN calendar: windowEnd missing from config');
   
-  console.log('createTNCalendar: Using dates:', { startDate, endDate, allowedWeekdays });
+	Logger.debug('createTNCalendar: Using dates:', { startDate, endDate, allowedWeekdays });
   
   // Store constraints globally for use in date validation
   window.__PRACTICE_CONSTRAINTS = {
@@ -1691,44 +1708,44 @@ function createTNCalendar(container, options = {}) {
   const start = startDate ? new Date(startDate) : new Date(currentYear, 0, 1);
   const end = endDate ? new Date(endDate) : new Date(currentYear, 11, 31);
   
-  console.log('createTNCalendar: Generated date range:', { start, end });
+	Logger.debug('createTNCalendar: Generated date range:', { start, end });
   
   container.innerHTML = '';
   
   // Generate months between start and end dates
   const months = generateMonths(start, end);
-  console.log('createTNCalendar: Generated', months.length, 'months');
+	Logger.debug('createTNCalendar: Generated', months.length, 'months');
   
   months.forEach((monthData, index) => {
-    console.log(`createTNCalendar: Creating month ${index + 1}:`, monthData.monthName);
+	Logger.debug(`createTNCalendar: Creating month ${index + 1}:`, monthData.monthName);
     const monthBlock = createMonthBlock(monthData, allowedWeekdays);
     container.appendChild(monthBlock);
   });
   
-  console.log('createTNCalendar: Calendar creation completed. Container children:', container.children.length);
+	Logger.debug('createTNCalendar: Calendar creation completed. Container children:', container.children.length);
   
   // Debug: Count checkboxes in the calendar
   const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-  console.log('createTNCalendar: Found', checkboxes.length, 'checkboxes in calendar');
+	Logger.debug('createTNCalendar: Found', checkboxes.length, 'checkboxes in calendar');
   
   // Debug: Show first few checkboxes
   if (checkboxes.length > 0) {
-    console.log('createTNCalendar: First checkbox:', checkboxes[0]);
-    console.log('createTNCalendar: Checkbox visibility:', window.getComputedStyle(checkboxes[0]).display);
+	Logger.debug('createTNCalendar: First checkbox:', checkboxes[0]);
+	Logger.debug('createTNCalendar: Checkbox visibility:', window.getComputedStyle(checkboxes[0]).display);
   }
   
   // Set up event listeners for calendar interactions
   setupCalendarEventListeners(container);
   
   // Debug: Test if event listeners are working
-  console.log('🎯 createTNCalendar: Setting up debug test for calendar interactions');
+	Logger.debug('🎯 createTNCalendar: Setting up debug test for calendar interactions');
   setTimeout(() => {
     const testCheckbox = container.querySelector('input[type="checkbox"]');
     if (testCheckbox) {
-      console.log('🎯 createTNCalendar: Found test checkbox:', testCheckbox);
-      console.log('🎯 createTNCalendar: Checkbox parent:', testCheckbox.closest('[data-date]'));
+	Logger.debug('🎯 createTNCalendar: Found test checkbox:', testCheckbox);
+	Logger.debug('🎯 createTNCalendar: Checkbox parent:', testCheckbox.closest('[data-date]'));
     } else {
-      console.warn('🎯 createTNCalendar: No checkboxes found in calendar!');
+	Logger.warn('🎯 createTNCalendar: No checkboxes found in calendar!');
     }
   }, 100);
   
@@ -1744,7 +1761,7 @@ function createTNCalendar(container, options = {}) {
   const firstCheckbox = container.querySelector('input[type="checkbox"]');
   if (firstCheckbox) {
     firstCheckbox.addEventListener('click', () => {
-      console.log('🎯 Checkbox clicked! Date:', firstCheckbox.dataset.date, 'Checked:', firstCheckbox.checked);
+	Logger.debug('🎯 Checkbox clicked! Date:', firstCheckbox.dataset.date, 'Checked:', firstCheckbox.checked);
     });
   }
 }
@@ -1842,7 +1859,7 @@ function createMonthBlock(monthData, allowedWeekdays = [1,2,3,4,5,6,0]) {
   
   // Generate days with allowed weekdays
   const days = generateMonthDays(monthData.startDate, monthData.endDate, allowedWeekdays);
-  console.log(`createMonthBlock: Generated ${days.length} days for ${monthData.monthName}`);
+	Logger.debug(`createMonthBlock: Generated ${days.length} days for ${monthData.monthName}`);
   
   days.forEach(day => {
     const dayEl = document.createElement('div');
@@ -1853,11 +1870,11 @@ function createMonthBlock(monthData, allowedWeekdays = [1,2,3,4,5,6,0]) {
     } else {
       if (day.available) {
         dayEl.innerHTML = createDayContent(day);
-        console.log(`createMonthBlock: Created available day ${day.day} with checkbox`);
+	Logger.debug(`createMonthBlock: Created available day ${day.day} with checkbox`);
       } else {
         dayEl.innerHTML = `<span class="day-number">${day.day}</span>`;
         dayEl.className += ' unavailable';
-        console.log(`createMonthBlock: Created unavailable day ${day.day}`);
+	Logger.debug(`createMonthBlock: Created unavailable day ${day.day}`);
       }
     }
     
@@ -1870,7 +1887,7 @@ function createMonthBlock(monthData, allowedWeekdays = [1,2,3,4,5,6,0]) {
   monthBlock.appendChild(toggle);
   monthBlock.appendChild(content);
   
-  console.log(`createMonthBlock: Created month block for ${monthData.monthName} with ${grid.children.length} day elements`);
+	Logger.debug(`createMonthBlock: Created month block for ${monthData.monthName} with ${grid.children.length} day elements`);
   
   return monthBlock;
 }
@@ -1911,7 +1928,7 @@ function createDayContent(day) {
       </select>
     </div>
   `;
-  console.log(`createDayContent: Generated HTML for day ${day.day} (disabled: ${isDisabled}):`, html);
+	Logger.debug(`createDayContent: Generated HTML for day ${day.day} (disabled: ${isDisabled}):`, html);
   return html;
 }
 
@@ -1974,13 +1991,13 @@ function addDateToCurrentTeam(dateStr) {
   // Check if date already exists
   const existingIndex = rows.findIndex(row => row.pref_date === dateStr);
   if (existingIndex >= 0) {
-    console.log(`🎯 addDateToCurrentTeam: Date ${dateStr} already exists for team ${currentTeamKey}`);
+	Logger.debug(`🎯 addDateToCurrentTeam: Date ${dateStr} already exists for team ${currentTeamKey}`);
     return;
   }
   
   // Check max dates limit
   if (rows.length >= (constraints.maxDatesPerTeam || 3)) {
-    console.warn(`🎯 addDateToCurrentTeam: Max dates limit reached for team ${currentTeamKey}`);
+	Logger.warn(`🎯 addDateToCurrentTeam: Max dates limit reached for team ${currentTeamKey}`);
     return;
   }
   
@@ -1994,7 +2011,7 @@ function addDateToCurrentTeam(dateStr) {
   rows.push(newRow);
   writeTeamRows(currentTeamKey, rows);
   
-  console.log(`🎯 addDateToCurrentTeam: Added date ${dateStr} to team ${currentTeamKey}`);
+	Logger.debug(`🎯 addDateToCurrentTeam: Added date ${dateStr} to team ${currentTeamKey}`);
 }
 
 /**
@@ -2007,7 +2024,7 @@ function removeDateFromCurrentTeam(dateStr) {
   const filteredRows = rows.filter(row => row.pref_date !== dateStr);
   writeTeamRows(currentTeamKey, filteredRows);
   
-  console.log(`🎯 removeDateFromCurrentTeam: Removed date ${dateStr} from team ${currentTeamKey}`);
+	Logger.debug(`🎯 removeDateFromCurrentTeam: Removed date ${dateStr} from team ${currentTeamKey}`);
 }
 
 /**
@@ -2632,7 +2649,7 @@ function addCalendarStyles() {
  */
 function populateSlotPreferences() {
   if (!practiceSlots.length) {
-    console.warn('No practice slots available');
+	Logger.warn('No practice slots available');
     return;
   }
   
@@ -2701,10 +2718,10 @@ function populateSlotSelects(slots, selectIds) {
     
     if (savedRank && select.querySelector(`option[value="${savedRank.slot_code}"]`)) {
       select.value = savedRank.slot_code;
-      console.log(`🎯 populateSlotSelects: Restored from saved ranks ${savedRank.slot_code} for ${selectId}`);
+	Logger.debug(`🎯 populateSlotSelects: Restored from saved ranks ${savedRank.slot_code} for ${selectId}`);
     } else if (currentValue && select.querySelector(`option[value="${currentValue}"]`)) {
       select.value = currentValue;
-      console.log(`🎯 populateSlotSelects: Restored selection ${currentValue} for ${selectId}`);
+	Logger.debug(`🎯 populateSlotSelects: Restored selection ${currentValue} for ${selectId}`);
     }
   });
 }
@@ -2912,7 +2929,7 @@ function setupSlotPreferenceHandlers() {
     const select = document.getElementById(selectId);
     if (select) {
       select.addEventListener('change', () => {
-        console.log(`🎯 Slot preference changed: ${selectId} = ${select.value}`);
+	Logger.debug(`🎯 Slot preference changed: ${selectId} = ${select.value}`);
         
         // Handle ranking validation and persistence
         handleSlotRankingChange();
@@ -2948,7 +2965,7 @@ function handleSlotRankingChange() {
     
     // Persist the ranks
     writeTeamRanks(currentTeamKey, ranks);
-    console.log(`🎯 handleSlotRankingChange: Saved ranks for team ${currentTeamKey}:`, ranks);
+	Logger.debug(`🎯 handleSlotRankingChange: Saved ranks for team ${currentTeamKey}:`, ranks);
   } else {
     // Show error and revert
     showSlotRankingError(validationResult.errorMessage);
@@ -3080,14 +3097,14 @@ function revertSlotRankingToLastValid() {
  * Fill all steps with complete data for single team and go to summary
  */
 function fillSingleTeamForSubmission() {
-  console.log('🎯 fillSingleTeamForSubmission: Creating complete data for all steps (1 team)');
+	Logger.debug('🎯 fillSingleTeamForSubmission: Creating complete data for all steps (1 team)');
   
   // Step 1: Set team count to 1
   sessionStorage.setItem('tn_team_count', '1');
   sessionStorage.setItem('tn_opt1_count', '1');
   sessionStorage.setItem('tn_opt2_count', '0');
   sessionStorage.setItem('tn_race_category', 'mixed_open');
-  console.log('🎯 Step 1: Set team count to 1');
+	Logger.debug('🎯 Step 1: Set team count to 1');
   
   // Step 2: Fill team info and contact data with unique random name
   const timestamp = Date.now();
@@ -3108,7 +3125,7 @@ function fillSingleTeamForSubmission() {
   sessionStorage.setItem('tn_manager2_name', 'Jane Smith');
   sessionStorage.setItem('tn_manager2_phone', '+85292345678');
   sessionStorage.setItem('tn_manager2_email', 'jane@test.com');
-  console.log('🎯 Step 2: Team info, contact data, and managers filled');
+	Logger.debug('🎯 Step 2: Team info, contact data, and managers filled');
   
   // Step 3: Fill race day data
   const raceDayData = {
@@ -3121,7 +3138,7 @@ function fillSingleTeamForSubmission() {
     speedBoatNo: 'SB001'
   };
   sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
-  console.log('🎯 Step 3: Race day data filled');
+	Logger.debug('🎯 Step 3: Race day data filled');
   
   // Step 4: Fill practice data for team 1 with 12 hours minimum (weekdays after 10/27/2025)
   const practiceRows = [
@@ -3146,35 +3163,35 @@ function fillSingleTeamForSubmission() {
   // Fill practice data for team 1
   writeTeamRows('t1', practiceRows);
   writeTeamRanks('t1', slotRanks);
-  console.log('🎯 Step 4: Practice data filled for team 1');
+	Logger.debug('🎯 Step 4: Practice data filled for team 1');
   
   // Navigate to step 5 (summary) only if wizard is initialized
   if (wizardMount) {
     loadStep(5);
   } else {
-    console.log('🎯 Wizard not initialized, skipping navigation (data filled in sessionStorage)');
+	Logger.debug('🎯 Wizard not initialized, skipping navigation (data filled in sessionStorage)');
   }
   
-  console.log('🎯 fillSingleTeamForSubmission: Complete data created for all steps');
-  console.log('🎯 Ready for submission testing with 1 team!');
-  console.log('🎯 Available debug functions:');
-  console.log('  - window.__DBG_TN.fillSingleTeam() - Fill all steps with single team');
-  console.log('  - window.__DBG_TN.clearStep5() - Clear all data');
-  console.log('  - window.submitTNForm() - Submit the form');
+	Logger.debug('🎯 fillSingleTeamForSubmission: Complete data created for all steps');
+	Logger.debug('🎯 Ready for submission testing with 1 team!');
+	Logger.debug('🎯 Available debug functions:');
+	Logger.debug('  - window.__DBG_TN.fillSingleTeam() - Fill all steps with single team');
+	Logger.debug('  - window.__DBG_TN.clearStep5() - Clear all data');
+	Logger.debug('  - window.submitTNForm() - Submit the form');
 }
 
 /**
  * Fill all steps with complete data for multiple teams (3 teams)
  */
 function fillMultipleTeamsForSubmission() {
-  console.log('🎯 fillMultipleTeamsForSubmission: Creating complete data for all steps (3 teams)');
+	Logger.debug('🎯 fillMultipleTeamsForSubmission: Creating complete data for all steps (3 teams)');
   
   // Step 1: Set team count to 3
   sessionStorage.setItem('tn_team_count', '3');
   sessionStorage.setItem('tn_opt1_count', '2');
   sessionStorage.setItem('tn_opt2_count', '1');
   sessionStorage.setItem('tn_race_category', 'mixed_open');
-  console.log('🎯 Step 1: Set team count to 3 (2 opt1, 1 opt2)');
+	Logger.debug('🎯 Step 1: Set team count to 3 (2 opt1, 1 opt2)');
   
   // Step 2: Fill team info and contact data with unique random names
   const timestamp = Date.now();
@@ -3205,7 +3222,7 @@ function fillMultipleTeamsForSubmission() {
   sessionStorage.setItem('tn_manager2_name', 'Jane Smith');
   sessionStorage.setItem('tn_manager2_phone', '+85292345678');
   sessionStorage.setItem('tn_manager2_email', 'jane@test.com');
-  console.log('🎯 Step 2: Team info, contact data, and managers filled');
+	Logger.debug('🎯 Step 2: Team info, contact data, and managers filled');
   
   // Step 3: Fill race day data
   const raceDayData = {
@@ -3218,7 +3235,7 @@ function fillMultipleTeamsForSubmission() {
     speedBoatNo: 'SB001'
   };
   sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
-  console.log('🎯 Step 3: Race day data filled');
+	Logger.debug('🎯 Step 3: Race day data filled');
   
   // Step 4: Fill practice data for all teams with 12 hours minimum (weekdays after 10/27/2025)
   const practiceRows = [
@@ -3247,21 +3264,21 @@ function fillMultipleTeamsForSubmission() {
   writeTeamRanks('t2', slotRanks);
   writeTeamRows('t3', practiceRows);
   writeTeamRanks('t3', slotRanks);
-  console.log('🎯 Step 4: Practice data filled for all 3 teams');
+	Logger.debug('🎯 Step 4: Practice data filled for all 3 teams');
   
   // Navigate to step 5 (summary) only if wizard is initialized
   if (wizardMount) {
     loadStep(5);
   } else {
-    console.log('🎯 Wizard not initialized, skipping navigation (data filled in sessionStorage)');
+	Logger.debug('🎯 Wizard not initialized, skipping navigation (data filled in sessionStorage)');
   }
   
-  console.log('🎯 fillMultipleTeamsForSubmission: Complete data created for all steps');
-  console.log('🎯 Ready for submission testing with 3 teams!');
-  console.log('🎯 Available debug functions:');
-  console.log('  - window.__DBG_TN.fillMultipleTeams() - Fill all steps with multiple teams');
-  console.log('  - window.__DBG_TN.clearStep5() - Clear all data');
-  console.log('  - window.submitTNForm() - Submit the form');
+	Logger.debug('🎯 fillMultipleTeamsForSubmission: Complete data created for all steps');
+	Logger.debug('🎯 Ready for submission testing with 3 teams!');
+	Logger.debug('🎯 Available debug functions:');
+	Logger.debug('  - window.__DBG_TN.fillMultipleTeams() - Fill all steps with multiple teams');
+	Logger.debug('  - window.__DBG_TN.clearStep5() - Clear all data');
+	Logger.debug('  - window.submitTNForm() - Submit the form');
 }
 
 /**
@@ -3269,7 +3286,7 @@ function fillMultipleTeamsForSubmission() {
  * Usage in browser console: testQuickSubmit()
  */
 async function testQuickSubmit() {
-  console.log('🚀 testQuickSubmit: Filling form with 3 teams...');
+	Logger.debug('🚀 testQuickSubmit: Filling form with 3 teams...');
   
   try {
     // Fill all form data
@@ -3281,18 +3298,18 @@ async function testQuickSubmit() {
     // Navigate to summary page if wizard is initialized
     if (wizardMount) {
       await loadStep(5);
-      console.log('✅ testQuickSubmit: Form filled! Now on Step 5 (Summary). Click Submit when ready.');
+	Logger.debug('✅ testQuickSubmit: Form filled! Now on Step 5 (Summary). Click Submit when ready.');
     } else {
-      console.log('✅ testQuickSubmit: Form filled! Navigate to the TN registration form to see it.');
+	Logger.debug('✅ testQuickSubmit: Form filled! Navigate to the TN registration form to see it.');
     }
     
-    console.log('📝 Team names generated:', {
+	Logger.debug('📝 Team names generated:', {
       team1: sessionStorage.getItem('tn_team_name_1'),
       team2: sessionStorage.getItem('tn_team_name_2'),
       team3: sessionStorage.getItem('tn_team_name_3')
     });
   } catch (error) {
-    console.error('❌ testQuickSubmit failed:', error);
+	Logger.error('❌ testQuickSubmit failed:', error);
     throw error;
   }
 }
@@ -3302,7 +3319,7 @@ async function testQuickSubmit() {
  * Usage in browser console: testQuickSubmitSingle()
  */
 async function testQuickSubmitSingle() {
-  console.log('🚀 testQuickSubmitSingle: Filling form with 1 team...');
+	Logger.debug('🚀 testQuickSubmitSingle: Filling form with 1 team...');
   
   try {
     // Fill all form data for single team
@@ -3314,14 +3331,14 @@ async function testQuickSubmitSingle() {
     // Navigate to summary page if wizard is initialized
     if (wizardMount) {
       await loadStep(5);
-      console.log('✅ testQuickSubmitSingle: Form filled! Now on Step 5 (Summary). Click Submit when ready.');
+	Logger.debug('✅ testQuickSubmitSingle: Form filled! Now on Step 5 (Summary). Click Submit when ready.');
     } else {
-      console.log('✅ testQuickSubmitSingle: Form filled! Navigate to the TN registration form to see it.');
+	Logger.debug('✅ testQuickSubmitSingle: Form filled! Navigate to the TN registration form to see it.');
     }
     
-    console.log('📝 Team name generated:', sessionStorage.getItem('tn_team_name_1'));
+	Logger.debug('📝 Team name generated:', sessionStorage.getItem('tn_team_name_1'));
   } catch (error) {
-    console.error('❌ testQuickSubmitSingle failed:', error);
+	Logger.error('❌ testQuickSubmitSingle failed:', error);
     throw error;
   }
 }
@@ -3330,7 +3347,7 @@ async function testQuickSubmitSingle() {
  * Test submission with current form data (for debugging)
  */
 async function testSubmissionWithCurrentData() {
-  console.log('🎯 testSubmissionWithCurrentData: Testing submission with current form data');
+	Logger.debug('🎯 testSubmissionWithCurrentData: Testing submission with current form data');
   
   // Get the Supabase key for direct fetch
   const supabaseKey = window.ENV?.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY';
@@ -3353,7 +3370,7 @@ async function testSubmissionWithCurrentData() {
       t.name.startsWith('Test Team') ? `Test Team ${Date.now()}_${idx}` : t.name
     );
     
-    console.log('🎯 Generated unique team names:', uniqueTeamNames);
+	Logger.debug('🎯 Generated unique team names:', uniqueTeamNames);
     
         const payload = {
           client_tx_id: 'test_debug_' + Date.now(),
@@ -3382,21 +3399,21 @@ async function testSubmissionWithCurrentData() {
       practice: practice
     };
     
-    console.log('🎯 testSubmissionWithCurrentData: Payload:', JSON.stringify(payload, null, 2));
+	Logger.debug('🎯 testSubmissionWithCurrentData: Payload:', JSON.stringify(payload, null, 2));
     
     // Debug practice data collection
-    console.log('🎯 Debug practice data:');
-    console.log('  - practice object:', practice);
-    console.log('  - team count from state:', window.state?.teams?.length);
-    console.log('  - team count from sessionStorage:', sessionStorage.getItem('tn_team_count'));
-    console.log('  - readTeamRows function:', typeof readTeamRows);
-    console.log('  - readTeamRanks function:', typeof readTeamRanks);
+	Logger.debug('🎯 Debug practice data:');
+	Logger.debug('  - practice object:', practice);
+	Logger.debug('  - team count from state:', window.state?.teams?.length);
+	Logger.debug('  - team count from sessionStorage:', sessionStorage.getItem('tn_team_count'));
+	Logger.debug('  - readTeamRows function:', typeof readTeamRows);
+	Logger.debug('  - readTeamRanks function:', typeof readTeamRanks);
     
     // Check what's in sessionStorage for practice data
     const practiceKeys = Object.keys(sessionStorage).filter(key => key.startsWith('tn_practice_') || key.startsWith('tn_slot_ranks_'));
-    console.log('  - practice keys in sessionStorage:', practiceKeys);
+	Logger.debug('  - practice keys in sessionStorage:', practiceKeys);
     practiceKeys.forEach(key => {
-      console.log(`  - ${key}:`, sessionStorage.getItem(key));
+	Logger.debug(`  - ${key}:`, sessionStorage.getItem(key));
     });
     
     // Test the Edge Function
@@ -3406,80 +3423,63 @@ async function testSubmissionWithCurrentData() {
       });
       
         if (error) {
-          console.error('❌ testSubmissionWithCurrentData: Edge Function error:', error);
-          console.error('❌ Error message:', error.message);
-          console.error('❌ Error context:', error.context);
+	Logger.error('❌ testSubmissionWithCurrentData: Edge Function error:', error);
+	Logger.error('❌ Error message:', error.message);
+	Logger.error('❌ Error context:', error.context);
           
-          // Make a direct fetch to get the actual error details
+          // Make a direct fetch to get the actual error details (debug only)
           try {
-            const response = await fetch('https://khqarcvszewerjckmtpg.supabase.co/functions/v1/submit_registration', {
+            const debugResult = await fetchWithErrorHandling('https://khqarcvszewerjckmtpg.supabase.co/functions/v1/submit_registration', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${supabaseKey}`,
                 'apikey': supabaseKey
               },
-              body: JSON.stringify(payload)
+              body: JSON.stringify(payload),
+              context: 'debug_direct_fetch',
+              skipRetry: true // Skip retry for debug calls
             });
             
-            const responseText = await response.text();
-            console.error('❌ Direct fetch response status:', response.status);
-            console.error('❌ Direct fetch response body:', responseText);
-            
-            // Try to parse as JSON
-            try {
-              const errorData = JSON.parse(responseText);
-              console.error('❌ Parsed error data:', errorData);
-            } catch (parseError) {
-              console.error('❌ Error response is not valid JSON');
-            }
+            Logger.error('❌ Direct fetch result:', debugResult);
           } catch (fetchError) {
-            console.error('❌ Direct fetch failed:', fetchError);
+            Logger.error('❌ Direct fetch failed:', fetchError);
           }
         } else {
-          console.log('✅ testSubmissionWithCurrentData: Success!', data);
+	Logger.debug('✅ testSubmissionWithCurrentData: Success!', data);
         }
       } catch (e) {
-        console.error('❌ testSubmissionWithCurrentData: Exception during invoke:', e);
+	Logger.error('❌ testSubmissionWithCurrentData: Exception during invoke:', e);
         
-        // Try to make a direct fetch to get more details
+        // Try to make a direct fetch to get more details (debug only)
         try {
-          const response = await fetch('https://khqarcvszewerjckmtpg.supabase.co/functions/v1/submit_registration', {
+          const debugResult = await fetchWithErrorHandling('https://khqarcvszewerjckmtpg.supabase.co/functions/v1/submit_registration', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${supabaseKey}`,
               'apikey': supabaseKey
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            context: 'debug_direct_fetch_exception',
+            skipRetry: true // Skip retry for debug calls
           });
           
-          const responseText = await response.text();
-          console.error('❌ Direct fetch response status:', response.status);
-          console.error('❌ Direct fetch response body:', responseText);
-          
-          // Try to parse as JSON
-          try {
-            const errorData = JSON.parse(responseText);
-            console.error('❌ Parsed error data:', errorData);
-          } catch (parseError) {
-            console.error('❌ Error response is not valid JSON');
-          }
+          Logger.error('❌ Direct fetch result:', debugResult);
         } catch (fetchError) {
-          console.error('❌ Direct fetch failed:', fetchError);
+          Logger.error('❌ Direct fetch failed:', fetchError);
         }
       }
-    
-  } catch (e) {
-    console.error('❌ testSubmissionWithCurrentData: Exception:', e);
-  }
+    } catch (e) {
+      Logger.error('❌ testSubmissionWithCurrentData: Exception:', e);
+    }
 }
 
 /**
  * Generate fresh client_tx_id for testing
  */
 function generateFreshClientTxId() {
-  console.log('🔄 generateFreshClientTxId: Generating fresh client_tx_id');
+	Logger.debug('🔄 generateFreshClientTxId: Generating fresh client_tx_id');
   
   // Generate a new UUID
   const newId = (self.crypto?.randomUUID && self.crypto.randomUUID()) || 
@@ -3488,8 +3488,8 @@ function generateFreshClientTxId() {
   // Store it in localStorage
   localStorage.setItem('raceApp:client_tx_id', newId);
   
-  console.log('✅ Fresh client_tx_id generated:', newId);
-  console.log('✅ Stored in localStorage: raceApp:client_tx_id');
+	Logger.debug('✅ Fresh client_tx_id generated:', newId);
+	Logger.debug('✅ Stored in localStorage: raceApp:client_tx_id');
   
   return newId;
 }
@@ -3498,7 +3498,7 @@ function generateFreshClientTxId() {
  * Clear step 4 data for testing
  */
 function clearStep4Data() {
-  console.log('🎯 clearStep4: Clearing all step 4 data');
+	Logger.debug('🎯 clearStep4: Clearing all step 4 data');
   
   // Clear sessionStorage
   const keys = Object.keys(sessionStorage);
@@ -3524,14 +3524,14 @@ function clearStep4Data() {
     }
   });
   
-  console.log('🎯 clearStep4: All step 4 data cleared');
+	Logger.debug('🎯 clearStep4: All step 4 data cleared');
 };
 
 /**
  * Clear all application data
  */
 function clearAllData() {
-  console.log('🎯 clearAllData: Clearing all application data');
+	Logger.debug('🎯 clearAllData: Clearing all application data');
   
   // Clear all sessionStorage keys that start with 'tn_'
   const keys = Object.keys(sessionStorage);
@@ -3541,24 +3541,24 @@ function clearAllData() {
     }
   });
   
-  console.log('🎯 clearAllData: All application data cleared');
+	Logger.debug('🎯 clearAllData: All application data cleared');
 }
 
 /**
  * Start fresh - clear all data and reload step 1
  */
 function startFresh() {
-  console.log('🎯 startFresh: Starting fresh form');
+	Logger.debug('🎯 startFresh: Starting fresh form');
   clearAllData();
   loadStep(1);
-  console.log('🎯 startFresh: Form reset to step 1');
+	Logger.debug('🎯 startFresh: Form reset to step 1');
 }
 
 /**
  * Preview Step 5 with comprehensive sample data
  */
 function previewStep5WithSampleData() {
-  console.log('🎯 previewStep5WithSampleData: Creating comprehensive sample data for step 5 preview');
+	Logger.debug('🎯 previewStep5WithSampleData: Creating comprehensive sample data for step 5 preview');
   
   // 1. Basic organization info
   sessionStorage.setItem('tn_org_name', 'Hong Kong Dragon Boat Association');
@@ -3642,30 +3642,30 @@ function previewStep5WithSampleData() {
   // 5. Navigate to step 5
   loadStep(5);
   
-  console.log('🎯 previewStep5WithSampleData: Sample data created and step 5 loaded');
-  console.log('🎯 Available debug functions:');
-  console.log('  - window.__DBG_TN.previewStep5() - Load step 5 with sample data');
-  console.log('  - window.__DBG_TN.clearStep5() - Clear all step 5 data');
+	Logger.debug('🎯 previewStep5WithSampleData: Sample data created and step 5 loaded');
+	Logger.debug('🎯 Available debug functions:');
+	Logger.debug('  - window.__DBG_TN.previewStep5() - Load step 5 with sample data');
+	Logger.debug('  - window.__DBG_TN.clearStep5() - Clear all step 5 data');
 }
 
 /**
  * Test team switching functionality
  */
 function testTeamSwitchFunction() {
-  console.log('🎯 testTeamSwitch: Testing team switching');
+	Logger.debug('🎯 testTeamSwitch: Testing team switching');
   
   const teamSelect = document.getElementById('teamSelect');
   if (teamSelect) {
     // Switch to Team 2
     teamSelect.value = '1';
     teamSelect.dispatchEvent(new Event('change'));
-    console.log('🎯 testTeamSwitch: Switched to Team 2');
+	Logger.debug('🎯 testTeamSwitch: Switched to Team 2');
     
     setTimeout(() => {
       // Switch back to Team 1
       teamSelect.value = '0';
       teamSelect.dispatchEvent(new Event('change'));
-      console.log('🎯 testTeamSwitch: Switched back to Team 1');
+	Logger.debug('🎯 testTeamSwitch: Switched back to Team 1');
     }, 2000);
   }
 };
@@ -3674,14 +3674,14 @@ function testTeamSwitchFunction() {
  * Test copy button functionality
  */
 function testCopyButton() {
-  console.log('🎯 testCopyButton: Testing copy button');
+	Logger.debug('🎯 testCopyButton: Testing copy button');
   
   const copyBtn = document.getElementById('copyFromTeam1Btn');
   if (copyBtn) {
-    console.log('🎯 testCopyButton: Copy button found, testing click');
+	Logger.debug('🎯 testCopyButton: Copy button found, testing click');
     copyBtn.click();
   } else {
-    console.warn('🎯 testCopyButton: Copy button not found!');
+	Logger.warn('🎯 testCopyButton: Copy button not found!');
   }
 };
 
@@ -3689,36 +3689,36 @@ function testCopyButton() {
  * Test calendar data collection
  */
 function testCalendarDataCollection() {
-  console.log('🎯 testCalendarData: Testing calendar data collection');
+	Logger.debug('🎯 testCalendarData: Testing calendar data collection');
   
   const calendarContainer = document.getElementById('calendarContainer');
   if (!calendarContainer) {
-    console.warn('🎯 testCalendarData: No calendar container found!');
+	Logger.warn('🎯 testCalendarData: No calendar container found!');
     return;
   }
   
-  console.log('🎯 testCalendarData: Calendar container found');
+	Logger.debug('🎯 testCalendarData: Calendar container found');
   
   // Check for date elements
   const dateElements = calendarContainer.querySelectorAll('[data-date]');
-  console.log(`🎯 testCalendarData: Found ${dateElements.length} date elements`);
+	Logger.debug(`🎯 testCalendarData: Found ${dateElements.length} date elements`);
   
   // Check for checkboxes
   const checkboxes = calendarContainer.querySelectorAll('input[type="checkbox"]');
-  console.log(`🎯 testCalendarData: Found ${checkboxes.length} checkboxes`);
+	Logger.debug(`🎯 testCalendarData: Found ${checkboxes.length} checkboxes`);
   
   // Check for checked checkboxes
   const checkedBoxes = calendarContainer.querySelectorAll('input[type="checkbox"]:checked');
-  console.log(`🎯 testCalendarData: Found ${checkedBoxes.length} checked checkboxes`);
+	Logger.debug(`🎯 testCalendarData: Found ${checkedBoxes.length} checked checkboxes`);
   
   // Test data collection
   const collectedDates = getCurrentTeamDates();
-  console.log('🎯 testCalendarData: Collected dates:', collectedDates);
+	Logger.debug('🎯 testCalendarData: Collected dates:', collectedDates);
   
   // Test current team data
   const currentTeamIndex = getCurrentTeamIndex();
   const currentTeamData = getTeamPracticeData(currentTeamIndex);
-  console.log(`🎯 testCalendarData: Current team ${currentTeamIndex} data:`, currentTeamData);
+	Logger.debug(`🎯 testCalendarData: Current team ${currentTeamIndex} data:`, currentTeamData);
 };
 
 /**
@@ -3729,7 +3729,7 @@ function setupStep4Navigation() {
   const backBtn = document.getElementById('backBtn');
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      console.log('🎯 initStep4: Back button clicked, going to step 3');
+	Logger.debug('🎯 initStep4: Back button clicked, going to step 3');
       clearStepDataFromHere(3); // Clear step 3 and all after
       loadStep(3);
     });
@@ -3739,14 +3739,14 @@ function setupStep4Navigation() {
   const nextBtn = document.getElementById('nextBtn');
   if (nextBtn) {
     nextBtn.addEventListener('click', () => {
-      console.log('🎯 initStep4: Next button clicked, validating step 4');
+	Logger.debug('🎯 initStep4: Next button clicked, validating step 4');
       
       if (validateStep4()) {
-        console.log('🎯 initStep4: Validation passed, saving data and proceeding to step 5');
+	Logger.debug('🎯 initStep4: Validation passed, saving data and proceeding to step 5');
         saveStep4Data();
         loadStep(5);
       } else {
-        console.log('🎯 initStep4: Validation failed, staying on step 4');
+	Logger.debug('🎯 initStep4: Validation failed, staying on step 4');
       }
     });
   }
@@ -3756,11 +3756,11 @@ function setupStep4Navigation() {
  * Set up copy from Team 1 button
  */
 function setupCopyFromTeam1Button() {
-  console.log('🎯 setupCopyFromTeam1Button: Setting up copy button');
+	Logger.debug('🎯 setupCopyFromTeam1Button: Setting up copy button');
   const copyBtn = document.getElementById('copyFromTeam1Btn');
   
   if (copyBtn) {
-    console.log('🎯 setupCopyFromTeam1Button: Copy button found, adding event listener');
+	Logger.debug('🎯 setupCopyFromTeam1Button: Copy button found, adding event listener');
     
     // Remove any existing event listeners
     copyBtn.removeEventListener('click', handleCopyFromTeam1);
@@ -3768,9 +3768,9 @@ function setupCopyFromTeam1Button() {
     // Add new event listener
     copyBtn.addEventListener('click', handleCopyFromTeam1);
     
-    console.log('🎯 setupCopyFromTeam1Button: Event listener added successfully');
+	Logger.debug('🎯 setupCopyFromTeam1Button: Event listener added successfully');
   } else {
-    console.warn('🎯 setupCopyFromTeam1Button: Copy button not found!');
+	Logger.warn('🎯 setupCopyFromTeam1Button: Copy button not found!');
   }
 }
 
@@ -3806,17 +3806,17 @@ function copyPractice(fromKey, toKey, mode, cfg) {
  * Handle copy from Team 1 button click
  */
 function handleCopyFromTeam1() {
-  console.log('🎯 handleCopyFromTeam1: Copy button clicked!');
+	Logger.debug('🎯 handleCopyFromTeam1: Copy button clicked!');
   
   const currentTeamIndex = getCurrentTeamIndex();
-  console.log(`🎯 handleCopyFromTeam1: Current team index: ${currentTeamIndex}`);
+	Logger.debug(`🎯 handleCopyFromTeam1: Current team index: ${currentTeamIndex}`);
   
   if (currentTeamIndex === 0) {
-    console.log('🎯 handleCopyFromTeam1: Already on Team 1, nothing to copy');
+	Logger.debug('🎯 handleCopyFromTeam1: Already on Team 1, nothing to copy');
     return;
   }
   
-  console.log(`🎯 handleCopyFromTeam1: Copying Team 1 data to Team ${currentTeamIndex + 1}`);
+	Logger.debug(`🎯 handleCopyFromTeam1: Copying Team 1 data to Team ${currentTeamIndex + 1}`);
   
   const currentIdx = getCurrentTeamIndex(); // 0-based
   const fromKey = 't1';
@@ -3828,9 +3828,9 @@ function handleCopyFromTeam1() {
   updateCalendarForTeam(currentIdx);
   updateSlotPreferencesForTeam(currentIdx);
   updatePracticeSummary(); // Update the practice summary box
-  console.log(`🎯 Copied ${srcRows.length} rows & ${srcRanks.length||0} ranks from ${fromKey} → ${toKey}`);
+	Logger.debug(`🎯 Copied ${srcRows.length} rows & ${srcRanks.length||0} ranks from ${fromKey} → ${toKey}`);
   
-  console.log(`🎯 handleCopyFromTeam1: Copied Team 1 data to Team ${currentTeamIndex + 1}`);
+	Logger.debug(`🎯 handleCopyFromTeam1: Copied Team 1 data to Team ${currentTeamIndex + 1}`);
 }
 
 /**
@@ -3860,7 +3860,7 @@ function getTeamPracticeData(teamIndex) {
 function saveTeamPracticeData(teamIndex, data) {
   const teamKey = `t${teamIndex + 1}`;
   writeTeamRows(teamKey, [data]);
-  console.log(`🎯 saveTeamPracticeData: Saved data for team ${teamIndex}:`, data);
+	Logger.debug(`🎯 saveTeamPracticeData: Saved data for team ${teamIndex}:`, data);
 }
 
 /**
@@ -3886,7 +3886,7 @@ function saveCurrentTeamPracticeData() {
     }
   });
   writeTeamRows(currentTeamKey, rows);
-  console.log(`🎯 saveCurrentTeamPracticeData: Saved ${rows.length} rows for ${currentTeamKey}`);
+	Logger.debug(`🎯 saveCurrentTeamPracticeData: Saved ${rows.length} rows for ${currentTeamKey}`);
 }
 
 /**
@@ -3959,7 +3959,7 @@ function validatePracticeRequired() {
  * Set up event listeners for calendar interactions
  */
 function setupCalendarEventListeners(container) {
-  console.log('🎯 setupCalendarEventListeners: Setting up calendar event listeners');
+	Logger.debug('🎯 setupCalendarEventListeners: Setting up calendar event listeners');
   
   // Use event delegation for checkboxes and dropdowns
   container.addEventListener('change', (event) => {
@@ -4011,7 +4011,7 @@ function setupCalendarEventListeners(container) {
   container.addEventListener('click', (event) => {
     const dateElement = event.target.closest('[data-date]');
     if (dateElement) {
-      console.log('🎯 Calendar date element clicked:', dateElement.getAttribute('data-date'));
+	Logger.debug('🎯 Calendar date element clicked:', dateElement.getAttribute('data-date'));
       // Small delay to allow checkbox state to update
       setTimeout(() => {
         saveCurrentTeamPracticeData();
@@ -4020,18 +4020,18 @@ function setupCalendarEventListeners(container) {
     }
   });
   
-  console.log('🎯 setupCalendarEventListeners: Event listeners set up successfully');
+	Logger.debug('🎯 setupCalendarEventListeners: Event listeners set up successfully');
 }
 
 /**
  * Get current team's selected dates from calendar
  */
 function getCurrentTeamDates() {
-  console.log('🎯 getCurrentTeamDates: Collecting selected dates from calendar');
+	Logger.debug('🎯 getCurrentTeamDates: Collecting selected dates from calendar');
   
   const calendarContainer = document.getElementById('calendarContainer');
   if (!calendarContainer) {
-    console.log('🎯 getCurrentTeamDates: No calendar container found');
+	Logger.debug('🎯 getCurrentTeamDates: No calendar container found');
     return [];
   }
   
@@ -4039,10 +4039,10 @@ function getCurrentTeamDates() {
   
   // Find all checkboxes with data-date attributes
   const checkboxes = calendarContainer.querySelectorAll('input[type="checkbox"][data-date]');
-  console.log(`🎯 getCurrentTeamDates: Found ${checkboxes.length} checkboxes with data-date`);
+	Logger.debug(`🎯 getCurrentTeamDates: Found ${checkboxes.length} checkboxes with data-date`);
   
   checkboxes.forEach((checkbox, index) => {
-    console.log(`🎯 getCurrentTeamDates: Processing checkbox ${index}:`, {
+	Logger.debug(`🎯 getCurrentTeamDates: Processing checkbox ${index}:`, {
       isChecked: checkbox.checked,
       date: checkbox.getAttribute('data-date')
     });
@@ -4060,7 +4060,7 @@ function getCurrentTeamDates() {
       const hours = durationSelect ? parseInt(durationSelect.value, 10) || 0 : 0;
       const helpers = helperSelect ? helperSelect.value : '';
       
-      console.log(`🎯 getCurrentTeamDates: Processing date ${date}:`, {
+	Logger.debug(`🎯 getCurrentTeamDates: Processing date ${date}:`, {
         checkbox: checkbox.checked,
         durationSelect: durationSelect,
         helperSelect: helperSelect,
@@ -4076,14 +4076,14 @@ function getCurrentTeamDates() {
           helpers: helpers
         });
         
-        console.log(`🎯 getCurrentTeamDates: Found selected date: ${date}, ${hours}h, ${helpers}`);
+	Logger.debug(`🎯 getCurrentTeamDates: Found selected date: ${date}, ${hours}h, ${helpers}`);
       } else {
-        console.log(`🎯 getCurrentTeamDates: Skipping date ${date} - hours: ${hours}, helpers: ${helpers}`);
+	Logger.debug(`🎯 getCurrentTeamDates: Skipping date ${date} - hours: ${hours}, helpers: ${helpers}`);
       }
     }
   });
   
-  console.log(`🎯 getCurrentTeamDates: Collected ${selectedDates.length} selected dates`);
+	Logger.debug(`🎯 getCurrentTeamDates: Collected ${selectedDates.length} selected dates`);
   return selectedDates;
 }
 
@@ -4092,7 +4092,7 @@ function getCurrentTeamDates() {
  */
 function loadTeamPracticeData(teamIndex) {
   const teamData = getTeamPracticeData(teamIndex);
-  console.log(`🎯 loadTeamPracticeData: Loading data for team ${teamIndex}:`, teamData);
+	Logger.debug(`🎯 loadTeamPracticeData: Loading data for team ${teamIndex}:`, teamData);
   
   // This function is called from team switching handler
   // The actual UI updates are handled by updateCalendarForTeam and updateSlotPreferencesForTeam
@@ -4125,7 +4125,7 @@ function updateCalendarForTeam(teamIndex) {
  */
 function updateSlotPreferencesForTeam(teamIndex) {
   const teamKey = `t${teamIndex + 1}`;
-  console.log(`🎯 updateSlotPreferencesForTeam: loading ranks for ${teamKey}`);
+	Logger.debug(`🎯 updateSlotPreferencesForTeam: loading ranks for ${teamKey}`);
   
   // 1) Ensure options exist (in case switching teams before init)
   if (typeof populateSlotPreferences === 'function') {
@@ -4145,7 +4145,7 @@ function updateSlotPreferencesForTeam(teamIndex) {
 
   // 3) Read ranks for THIS team
   const ranks = (typeof readTeamRanks === 'function' ? readTeamRanks(teamKey) : []) || [];
-  console.log(`🎯 updateSlotPreferencesForTeam: Found ${ranks.length} ranks for ${teamKey}:`, ranks);
+	Logger.debug(`🎯 updateSlotPreferencesForTeam: Found ${ranks.length} ranks for ${teamKey}:`, ranks);
   if (!Array.isArray(ranks) || ranks.length === 0) {
     console.debug(`🎯 updateSlotPreferencesForTeam: no ranks for ${teamKey} - all selects should be cleared`);
     if (typeof setupSlotDuplicatePrevention === 'function') setupSlotDuplicatePrevention();
@@ -4175,16 +4175,16 @@ function updateSlotPreferencesForTeam(teamIndex) {
     // item can be { rank, slot_code } or similar
     const rank = Number(item.rank) || 0;
     const slot = item.slot_code || '';
-    console.log(`🎯 updateSlotPreferencesForTeam: Processing rank ${rank} with slot ${slot}`);
+	Logger.debug(`🎯 updateSlotPreferencesForTeam: Processing rank ${rank} with slot ${slot}`);
     if (rank >= 1 && rank <= 3 && slot) {
       const selectId = resolveSelectIdForSlot(slot, rank);
       const el = document.getElementById(selectId);
-      console.log(`🎯 updateSlotPreferencesForTeam: Setting ${selectId} to ${slot}`);
+	Logger.debug(`🎯 updateSlotPreferencesForTeam: Setting ${selectId} to ${slot}`);
       if (el) {
         el.value = slot;
-        console.log(`🎯 updateSlotPreferencesForTeam: Successfully set ${selectId} to ${slot}`);
+	Logger.debug(`🎯 updateSlotPreferencesForTeam: Successfully set ${selectId} to ${slot}`);
       } else {
-        console.warn(`🎯 updateSlotPreferencesForTeam: Element ${selectId} not found`);
+	Logger.warn(`🎯 updateSlotPreferencesForTeam: Element ${selectId} not found`);
       }
     }
   });
@@ -4194,7 +4194,7 @@ function updateSlotPreferencesForTeam(teamIndex) {
     setupSlotDuplicatePrevention();
   }
 
-  console.log(`🎯 updateSlotPreferencesForTeam: applied ${ranks.length} ranks for ${teamKey}`);
+	Logger.debug(`🎯 updateSlotPreferencesForTeam: applied ${ranks.length} ranks for ${teamKey}`);
 }
 
 
@@ -4202,7 +4202,7 @@ function updateSlotPreferencesForTeam(teamIndex) {
  * Clear all calendar selections
  */
 function clearCalendarSelections() {
-  console.log('🎯 clearCalendarSelections: Clearing calendar selections');
+	Logger.debug('🎯 clearCalendarSelections: Clearing calendar selections');
   
   // Clear any selected dates on the calendar
   const calendarContainer = document.getElementById('calendarContainer');
@@ -4228,7 +4228,7 @@ function clearCalendarSelections() {
       totalHoursEl.textContent = '0';
     }
     
-    console.log('🎯 clearCalendarSelections: Cleared calendar selections');
+	Logger.debug('🎯 clearCalendarSelections: Cleared calendar selections');
   }
 }
 
@@ -4239,7 +4239,7 @@ function showCopyFromTeam1Option() {
   const copyContainer = document.querySelector('.copy-from-team1');
   if (copyContainer) {
     copyContainer.style.display = 'block';
-    console.log('🎯 showCopyFromTeam1Option: Showing copy option');
+	Logger.debug('🎯 showCopyFromTeam1Option: Showing copy option');
   }
 }
 
@@ -4250,7 +4250,7 @@ function hideCopyFromTeam1Option() {
   const copyContainer = document.querySelector('.copy-from-team1');
   if (copyContainer) {
     copyContainer.style.display = 'none';
-    console.log('🎯 hideCopyFromTeam1Option: Hiding copy option');
+	Logger.debug('🎯 hideCopyFromTeam1Option: Hiding copy option');
   }
 }
 
@@ -4258,7 +4258,7 @@ function hideCopyFromTeam1Option() {
  * Highlight date on calendar
  */
 function highlightDateOnCalendar(date, hours, helpers) {
-  console.log(`🎯 highlightDateOnCalendar: Highlighting ${date} for ${hours}h with helpers ${helpers}`);
+	Logger.debug(`🎯 highlightDateOnCalendar: Highlighting ${date} for ${hours}h with helpers ${helpers}`);
   
   const calendarContainer = document.getElementById('calendarContainer');
   if (!calendarContainer) return;
@@ -4266,18 +4266,18 @@ function highlightDateOnCalendar(date, hours, helpers) {
   // Find the checkbox with the matching data-date
   const checkbox = calendarContainer.querySelector(`input[type="checkbox"][data-date="${date}"]`);
   if (!checkbox) {
-    console.log(`🎯 highlightDateOnCalendar: No checkbox found for date ${date}`);
+	Logger.debug(`🎯 highlightDateOnCalendar: No checkbox found for date ${date}`);
     return;
   }
   
   // Check the checkbox
   checkbox.checked = true;
-  console.log(`🎯 highlightDateOnCalendar: Checked checkbox for ${date}`);
+	Logger.debug(`🎯 highlightDateOnCalendar: Checked checkbox for ${date}`);
   
   // Find the parent container that holds the dropdowns
   const dateContainer = checkbox.closest('.day-checkbox')?.parentElement;
   if (!dateContainer) {
-    console.log(`🎯 highlightDateOnCalendar: No date container found for ${date}`);
+	Logger.debug(`🎯 highlightDateOnCalendar: No date container found for ${date}`);
     return;
   }
   
@@ -4285,24 +4285,24 @@ function highlightDateOnCalendar(date, hours, helpers) {
   const durationSelect = dateContainer.querySelector('select.duration');
   if (durationSelect) {
     durationSelect.value = hours;
-    console.log(`🎯 highlightDateOnCalendar: Set duration to ${hours} for ${date}`);
+	Logger.debug(`🎯 highlightDateOnCalendar: Set duration to ${hours} for ${date}`);
   } else {
-    console.log(`🎯 highlightDateOnCalendar: No duration select found for ${date}`);
+	Logger.debug(`🎯 highlightDateOnCalendar: No duration select found for ${date}`);
   }
   
   // Set helper dropdown
   const helperSelect = dateContainer.querySelector('select.helpers');
   if (helperSelect) {
     helperSelect.value = helpers;
-    console.log(`🎯 highlightDateOnCalendar: Set helpers to ${helpers} for ${date}`);
+	Logger.debug(`🎯 highlightDateOnCalendar: Set helpers to ${helpers} for ${date}`);
   } else {
-    console.log(`🎯 highlightDateOnCalendar: No helper select found for ${date}`);
+	Logger.debug(`🎯 highlightDateOnCalendar: No helper select found for ${date}`);
   }
   
   // Add highlighting classes to the date container
   dateContainer.classList.add('selected', 'practiced');
   
-  console.log(`🎯 highlightDateOnCalendar: Successfully highlighted ${date} with ${hours}h and ${helpers} helpers`);
+	Logger.debug(`🎯 highlightDateOnCalendar: Successfully highlighted ${date} with ${hours}h and ${helpers} helpers`);
 }
 
 /**
@@ -4317,7 +4317,7 @@ function initStep5() {
  * Load summary data from sessionStorage
  */
 function loadSummaryData() {
-  console.log('🎯 loadSummaryData: Starting summary data load');
+	Logger.debug('🎯 loadSummaryData: Starting summary data load');
   // Load basic info
   const orgName = sessionStorage.getItem('tn_org_name');
   const orgAddress = sessionStorage.getItem('tn_org_address');
@@ -4340,22 +4340,22 @@ function loadSummaryData() {
   }
   
   // Load team data
-  console.log('🎯 loadSummaryData: Calling loadTeamSummary');
+	Logger.debug('🎯 loadSummaryData: Calling loadTeamSummary');
   loadTeamSummary();
   
   // Load team managers
-  console.log('🎯 loadSummaryData: Calling loadManagersSummary');
+	Logger.debug('🎯 loadSummaryData: Calling loadManagersSummary');
   loadManagersSummary();
   
   // Load race day data
-  console.log('🎯 loadSummaryData: Calling loadRaceDaySummary');
+	Logger.debug('🎯 loadSummaryData: Calling loadRaceDaySummary');
   loadRaceDaySummary();
   
   // Load practice data
-  console.log('🎯 loadSummaryData: Calling loadPracticeSummary');
+	Logger.debug('🎯 loadSummaryData: Calling loadPracticeSummary');
   loadPracticeSummary();
   
-  console.log('🎯 loadSummaryData: All summary functions called');
+	Logger.debug('🎯 loadSummaryData: All summary functions called');
 }
 
 /**
@@ -4408,13 +4408,13 @@ function getOptionDisplayName(optionCode) {
  * Load team summary data
  */
 function loadTeamSummary() {
-  console.log('🎯 loadTeamSummary: Starting');
+	Logger.debug('🎯 loadTeamSummary: Starting');
   const teamsTbody = document.getElementById('teamsTbody');
   if (!teamsTbody) {
-    console.warn('🎯 loadTeamSummary: teamsTbody element not found');
+	Logger.warn('🎯 loadTeamSummary: teamsTbody element not found');
     return;
   }
-  console.log('🎯 loadTeamSummary: teamsTbody found');
+	Logger.debug('🎯 loadTeamSummary: teamsTbody found');
   
   const teams = [];
   for (let i = 1; i <= 10; i++) {
@@ -4443,10 +4443,16 @@ function loadTeamSummary() {
         // Get proper option display name
         const optionDisplay = getOptionDisplayName(team.option);
         
+        // XSS FIX: Escape user input (team.name) and dynamic data before inserting into HTML
+        // team.name comes from sessionStorage (user input), so it must be escaped
+        const safeTeamName = SafeDOM.escapeHtml(team.name);
+        const safeCategoryDisplay = SafeDOM.escapeHtml(categoryDisplay);
+        const safeOptionDisplay = SafeDOM.escapeHtml(optionDisplay);
+        
       row.innerHTML = `
         <td>${index + 1}</td>
-          <td>${team.name} <span style="color: #666; font-size: 0.9em;">(${categoryDisplay})</span></td>
-          <td>${optionDisplay}</td>
+          <td>${safeTeamName} <span style="color: #666; font-size: 0.9em;">(${safeCategoryDisplay})</span></td>
+          <td>${safeOptionDisplay}</td>
       `;
       teamsTbody.appendChild(row);
     });
@@ -4457,13 +4463,13 @@ function loadTeamSummary() {
  * Load team managers summary data
  */
 function loadManagersSummary() {
-  console.log('🎯 loadManagersSummary: Starting');
+	Logger.debug('🎯 loadManagersSummary: Starting');
   const managersTbody = document.getElementById('managersTbody');
   if (!managersTbody) {
-    console.warn('🎯 loadManagersSummary: managersTbody element not found');
+	Logger.warn('🎯 loadManagersSummary: managersTbody element not found');
     return;
   }
-  console.log('🎯 loadManagersSummary: managersTbody found');
+	Logger.debug('🎯 loadManagersSummary: managersTbody found');
   
   const managers = [];
   
@@ -4510,11 +4516,16 @@ function loadManagersSummary() {
     managersTbody.innerHTML = '';
     managers.forEach((manager, index) => {
       const row = document.createElement('tr');
+      // XSS FIX: Escape user input (manager.name, manager.mobile, manager.email) before inserting into HTML
+      // These values come from sessionStorage (user input), so they must be escaped
+      const safeName = SafeDOM.escapeHtml(manager.name);
+      const safeMobile = SafeDOM.escapeHtml(manager.mobile);
+      const safeEmail = SafeDOM.escapeHtml(manager.email);
       row.innerHTML = `
         <td>${index + 1}</td>
-        <td>${manager.name}</td>
-        <td>${manager.mobile}</td>
-        <td>${manager.email}</td>
+        <td>${safeName}</td>
+        <td>${safeMobile}</td>
+        <td>${safeEmail}</td>
       `;
       managersTbody.appendChild(row);
     });
@@ -4525,7 +4536,7 @@ function loadManagersSummary() {
  * Load race day summary data
  */
 function loadRaceDaySummary() {
-  console.log('🎯 loadRaceDaySummary: Starting');
+	Logger.debug('🎯 loadRaceDaySummary: Starting');
   // Load race day arrangement data from sessionStorage JSON
   const raceDayDataStr = sessionStorage.getItem('tn_race_day');
   let raceDayData = {};
@@ -4533,12 +4544,12 @@ function loadRaceDaySummary() {
   if (raceDayDataStr) {
     try {
       raceDayData = JSON.parse(raceDayDataStr);
-      console.log('🎯 loadRaceDaySummary: Race day data loaded:', raceDayData);
+	Logger.debug('🎯 loadRaceDaySummary: Race day data loaded:', raceDayData);
     } catch (e) {
-      console.warn('Failed to parse race day data:', e);
+	Logger.warn('Failed to parse race day data:', e);
     }
   } else {
-    console.warn('🎯 loadRaceDaySummary: No race day data found in sessionStorage');
+	Logger.warn('🎯 loadRaceDaySummary: No race day data found in sessionStorage');
   }
   
   // Map the data to display values (using actual input IDs from template)
@@ -4555,7 +4566,7 @@ function loadRaceDaySummary() {
     const sumJunk = document.getElementById('sumJunk');
     const sumSpeed = document.getElementById('sumSpeed');
     
-  console.log('🎯 loadRaceDaySummary: Display values:', {
+	Logger.debug('🎯 loadRaceDaySummary: Display values:', {
     marqueeQty, steerWith, steerWithout, junkBoat, speedBoat
   });
   
@@ -4565,20 +4576,20 @@ function loadRaceDaySummary() {
   if (sumJunk) sumJunk.textContent = junkBoat;
   if (sumSpeed) sumSpeed.textContent = speedBoat;
   
-  console.log('🎯 loadRaceDaySummary: Summary elements updated');
+	Logger.debug('🎯 loadRaceDaySummary: Summary elements updated');
 }
 
 /**
  * Load practice summary data
  */
 function loadPracticeSummary() {
-  console.log('🎯 loadPracticeSummary: Starting');
+	Logger.debug('🎯 loadPracticeSummary: Starting');
   const perTeamPracticeSummary = document.getElementById('perTeamPracticeSummary');
   if (!perTeamPracticeSummary) {
-    console.warn('🎯 loadPracticeSummary: perTeamPracticeSummary element not found');
+	Logger.warn('🎯 loadPracticeSummary: perTeamPracticeSummary element not found');
     return;
   }
-  console.log('🎯 loadPracticeSummary: perTeamPracticeSummary found');
+	Logger.debug('🎯 loadPracticeSummary: perTeamPracticeSummary found');
   
   // Import the store functions
   const { readTeamRows, readTeamRanks } = window.__DBG_TN || {};
@@ -4617,8 +4628,11 @@ function loadPracticeSummary() {
   // Generate HTML for each team's practice data
   let html = '';
   practiceData.forEach(team => {
+    // XSS FIX: Escape user input (team.teamName) before inserting into HTML
+    // team.teamName comes from sessionStorage (user input), so it must be escaped
+    const safeTeamName = SafeDOM.escapeHtml(team.teamName);
     html += `<div class="team-practice-section" style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 6px;">`;
-    html += `<h4 style="margin: 0 0 0.5rem 0; color: #0f6ec7;">${team.teamName}</h4>`;
+    html += `<h4 style="margin: 0 0 0.5rem 0; color: #0f6ec7;">${safeTeamName}</h4>`;
     
     // Practice dates
     if (team.practiceRows.length > 0) {
@@ -4628,7 +4642,9 @@ function loadPracticeSummary() {
         const date = new Date(row.pref_date).toLocaleDateString();
         const duration = row.duration_hours;
         const helper = row.helper;
-        html += `<span style="margin-right: 1rem;">• ${date} (${duration}h, ${helper})</span>`;
+        // XSS FIX: Escape helper value (could be user-selected)
+        const safeHelper = SafeDOM.escapeHtml(helper);
+        html += `<span style="margin-right: 1rem;">• ${date} (${duration}h, ${safeHelper})</span>`;
       });
       html += `</div>`;
     }
@@ -4638,7 +4654,9 @@ function loadPracticeSummary() {
       html += `<div>`;
       html += `<strong>Slot Preferences:</strong><br>`;
       team.slotRanks.forEach(rank => {
-        html += `<span style="margin-right: 1rem;">${rank.rank}. ${rank.slot_code}</span>`;
+        // XSS FIX: Escape slot_code (from config, but should be safe)
+        const safeSlotCode = SafeDOM.escapeHtml(rank.slot_code);
+        html += `<span style="margin-right: 1rem;">${rank.rank}. ${safeSlotCode}</span>`;
       });
       html += `</div>`;
     }
@@ -4747,9 +4765,9 @@ function validateStep1() {
     
     // Check for selected radio button in the team option group
     const teamOptionRadios = document.querySelectorAll(`input[name="teamOption${i}"]:checked`);
-    console.log(`🎯 Validation: Team ${i} radio buttons found:`, teamOptionRadios.length);
+	Logger.debug(`🎯 Validation: Team ${i} radio buttons found:`, teamOptionRadios.length);
     if (teamOptionRadios.length > 0) {
-      console.log(`🎯 Validation: Team ${i} selected value:`, teamOptionRadios[0].value);
+	Logger.debug(`🎯 Validation: Team ${i} selected value:`, teamOptionRadios[0].value);
     }
     
     if (teamOptionRadios.length === 0) {
@@ -5036,7 +5054,7 @@ function validateStep4() {
   // Validate practice requirements
   const practiceError = validatePracticeRequired();
   if (practiceError) {
-    console.log('🎯 validateStep4: Practice validation failed:', practiceError);
+	Logger.debug('🎯 validateStep4: Practice validation failed:', practiceError);
     showError(practiceError);
     return false;
   }
@@ -5082,7 +5100,7 @@ function saveStep1Data() {
   
   if (teamCount?.value) {
     sessionStorage.setItem('tn_team_count', teamCount.value);
-    console.log('🎯 saveStep1Data: Saved team count:', teamCount.value);
+	Logger.debug('🎯 saveStep1Data: Saved team count:', teamCount.value);
   }
   
   // Save team data if team fields are present
@@ -5156,7 +5174,7 @@ function saveStep2Data() {
     sessionStorage.setItem('tn_manager3_email', manager3Email.value.trim());
   }
   
-  console.log('🎯 saveStep2Data: Organization and manager data saved');
+	Logger.debug('🎯 saveStep2Data: Organization and manager data saved');
 }
 
 /**
@@ -5176,7 +5194,7 @@ function saveStep3Data() {
   // Save to sessionStorage
   sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
   
-  console.log('🎯 saveStep3Data: Race day data saved:', raceDayData);
+	Logger.debug('🎯 saveStep3Data: Race day data saved:', raceDayData);
 }
 
 /**
@@ -5192,7 +5210,7 @@ function saveStep4Data() {
   // Save aggregated data for submission
   sessionStorage.setItem('tn_practice_all_teams', JSON.stringify(allTeamPracticeData));
   
-  console.log('🎯 saveStep4Data: Saved practice data for all teams:', allTeamPracticeData);
+	Logger.debug('🎯 saveStep4Data: Saved practice data for all teams:', allTeamPracticeData);
 }
 
 /**
@@ -5202,7 +5220,7 @@ function collectAllTeamPracticeData() {
   const allPracticeData = [];
   const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
   
-  console.log(`🎯 collectAllTeamPracticeData: Collecting data for ${teamCount} teams`);
+	Logger.debug(`🎯 collectAllTeamPracticeData: Collecting data for ${teamCount} teams`);
   
   for (let i = 0; i < teamCount; i++) {
     const teamData = getTeamPracticeData(i);
@@ -5216,9 +5234,9 @@ function collectAllTeamPracticeData() {
         slotPrefs_1hr: teamData.slotPrefs_1hr || {}
       });
       
-      console.log(`🎯 collectAllTeamPracticeData: Team ${i} has ${teamData.dates.length} practice dates`);
+	Logger.debug(`🎯 collectAllTeamPracticeData: Team ${i} has ${teamData.dates.length} practice dates`);
     } else {
-      console.log(`🎯 collectAllTeamPracticeData: Team ${i} has no practice data`);
+	Logger.debug(`🎯 collectAllTeamPracticeData: Team ${i} has no practice data`);
     }
   }
   
@@ -5438,8 +5456,8 @@ async function submitTNForm() {
       practice: practice
     };
     
-    console.log('🎯 submitTNForm: Payload structure:', payload);
-    console.log('🎯 submitTNForm: Payload details:', {
+	Logger.debug('🎯 submitTNForm: Payload structure:', payload);
+	Logger.debug('🎯 submitTNForm: Payload details:', {
       client_tx_id: payload.client_tx_id,
       eventShortRef: payload.eventShortRef,
       category: payload.category,
@@ -5487,9 +5505,9 @@ async function submitTNForm() {
     const { data, error } = await Promise.race([submissionPromise, timeoutPromise]);
     
     if (error) {
-      console.error('Edge Function error:', error);
-      console.error('Error message:', error.message);
-      console.error('Error context:', error.context);
+	Logger.error('Edge Function error:', error);
+	Logger.error('Error message:', error.message);
+	Logger.error('Error context:', error.context);
       
       // Handle timeout specifically
       if (error.message && error.message.includes('timeout')) {
@@ -5502,31 +5520,24 @@ async function submitTNForm() {
         return;
       }
       
-      // Make a direct fetch to get the actual error details
+      // Make a direct fetch to get the actual error details (debug only)
       try {
-        const response = await fetch('https://khqarcvszewerjckmtpg.supabase.co/functions/v1/submit_registration', {
+        const supabaseKey = window.ENV?.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY';
+        const debugResult = await fetchWithErrorHandling('https://khqarcvszewerjckmtpg.supabase.co/functions/v1/submit_registration', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${window.ENV?.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY'}`,
-            'apikey': window.ENV?.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocWFyY3ZzemV3ZXJqY2ttdHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3NTE5MTEsImV4cCI6MjA2NDMyNzkxMX0.d8_q1aI_I5pwNf73FIKxNo8Ok0KNxzF-SGDGegpRwbY'
+            'Authorization': `Bearer ${supabaseKey}`,
+            'apikey': supabaseKey
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          context: 'debug_direct_fetch_timeout',
+          skipRetry: true // Skip retry for debug calls
         });
         
-        const responseText = await response.text();
-        console.error('Direct fetch response status:', response.status);
-        console.error('Direct fetch response body:', responseText);
-        
-        // Try to parse as JSON
-        try {
-          const errorData = JSON.parse(responseText);
-          console.error('Parsed error data:', errorData);
-        } catch (parseError) {
-          console.error('Error response is not valid JSON');
-        }
+        Logger.error('Direct fetch result:', debugResult);
       } catch (fetchError) {
-        console.error('Direct fetch failed:', fetchError);
+        Logger.error('Direct fetch failed:', fetchError);
       }
       
       // Handle specific error cases
@@ -5557,7 +5568,7 @@ async function submitTNForm() {
     }
     
     if (data) {
-      console.log('✅ Form submission successful!', data);
+	Logger.debug('✅ Form submission successful!', data);
       const { registration_ids, team_codes } = data;
       
       // Create receipt with the first registration_id (for compatibility)
@@ -5571,7 +5582,7 @@ async function submitTNForm() {
       hideLoadingIndicator();
       redirectToSuccessPage(receipt);
     } else {
-      console.log('⚠️ No data in response, but no error either');
+	Logger.debug('⚠️ No data in response, but no error either');
       hideLoadingIndicator();
       if (submitBtn) {
         submitBtn.disabled = false;
@@ -5581,7 +5592,7 @@ async function submitTNForm() {
     }
     
   } catch (error) {
-    console.error('Submission error:', error);
+	Logger.error('Submission error:', error);
     hideLoadingIndicator();
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -5710,10 +5721,10 @@ function showError(message) {
     // Scroll to error message
     msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     
-    console.error('Validation Error:', message);
+	Logger.error('Validation Error:', message);
   } else {
     // Fallback: alert if formMsg element doesn't exist
-    console.error('formMsg element not found, using alert');
+	Logger.error('formMsg element not found, using alert');
     alert(message);
   }
 }
@@ -5967,7 +5978,7 @@ if (window.__DEV__) {
    * Test payload structure with sample data
    */
   testPayloadStructure() {
-    console.log('🧪 Testing TN Payload Structure...');
+	Logger.debug('🧪 Testing TN Payload Structure...');
     
     // Save current sessionStorage data
     const originalData = {};
@@ -6125,7 +6136,7 @@ if (window.__DEV__) {
         }
       };
       
-      console.log('🧪 Generated Payload:', JSON.stringify(payload, null, 2));
+	Logger.debug('🧪 Generated Payload:', JSON.stringify(payload, null, 2));
       
       // Validate payload structure
       const validation = {
@@ -6143,7 +6154,7 @@ if (window.__DEV__) {
         hasPractice: !!payload.practice && typeof payload.practice === 'object' && Array.isArray(payload.practice.teams)
       };
       
-      console.log('🧪 Validation Results:', validation);
+	Logger.debug('🧪 Validation Results:', validation);
       
       const allValid = Object.values(validation).every(v => v === true);
       
@@ -6196,6 +6207,6 @@ if (typeof window !== 'undefined') {
   window.fillMultipleTeamsForSubmission = fillMultipleTeamsForSubmission;
   window.testSubmissionWithCurrentData = testSubmissionWithCurrentData;
   
-  console.log('✅ Quick test functions loaded and ready!');
-  console.log('   Run testQuickSubmitSingle() or testQuickSubmit() in console to test');
+	Logger.debug('✅ Quick test functions loaded and ready!');
+	Logger.debug('   Run testQuickSubmitSingle() or testQuickSubmit() in console to test');
 }

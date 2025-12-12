@@ -1,0 +1,18 @@
+# Cloudflare Pages / Netlify Redirects
+# 
+# This file configures redirects for Cloudflare Pages and Netlify.
+# See DEPLOYMENT.md for detailed deployment instructions.
+
+# Root redirect to main form
+/ /register.html 200
+
+# Event-specific redirects
+/tn /register.html?e=tn 200
+/wu /register.html?e=wu 200
+/sc /register.html?e=sc 200
+
+# 404 handling - redirect to main form
+# This catches any undefined routes and sends them to the main form
+# Users can then select the correct event
+/* /register.html 404
+

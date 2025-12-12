@@ -9,8 +9,25 @@
 
 import { collectStateFromForm } from './ui_bindings.js';
 import { readTeamRows, readTeamRanks } from './tn_practice_store.js';
+import { RateLimiter } from './rate-limiter.js';
+import { logError, logWarning, addBreadcrumb } from './error-handler.js';
+import Logger from './logger.js';
+import { fetchWithErrorHandling } from './api-client.js';
 
 const EDGE_URL = `${window.ENV?.SUPABASE_URL || ''}/functions/v1/submit_registration`;
+
+/**
+ * Rate limiting configuration
+ * Adjust these values to control form submission rate limits
+ */
+const RATE_LIMIT_CONFIG = {
+  maxRequests: 3,
+  windowMs: 60000, // 1 minute
+  storage: 'localStorage' // 'localStorage' (shared across tabs) or 'memory' (per-tab only)
+};
+
+// Create global rate limiter instance
+const rateLimiter = new RateLimiter(RATE_LIMIT_CONFIG);
 
 function getEventShortRef() {
 	const cfg = window.__CONFIG || {};
@@ -90,13 +107,27 @@ function makePayload() {
 }
 
 async function postJSON(url, body) {
-	const res = await fetch(url, {
+	const result = await fetchWithErrorHandling(url, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify(body)
+		body: JSON.stringify(body),
+		context: 'form_submission',
+		timeout: 60000 // 60 seconds for form submission
 	});
-	const data = await res.json().catch(() => ({}));
-	return { ok: res.ok, status: res.status, data };
+	
+	if (result.ok) {
+		return { ok: true, status: result.status, data: result.data };
+	} else {
+		// Return error in consistent format
+		return {
+			ok: false,
+			status: result.status || 0,
+			data: {
+				error_code: result.errorType,
+				error_message: result.userMessage || result.error
+			}
+		};
+	}
 }
 
 function mapError(code) {
@@ -122,9 +153,115 @@ function mapError(code) {
 function showError(message, details) {
 	const box = document.getElementById('errorBox');
 	const span = document.getElementById('errorMessage');
-	if (span) span.textContent = message || 'Error';
+	if (span) {
+		// Use textContent for XSS safety
+		span.textContent = message || 'Error';
+	}
 	if (box) box.style.display = 'block';
-	console.warn('submit error', { message, details });
+	Logger.warn('submit error', { message, details });
+}
+
+/**
+ * Format milliseconds into human-readable time string
+ * 
+ * @param {number} ms - Milliseconds
+ * @returns {string} Formatted time string (e.g., "45 seconds", "1 minute")
+ */
+function formatTimeRemaining(ms) {
+	const seconds = Math.ceil(ms / 1000);
+	if (seconds < 60) {
+		return `${seconds} second${seconds !== 1 ? 's' : ''}`;
+	}
+	const minutes = Math.floor(seconds / 60);
+	const remainingSeconds = seconds % 60;
+	if (remainingSeconds === 0) {
+		return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+	}
+	return `${minutes} minute${minutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''}`;
+}
+
+/**
+ * Update submit button state based on rate limit status
+ * Shows countdown timer and disables button when rate limited
+ */
+function updateSubmitButtonState() {
+	const btn = document.getElementById('submitBtn');
+	if (!btn) return;
+	
+	// Clear any existing interval
+	if (window.__rateLimitUpdateInterval) {
+		clearInterval(window.__rateLimitUpdateInterval);
+		window.__rateLimitUpdateInterval = null;
+	}
+	
+	const canSubmit = rateLimiter.canMakeRequest();
+	const timeUntilReset = rateLimiter.getTimeUntilReset();
+	const remaining = rateLimiter.getRemainingRequests();
+	
+	if (canSubmit) {
+		// Button is enabled
+		btn.disabled = false;
+		btn.dataset.rateLimited = '0';
+		
+		// Restore original button text if it was changed
+		const originalText = btn.dataset.originalText;
+		if (originalText) {
+			btn.textContent = originalText;
+			delete btn.dataset.originalText;
+		}
+	} else {
+		// Button is rate limited
+		btn.disabled = true;
+		btn.dataset.rateLimited = '1';
+		
+		// Store original text if not already stored
+		if (!btn.dataset.originalText) {
+			btn.dataset.originalText = btn.textContent;
+		}
+		
+		// Update button text with countdown
+		const updateCountdown = () => {
+			const timeLeft = rateLimiter.getTimeUntilReset();
+			if (timeLeft > 0) {
+				const timeStr = formatTimeRemaining(timeLeft);
+				const currentRemaining = rateLimiter.getRemainingRequests();
+				btn.textContent = `Please wait ${timeStr} (${RATE_LIMIT_CONFIG.maxRequests - currentRemaining} of ${RATE_LIMIT_CONFIG.maxRequests} submissions used)`;
+			} else {
+				// Time expired, re-enable button
+				updateSubmitButtonState();
+			}
+		};
+		
+		updateCountdown();
+		
+		// Update countdown every second
+		window.__rateLimitUpdateInterval = setInterval(updateCountdown, 1000);
+	}
+}
+
+/**
+ * Start monitoring rate limit status and update button accordingly
+ * This ensures the button state stays in sync across tabs
+ */
+function startRateLimitMonitoring() {
+	// Update immediately
+	updateSubmitButtonState();
+	
+	// Update every second to keep countdown accurate
+	if (!window.__rateLimitMonitorInterval) {
+		window.__rateLimitMonitorInterval = setInterval(() => {
+			updateSubmitButtonState();
+		}, 1000);
+	}
+	
+	// Listen for storage events (for cross-tab synchronization)
+	if (RATE_LIMIT_CONFIG.storage === 'localStorage') {
+		window.addEventListener('storage', (e) => {
+			if (e.key === rateLimiter.storageKey) {
+				updateSubmitButtonState();
+			}
+		});
+	}
 }
 
 function hideError() {
@@ -187,42 +324,144 @@ function showConfirmation({ registration_id, team_codes }) {
 async function handleSubmitClick(e) {
 	const btn = e.currentTarget;
 	if (btn.dataset.busy === '1') return;
+	
+	// Add breadcrumb for button click
+	addBreadcrumb('Submit button clicked', 'user', 'info', {
+		action: 'form_submit_click',
+		eventRef: getEventShortRef()
+	});
+	
+	// Check rate limit before proceeding
+	if (!rateLimiter.canMakeRequest()) {
+		const timeUntilReset = rateLimiter.getTimeUntilReset();
+		const timeStr = formatTimeRemaining(timeUntilReset);
+		const remaining = rateLimiter.getRemainingRequests();
+		const message = `Please wait before submitting again. You can submit ${RATE_LIMIT_CONFIG.maxRequests} times per minute. Please wait ${timeStr}.`;
+		
+		// Log rate limit hit
+		addBreadcrumb('Rate limit exceeded', 'user', 'warning', {
+			timeUntilReset,
+			remaining
+		});
+		
+		showError(message, { rateLimited: true, timeUntilReset });
+		updateSubmitButtonState();
+		return;
+	}
+	
 	btn.dataset.busy = '1';
 	btn.disabled = true;
 	hideError();
 
 	try {
+		// Record the request attempt
+		rateLimiter.recordRequest();
+		
+		// Update button state to reflect new rate limit status
+		updateSubmitButtonState();
+		
 		const payload = makePayload();
+		
+		// Add breadcrumb with form state (without sensitive data)
+		addBreadcrumb('Form submission started', 'user', 'info', {
+			eventRef: payload.event_short_ref,
+			teamCount: payload.teams?.length || 0,
+			hasPractice: !!payload.practice,
+			raceDayItems: payload.race_day?.length || 0
+		});
+		
 		const { ok, status, data } = await postJSON(EDGE_URL, payload);
 		if (ok) {
 			const { registration_id, team_codes, email } = data || {};
 			const receipt = saveReceipt({ registration_id, team_codes, email });
+			
+			// Log successful submission
+			addBreadcrumb('Form submission successful', 'user', 'info', {
+				registration_id,
+				team_codes_count: team_codes?.length || 0
+			});
+			
 			showConfirmation(receipt);
 		} else {
 			const code = data?.error_code || (status === 429 ? 'E.RATE_LIMIT' : 'E.UNKNOWN');
-			showError(mapError(code), { code, status, payload });
+			const errorMessage = data?.error_message || mapError(code);
+			
+			// Log submission error
+			logError(new Error(`Form submission failed: ${errorMessage}`), {
+				action: 'form_submission_failed',
+				errorCode: code,
+				status,
+				eventRef: payload.event_short_ref,
+				teamCount: payload.teams?.length || 0
+			}, 'error', ['form_submission', 'api_error']);
+			
+			addBreadcrumb('Form submission failed', 'user', 'error', {
+				errorCode: code,
+				status,
+				message: errorMessage
+			});
+			
+			// Show user-friendly error message
+			showError(errorMessage, { code, status, payload });
 			btn.dataset.busy = '0';
-			btn.disabled = false;
+			// Don't re-enable if rate limited - let updateSubmitButtonState handle it
+			if (rateLimiter.canMakeRequest()) {
+				btn.disabled = false;
+			} else {
+				updateSubmitButtonState();
+			}
 		}
 	} catch (err) {
+		// Log network/other errors
+		logError(err, {
+			action: 'form_submission_exception',
+			eventRef: getEventShortRef(),
+			url: EDGE_URL
+		}, 'error', ['network_error', 'form_submission']);
+		
+		addBreadcrumb('Form submission exception', 'user', 'error', {
+			error: err.message,
+			type: err.name
+		});
+		
 		showError('Network error. Please try again.', { err });
 		btn.dataset.busy = '0';
-		btn.disabled = false;
+		// Don't re-enable if rate limited - let updateSubmitButtonState handle it
+		if (rateLimiter.canMakeRequest()) {
+			btn.disabled = false;
+		} else {
+			updateSubmitButtonState();
+		}
 	}
 }
 
 export function bindSubmit() {
 	const btn = document.getElementById('submitBtn');
 	if (!btn) return;
-	if (!EDGE_URL) console.warn('submit.js: EDGE_URL missing (check env.js)');
+	if (!EDGE_URL) {
+		const error = new Error('EDGE_URL missing (check env.js)');
+		logWarning(error, { action: 'submit_binding', missing: 'EDGE_URL' });
+		Logger.warn('submit.js: EDGE_URL missing (check env.js)');
+	}
 	if (!btn.dataset.bound) {
 		btn.addEventListener('click', handleSubmitClick);
 		btn.dataset.bound = '1';
+		
+		// Add breadcrumb for submit button binding
+		addBreadcrumb('Submit button bound', 'ui', 'info', {
+			action: 'submit_button_initialized'
+		});
+		
+		// Start rate limit monitoring
+		startRateLimitMonitoring();
 	}
 }
 
 // Export shared utilities for TN wizard
 export { EDGE_URL, getClientTxId, getEventShortRef, postJSON, saveReceipt, showConfirmation, mapError };
+
+// Export rate limiter for external access (useful for testing or debugging)
+export { rateLimiter, RATE_LIMIT_CONFIG };
 
 export default bindSubmit;
 

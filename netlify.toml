@@ -1,0 +1,59 @@
+# Netlify Configuration
+# 
+# This file configures Netlify deployment settings.
+# See DEPLOYMENT.md for detailed deployment instructions.
+
+[build]
+  # Build command: Inject environment variables into env.js
+  command = "node scripts/inject-env.js"
+  # Publish directory: public folder contains all static files
+  publish = "public"
+
+# Redirects for clean URLs
+[[redirects]]
+  from = "/"
+  to = "/register.html"
+  status = 200
+
+[[redirects]]
+  from = "/tn"
+  to = "/register.html?e=tn"
+  status = 200
+
+[[redirects]]
+  from = "/wu"
+  to = "/register.html?e=wu"
+  status = 200
+
+[[redirects]]
+  from = "/sc"
+  to = "/register.html?e=sc"
+  status = 200
+
+# Security headers for all pages
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Cache control for JavaScript files (no cache for easier updates)
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Cache control for CSS files
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+# Cache control for HTML files (short cache)
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=300"
+

@@ -11,11 +11,14 @@
 // - initFormForEvent(eventShortRef)
 // - collectStateFromForm()
 
+import Logger from './logger.js';
+import { fetchWithErrorHandling } from './api-client.js';
+
 // Utilities
 const isTNMode = () => {
 	const cfg = window.__CONFIG;
 	const result = cfg?.event?.event_short_ref === 'tn';
-	console.log('🔧 isTNMode check:', { event_short_ref: cfg?.event?.event_short_ref, result });
+	Logger.debug('🔧 isTNMode check:', { event_short_ref: cfg?.event?.event_short_ref, result });
 	return result;
 };
 
@@ -242,23 +245,23 @@ function renderContactSection(cfg) {
 }
 
 function renderTeamSection(cfg) {
-	console.log('🔧 renderTeamSection called');
+	Logger.debug('🔧 renderTeamSection called');
 	// Skip rendering for TN mode - TN uses legacy templates
 	if (isTNMode()) {
-		console.log('🎯 renderTeamSection: Skipping for TN mode');
+		Logger.debug('🎯 renderTeamSection: Skipping for TN mode');
 		return;
 	}
 	
 	const mount = dom.q('#teamSection');
-	console.log('🔧 renderTeamSection: Mount element found:', !!mount);
+	Logger.debug('🔧 renderTeamSection: Mount element found:', !!mount);
 	if (!mount) {
-		console.error('❌ renderTeamSection: #teamSection not found in DOM');
+		Logger.error('❌ renderTeamSection: #teamSection not found in DOM');
 		return;
 	}
 
 	// Clear existing content
 	mount.innerHTML = '';
-	console.log('🔧 renderTeamSection: Cleared existing content');
+	Logger.debug('🔧 renderTeamSection: Cleared existing content');
 	
 	// Create team count selector
 	const countSection = createEl('div', { class: 'form-section', style: 'background: #f0f8ff; border: 2px solid #007bff; padding: 20px; margin: 10px 0;' });
@@ -273,27 +276,27 @@ function renderTeamSection(cfg) {
 		</div>
 	`;
 	mount.appendChild(countSection);
-	console.log('🔧 renderTeamSection: Added team count selector');
-	console.log('🔧 renderTeamSection: Mount innerHTML after adding selector:', mount.innerHTML.substring(0, 200) + '...');
+	Logger.debug('🔧 renderTeamSection: Added team count selector');
+	Logger.debug('🔧 renderTeamSection: Mount innerHTML after adding selector:', mount.innerHTML.substring(0, 200) + '...');
 	
 	// Create teams list container
 	const list = createEl('div', { id: 'teamsList', class: 'teams-list', style: 'display: none;' });
 	mount.appendChild(list);
-	console.log('🔧 renderTeamSection: Added teams list container');
+	Logger.debug('🔧 renderTeamSection: Added teams list container');
 	
 	// Add team count change handler
 	const teamCountSelect = dom.q('#teamCount');
-	console.log('🔧 renderTeamSection: Team count select found:', !!teamCountSelect);
+	Logger.debug('🔧 renderTeamSection: Team count select found:', !!teamCountSelect);
 	if (teamCountSelect && teamCountSelect.dataset.bound !== '1') {
 		teamCountSelect.addEventListener('change', (e) => {
-			console.log('🔧 Team count changed to:', e.target.value);
+			Logger.debug('🔧 Team count changed to:', e.target.value);
 			const count = parseInt(e.target.value) || 0;
 			renderTeamsForCount(count, cfg);
 		});
 		teamCountSelect.dataset.bound = '1';
-		console.log('🔧 renderTeamSection: Event listener attached');
+		Logger.debug('🔧 renderTeamSection: Event listener attached');
 	}
-	console.log('✅ renderTeamSection: Completed');
+	Logger.debug('✅ renderTeamSection: Completed');
 }
 
 function renderTeamsForCount(count, cfg) {
@@ -374,10 +377,13 @@ async function loadBoatTypesForTeam(teamIndex, cfg) {
 		boatTypes.forEach((boatType, index) => {
 			const radioId = `team_${teamIndex}_boat_type_${index}`;
 			const radioDiv = createEl('div', { class: 'radio-option' });
+			// XSS FIX: Escape boat type data (boatType.name_en) before inserting into HTML
+			// Boat type data comes from config, but should be escaped as defense-in-depth
+			const safeNameEn = window.SafeDOM ? window.SafeDOM.escapeHtml(boatType.name_en) : boatType.name_en.replace(/[&<>"']/g, s => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[s]));
 			radioDiv.innerHTML = `
-				<input type="radio" id="${radioId}" name="team_${teamIndex}_boat_type" value="${boatType.name_en}" required>
+				<input type="radio" id="${radioId}" name="team_${teamIndex}_boat_type" value="${safeNameEn}" required>
 				<label for="${radioId}">
-					<span class="boat-type-name">${boatType.name_en}</span>
+					<span class="boat-type-name">${safeNameEn}</span>
 					<span class="boat-type-price">${boatType.price ? ` - $${boatType.price}` : ''}</span>
 				</label>
 			`;
@@ -396,7 +402,7 @@ async function loadBoatTypesForTeam(teamIndex, cfg) {
 		});
 		
 	} catch (error) {
-		console.error('Error loading boat types:', error);
+		Logger.error('Error loading boat types:', error);
 		boatTypeGroup.innerHTML = '<p class="error">Error loading boat types</p>';
 	}
 }
@@ -415,15 +421,18 @@ async function loadDivisionsForTeam(teamIndex, cfg) {
 		divisions.forEach((division, index) => {
 			const radioId = `team_${teamIndex}_division_${index}`;
 			const radioDiv = createEl('div', { class: 'radio-option' });
+			// XSS FIX: Escape division data (division.name_en) before inserting into HTML
+			// Division data comes from config, but should be escaped as defense-in-depth
+			const safeNameEn = window.SafeDOM ? window.SafeDOM.escapeHtml(division.name_en) : division.name_en.replace(/[&<>"']/g, s => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[s]));
 			radioDiv.innerHTML = `
-				<input type="radio" id="${radioId}" name="team_${teamIndex}_division" value="${division.name_en}" required>
-				<label for="${radioId}">${division.name_en}</label>
+				<input type="radio" id="${radioId}" name="team_${teamIndex}_division" value="${safeNameEn}" required>
+				<label for="${radioId}">${safeNameEn}</label>
 			`;
 			divisionGroup.appendChild(radioDiv);
 		});
 		
 	} catch (error) {
-		console.error('Error loading divisions:', error);
+		Logger.error('Error loading divisions:', error);
 		divisionGroup.innerHTML = '<p class="error">Error loading divisions</p>';
 	}
 }
@@ -451,22 +460,27 @@ async function loadBoatTypes(cfg) {
 		}
 		
 		// Fallback: try to load from packages API
-		const response = await fetch(`${window.__SUPABASE_URL}/rest/v1/v_packages_public?event_short_ref=eq.${cfg.event.event_short_ref}`, {
+		const supabaseUrl = window.ENV?.SUPABASE_URL || window.__SUPABASE_URL;
+		const supabaseKey = window.ENV?.SUPABASE_ANON_KEY || window.__SUPABASE_ANON_KEY;
+		const result = await fetchWithErrorHandling(`${supabaseUrl}/rest/v1/v_packages_public?event_short_ref=eq.${cfg.event.event_short_ref}`, {
+			method: 'GET',
 			headers: {
-				'apikey': window.__SUPABASE_ANON_KEY,
-				'Authorization': 'Bearer ' + window.__SUPABASE_ANON_KEY
-			}
+				'apikey': supabaseKey,
+				'Authorization': 'Bearer ' + supabaseKey
+			},
+			context: 'load_boat_types',
+			maxRetries: 2
 		});
 		
-		if (response.ok) {
-			const packages = await response.json();
+		if (result.ok && result.data) {
+			const packages = Array.isArray(result.data) ? result.data : [];
 			return packages.map(pkg => ({
 				name_en: pkg.title_en,
 				price: pkg.listed_unit_price || '0'
 			}));
 		}
 		
-		throw new Error('Failed to load boat types');
+		throw new Error(result.userMessage || 'Failed to load boat types');
 		
 	} catch (error) {
 		console.error('Error loading boat types:', error);
@@ -497,15 +511,20 @@ async function loadDivisions(cfg) {
 		}
 		
 		// Fallback: try to load from divisions API
-		const response = await fetch(`${window.__SUPABASE_URL}/rest/v1/v_divisions_public?event_short_ref=eq.${cfg.event.event_short_ref}`, {
+		const supabaseUrl = window.ENV?.SUPABASE_URL || window.__SUPABASE_URL;
+		const supabaseKey = window.ENV?.SUPABASE_ANON_KEY || window.__SUPABASE_ANON_KEY;
+		const result = await fetchWithErrorHandling(`${supabaseUrl}/rest/v1/v_divisions_public?event_short_ref=eq.${cfg.event.event_short_ref}`, {
+			method: 'GET',
 			headers: {
-				'apikey': window.__SUPABASE_ANON_KEY,
-				'Authorization': 'Bearer ' + window.__SUPABASE_ANON_KEY
-			}
+				'apikey': supabaseKey,
+				'Authorization': 'Bearer ' + supabaseKey
+			},
+			context: 'load_divisions',
+			maxRetries: 2
 		});
 		
-		if (response.ok) {
-			const divisions = await response.json();
+		if (result.ok && result.data) {
+			const divisions = Array.isArray(result.data) ? result.data : [];
 			const subNames = [...new Set(divisions.map(div => div.name_en).filter(Boolean))];
 			return subNames.map(subName => ({
 				name_en: subName,
@@ -513,7 +532,7 @@ async function loadDivisions(cfg) {
 			}));
 		}
 		
-		throw new Error('Failed to load divisions');
+		throw new Error(result.userMessage || 'Failed to load divisions');
 		
 	} catch (error) {
 		console.error('Error loading divisions:', error);
@@ -819,9 +838,9 @@ function renderSummarySection(cfg) {
 }
 
 export function initFormForEvent(eventShortRef) {
-	console.log('🔧 initFormForEvent called with:', eventShortRef);
+	Logger.debug('🔧 initFormForEvent called with:', eventShortRef);
 	const cfg = assertConfig();
-	console.log('🔧 Config loaded:', cfg?.event?.event_short_ref);
+	Logger.debug('🔧 Config loaded:', cfg?.event?.event_short_ref);
 	
 	// Check for mismatch only if both values exist and don't match (case-insensitive)
 	if (eventShortRef && cfg?.event?.event_short_ref) {
@@ -829,19 +848,19 @@ export function initFormForEvent(eventShortRef) {
 		const loadedLower = cfg.event.event_short_ref.toLowerCase();
 		// Allow partial matches (e.g., 'wu' matches 'WU2025')
 		if (!loadedLower.includes(argLower) && !argLower.includes(loadedLower.replace(/\d+/g, '').toLowerCase())) {
-		console.warn('initFormForEvent: ref mismatch between arg and loaded config', { arg: eventShortRef, loaded: cfg.event.event_short_ref });
+		Logger.warn('initFormForEvent: ref mismatch between arg and loaded config', { arg: eventShortRef, loaded: cfg.event.event_short_ref });
 		}
 	}
 	
 	// Skip all rendering for TN mode - TN uses legacy templates and wizard
 	if (isTNMode()) {
-		console.log('🎯 initFormForEvent: Skipping single-page form rendering for TN mode');
+		Logger.debug('🎯 initFormForEvent: Skipping single-page form rendering for TN mode');
 		return;
 	}
 	
 	// For WU/SC, use multi-step wizard instead of single-page form
 	if (eventShortRef === 'wu' || eventShortRef === 'sc') {
-		console.log('🎯 initFormForEvent: Starting WU/SC multi-step wizard...');
+		Logger.info('🎯 initFormForEvent: Starting WU/SC multi-step wizard...');
 		// Import and initialize WU/SC wizard
 		import('./wu_sc_wizard.js').then(({ initWUSCWizard }) => {
 			initWUSCWizard(eventShortRef);
@@ -849,22 +868,22 @@ export function initFormForEvent(eventShortRef) {
 		return;
 	}
 	
-	console.log('🎯 initFormForEvent: Starting single-page form rendering...');
+	Logger.info('🎯 initFormForEvent: Starting single-page form rendering...');
 	
 	// Apply label/help text bindings from config
 	applyCopyBindings(cfg);
 	// Apply visibility/required based on config + profile precedence
 	applyVisibilityAndRequired(cfg);
 	// Render sections
-	console.log('🎯 Rendering contact section...');
+	Logger.debug('🎯 Rendering contact section...');
 	renderContactSection(cfg);
-	console.log('🎯 Rendering team section...');
+	Logger.debug('🎯 Rendering team section...');
 	renderTeamSection(cfg);
-	console.log('🎯 Rendering race day section...');
+	Logger.debug('🎯 Rendering race day section...');
 	renderRaceDaySection(cfg);
-	console.log('🎯 Rendering practice section...');
+	Logger.debug('🎯 Rendering practice section...');
 	renderPracticeSection(cfg);
-	console.log('🎯 Rendering summary section...');
+	Logger.debug('🎯 Rendering summary section...');
 	renderSummarySection(cfg);
-	console.log('✅ initFormForEvent: All sections rendered');
+	Logger.info('✅ initFormForEvent: All sections rendered');
 }
