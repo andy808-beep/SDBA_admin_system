@@ -55,20 +55,23 @@ export async function checkAdmin(req: NextRequest): Promise<AdminCheckResult> {
     const { data: { user }, error } = await supabase.auth.getUser();
     
     if (error || !user) {
-      trackAuthFailure(error?.message || "No user found", undefined, undefined);
+      // Fire and forget - don't await to avoid blocking
+      trackAuthFailure(error?.message || "No user found", undefined, undefined).catch(() => {});
       return { isAdmin: false, user: null };
     }
 
     const isAdmin = isAdminUser(user as AdminUser);
     
     if (!isAdmin) {
-      trackAuthFailure("User is not an admin", user.id, user.email);
+      // Fire and forget - don't await to avoid blocking
+      trackAuthFailure("User is not an admin", user.id, user.email).catch(() => {});
     }
 
     return { isAdmin, user: user as AdminUser };
   } catch (err) {
     logger.error("checkAdmin error:", err);
-    trackAuthFailure("checkAdmin exception", undefined, undefined);
+    // Fire and forget - don't await to avoid blocking
+    trackAuthFailure("checkAdmin exception", undefined, undefined).catch(() => {});
     return { isAdmin: false, user: null };
   }
 }

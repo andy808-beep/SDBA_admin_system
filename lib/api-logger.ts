@@ -21,7 +21,7 @@ export function withApiLogging<T extends (...args: any[]) => Promise<NextRespons
     const requestId = req.headers.get("X-Request-ID") || `REQ-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
     const method = req.method;
     const path = req.nextUrl.pathname;
-    const clientIp = req.ip || req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
 
     // Create request context
@@ -95,7 +95,6 @@ export function withApiLogging<T extends (...args: any[]) => Promise<NextRespons
       ip: clientIp,
       userAgent,
       userId,
-      requestId,
       responseSize,
       error: error || undefined,
     });

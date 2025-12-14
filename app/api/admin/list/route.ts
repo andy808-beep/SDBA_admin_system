@@ -170,7 +170,7 @@ export async function GET(req: NextRequest) {
 
     // Execute query with performance monitoring
     const { data, error, count: totalCount } = await executeQuery(
-      () => query,
+      async () => await query,
       "list_registrations",
       "registration_meta"
     );

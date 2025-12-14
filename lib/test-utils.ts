@@ -35,7 +35,7 @@ export function createTestRequest(
   url: string = 'http://localhost:3000/api/admin/test',
   headers: Record<string, string> = {}
 ): NextRequest {
-  const requestInit: RequestInit = {
+  const requestInit: any = {
     method,
     headers: {
       'Content-Type': 'application/json',

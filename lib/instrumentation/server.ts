@@ -1,7 +1,21 @@
 // lib/instrumentation/server.ts
 // Server-side Sentry instrumentation for API and database tracking
+// NOTE: This file should only be imported in Node.js runtime (API routes, not middleware)
 
-import * as Sentry from "@sentry/nextjs";
+// Conditional import to avoid Edge Runtime issues
+let Sentry: typeof import("@sentry/nextjs") | null = null;
+
+async function getSentry() {
+  if (!Sentry && typeof window === "undefined") {
+    try {
+      Sentry = await import("@sentry/nextjs");
+    } catch (error) {
+      // Sentry not available (e.g., in test environment)
+      return null;
+    }
+  }
+  return Sentry;
+}
 
 /**
  * Track API route performance
@@ -12,24 +26,32 @@ export function withApiPerformanceTracking<T extends (...args: any[]) => Promise
   routeName: string
 ): T {
   return (async (...args: Parameters<T>) => {
-    const transaction = Sentry.startTransaction({
-      name: routeName,
-      op: "http.server",
-      data: {
-        route: routeName,
-      },
-    });
-
-    try {
-      const result = await handler(...args);
-      transaction.setStatus("ok");
-      return result;
-    } catch (error) {
-      transaction.setStatus("internal_error");
-      throw error;
-    } finally {
-      transaction.finish();
+    const sentry = await getSentry();
+    if (!sentry) {
+      // Sentry not available, just run handler
+      return handler(...args);
     }
+    
+    // Use startSpan instead of deprecated startTransaction
+    return sentry.startSpan(
+      {
+        name: routeName,
+        op: "http.server",
+        attributes: {
+          route: routeName,
+        },
+      },
+      async (span) => {
+        try {
+          const result = await handler(...args);
+          span?.setStatus({ code: 1, message: "ok" }); // 1 = OK
+          return result;
+        } catch (error) {
+          span?.setStatus({ code: 2, message: "internal_error" }); // 2 = ERROR
+          throw error;
+        }
+      }
+    );
   }) as T;
 }
 
@@ -42,11 +64,17 @@ export async function trackDatabaseQuery<T>(
   operationName: string,
   tableName?: string
 ): Promise<T> {
-  const span = Sentry.startSpan(
+  const sentry = await getSentry();
+  if (!sentry) {
+    // Sentry not available, just run operation
+    return operation();
+  }
+  
+  const span = sentry.startSpan(
     {
       op: "db.query",
       name: operationName,
-      data: {
+      attributes: {
         table: tableName,
         operation: operationName,
       },
@@ -56,7 +84,7 @@ export async function trackDatabaseQuery<T>(
         const result = await operation();
         return result;
       } catch (error) {
-        Sentry.captureException(error, {
+        sentry.captureException(error, {
           tags: {
             operation: operationName,
             table: tableName || "unknown",
@@ -74,16 +102,22 @@ export async function trackDatabaseQuery<T>(
 /**
  * Track RPC function calls
  */
-export async function trackRpcCall<T>(
+export async function trackRpcCall<T extends { data: any; error: any }>(
   rpcFunction: () => Promise<T>,
   functionName: string,
   params?: Record<string, any>
 ): Promise<T> {
-  const span = Sentry.startSpan(
+  const sentry = await getSentry();
+  if (!sentry) {
+    // Sentry not available, just run function
+    return rpcFunction();
+  }
+  
+  return sentry.startSpan(
     {
       op: "db.rpc",
       name: functionName,
-      data: {
+      attributes: {
         function: functionName,
         params: params ? JSON.stringify(params) : undefined,
       },
@@ -93,7 +127,7 @@ export async function trackRpcCall<T>(
         const result = await rpcFunction();
         return result;
       } catch (error) {
-        Sentry.captureException(error, {
+        sentry.captureException(error, {
           tags: {
             function: functionName,
             error_type: "rpc_error",
@@ -105,15 +139,13 @@ export async function trackRpcCall<T>(
         throw error;
       }
     }
-  );
-
-  return span as T;
+  ) as Promise<T>;
 }
 
 /**
  * Track registration approval/rejection events
  */
-export function trackRegistrationEvent(
+export async function trackRegistrationEvent(
   eventType: "approve" | "reject",
   registrationId: string,
   adminUserId: string,
@@ -121,7 +153,12 @@ export function trackRegistrationEvent(
   error?: Error
 ) {
   try {
-    Sentry.addBreadcrumb({
+    const sentry = await getSentry();
+    if (!sentry) {
+      return; // Sentry not available
+    }
+    
+    sentry.addBreadcrumb({
       category: "registration",
       message: `Registration ${eventType}: ${registrationId}`,
       level: success ? "info" : "error",
@@ -134,7 +171,7 @@ export function trackRegistrationEvent(
     });
 
     if (!success && error) {
-      Sentry.captureException(error, {
+      sentry.captureException(error, {
         tags: {
           event_type: eventType,
           operation: "registration_management",
@@ -154,13 +191,18 @@ export function trackRegistrationEvent(
 /**
  * Track authentication failures
  */
-export function trackAuthFailure(
+export async function trackAuthFailure(
   reason: string,
   userId?: string,
   email?: string
 ) {
   try {
-    Sentry.addBreadcrumb({
+    const sentry = await getSentry();
+    if (!sentry) {
+      return; // Sentry not available
+    }
+    
+    sentry.addBreadcrumb({
       category: "auth",
       message: `Authentication failure: ${reason}`,
       level: "warning",

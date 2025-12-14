@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
           query = query.eq("season", season);
         }
         const { data, error } = await executeQuery(
-          () => query,
+          async () => await query,
           "export_tn_all",
           "team_meta"
         );
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
           query = query.eq("season", season);
         }
         const { data, error } = await executeQuery(
-          () => query,
+          async () => await query,
           `export_tn_${viewName}`,
           viewName
         );
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
         query = query.eq("season", season);
       }
       const { data, error } = await executeQuery(
-        () => query,
+        async () => await query,
         "export_wu",
         "wu_team_meta"
       );
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
         query = query.eq("season", season);
       }
       const { data, error } = await executeQuery(
-        () => query,
+        async () => await query,
         "export_sc",
         "sc_team_meta"
       );

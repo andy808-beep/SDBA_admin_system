@@ -74,11 +74,10 @@ Sentry.init({
   
   // Integrations
   integrations: [
-    Sentry.nodeProfilingIntegration(),
+    // Node profiling integration not available in this Sentry version
   ],
   
-  // Performance monitoring
-  enableTracing: true,
+  // Performance monitoring (tracesSampleRate is set at line 10)
   
   // Custom tags for better error grouping
   initialScope: {

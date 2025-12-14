@@ -235,9 +235,7 @@ export async function checkAdminApiLimit(
  */
 export function getClientIp(req: Request | { ip?: string; headers: Headers }): string {
   // Try NextRequest.ip property first (if available)
-  if ("ip" in req && req.ip) {
-    return req.ip;
-  }
+  // Note: req.ip is not available in Next.js 16, so we always extract from headers
 
   // Try to get IP from various headers (handles proxies, load balancers, etc.)
   const headers = req.headers;

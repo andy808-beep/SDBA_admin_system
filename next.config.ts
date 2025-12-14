@@ -4,6 +4,9 @@ import { withSentryConfig } from "@sentry/nextjs";
 const nextConfig: NextConfig = {
   /* config options here */
   
+  // Externalize jsdom for server-side to avoid build issues
+  serverExternalPackages: ['jsdom'],
+  
   // Content Security Policy headers
   async headers() {
     return [
@@ -77,9 +80,6 @@ const sentryConfig = {
   
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers
   tunnelRoute: "/monitoring",
-  
-  // Hides source maps from generated client bundles
-  hideSourceMaps: true,
   
   // Automatically tree-shake Sentry logger statements to reduce bundle size
   disableLogger: true,

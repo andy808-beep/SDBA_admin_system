@@ -7,6 +7,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { Spinner, SpinnerWithText } from '@/components/Spinner';
 import { toast } from 'sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { getHeadersWithCsrf, getCsrfToken } from '@/lib/csrf-client';
 
 /** Match your vanilla routes */
 type HashPath = "#overview" | "#applications" | "#practice" | "#exports";
@@ -91,6 +92,19 @@ export default function AdminPage() {
     applyRoute(); // initial
     window.addEventListener("hashchange", applyRoute);
     return () => window.removeEventListener("hashchange", applyRoute);
+  }, []);
+
+  // Fetch CSRF token on mount (pre-fetch for faster first request)
+  useEffect(() => {
+    async function preFetchCsrfToken() {
+      try {
+        // Pre-fetch CSRF token - this will cache it for later use
+        await getCsrfToken();
+      } catch (err) {
+        console.error("Failed to pre-fetch CSRF token:", err);
+      }
+    }
+    preFetchCsrfToken();
   }, []);
 
   // Drawer (Step 5 placeholder)
@@ -274,9 +288,10 @@ export default function AdminPage() {
   const handleApprove = async (registrationId: string, notes?: string) => {
     setApprovingId(registrationId);
     try {
+      const headers = await getHeadersWithCsrf();
       const response = await fetch("/api/admin/approve", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           registration_id: registrationId,
           notes: notes || undefined,
@@ -319,11 +334,10 @@ export default function AdminPage() {
 
     try {
       // Call API route (cookies are sent automatically)
+      const headers = await getHeadersWithCsrf();
       const response = await fetch("/api/admin/export", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           mode,
           category,

@@ -1,48 +1,19 @@
 // lib/instrumentation/edge.ts
 // Edge runtime Sentry instrumentation
-
-import * as Sentry from "@sentry/nextjs";
+// NOTE: This file is loaded by instrumentation.ts but may not be used
+// Keeping it minimal to avoid Edge Runtime compatibility issues
 
 /**
  * Track middleware performance
+ * Simplified version for Edge Runtime - just passes through
+ * Full Sentry tracking happens via middleware's direct Sentry calls
  */
 export function trackMiddlewarePerformance(
   pathname: string,
   operation: () => Promise<Response> | Response
 ): Promise<Response> | Response {
-  const transaction = Sentry.startTransaction({
-    name: `middleware:${pathname}`,
-    op: "middleware",
-    data: {
-      pathname,
-    },
-  });
-
-  try {
-    const result = operation();
-    
-    if (result instanceof Promise) {
-      return result
-        .then((response) => {
-          transaction.setStatus("ok");
-          return response;
-        })
-        .catch((error) => {
-          transaction.setStatus("internal_error");
-          throw error;
-        })
-        .finally(() => {
-          transaction.finish();
-        });
-    }
-    
-    transaction.setStatus("ok");
-    transaction.finish();
-    return result;
-  } catch (error) {
-    transaction.setStatus("internal_error");
-    transaction.finish();
-    throw error;
-  }
+  // Just pass through - Sentry tracking is handled directly in middleware
+  // This avoids Edge Runtime compatibility issues with Sentry imports
+  return operation();
 }
 

@@ -79,8 +79,5 @@ Sentry.init({
       blockAllMedia: true,
     }),
   ],
-  
-  // Performance monitoring
-  enableTracing: true,
 });
 

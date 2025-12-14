@@ -78,7 +78,7 @@ const UpdateFeatureFlagSchema = z.object({
   rollout_percentage: z.number().int().min(0).max(100).optional(),
   enabled_for_users: z.array(z.string().uuid()).optional(),
   enabled_for_emails: z.array(z.string().email()).optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 /**

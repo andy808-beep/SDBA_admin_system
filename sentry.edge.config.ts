@@ -49,8 +49,7 @@ Sentry.init({
     return event;
   },
   
-  // Performance monitoring
-  enableTracing: true,
+  // Performance monitoring (tracesSampleRate is set at line 10)
   
   // Custom tags for better error grouping
   initialScope: {

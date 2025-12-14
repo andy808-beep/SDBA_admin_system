@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Generate new token
+    // Generate new token (Node.js runtime)
     const token = generateCsrfToken();
     
     // Create response with token
@@ -58,11 +58,13 @@ export async function GET(req: NextRequest) {
     setCsrfTokenCookie(response, token);
 
     return response;
-  } catch (error) {
+  } catch (error: any) {
+    console.error("[CSRF Token] Error generating token:", error);
     return NextResponse.json(
       {
         ok: false,
-        error: "Failed to generate CSRF token",
+        error: error?.message || "Failed to generate CSRF token",
+        details: process.env.NODE_ENV === "development" ? error?.stack : undefined,
       },
       { status: 500 }
     );

@@ -87,8 +87,8 @@ export async function GET(req: NextRequest) {
       await Promise.all([
         // Total count - uses primary key index
         executeQuery(
-          () =>
-            supabaseServer
+          async () =>
+            await supabaseServer
               .from("registration_meta")
               .select("*", { count: "exact", head: true }),
           "count_total",
@@ -97,8 +97,8 @@ export async function GET(req: NextRequest) {
 
         // Pending count - uses idx_registration_meta_status
         executeQuery(
-          () =>
-            supabaseServer
+          async () =>
+            await supabaseServer
               .from("registration_meta")
               .select("*", { count: "exact", head: true })
               .eq("status", "pending"),
@@ -108,8 +108,8 @@ export async function GET(req: NextRequest) {
 
         // Approved count - uses idx_registration_meta_status
         executeQuery(
-          () =>
-            supabaseServer
+          async () =>
+            await supabaseServer
               .from("registration_meta")
               .select("*", { count: "exact", head: true })
               .eq("status", "approved"),
@@ -119,8 +119,8 @@ export async function GET(req: NextRequest) {
 
         // Rejected count - uses idx_registration_meta_status
         executeQuery(
-          () =>
-            supabaseServer
+          async () =>
+            await supabaseServer
               .from("registration_meta")
               .select("*", { count: "exact", head: true })
               .eq("status", "rejected"),
@@ -130,8 +130,8 @@ export async function GET(req: NextRequest) {
 
         // New today count - uses idx_registration_meta_created_at
         executeQuery(
-          () =>
-            supabaseServer
+          async () =>
+            await supabaseServer
               .from("registration_meta")
               .select("*", { count: "exact", head: true })
               .gte("created_at", todayStart.toISOString()),

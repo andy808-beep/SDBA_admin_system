@@ -14,10 +14,7 @@ import { setSentryUser, clearSentryUser } from "@/lib/sentry-context";
 import {
   checkCsrfProtection,
   requiresCsrfProtection,
-  generateCsrfToken,
-  getCsrfTokenFromCookie,
-  setCsrfTokenCookie,
-} from "@/lib/csrf";
+} from "@/lib/csrf-edge";
 import { sanitizeHeaders } from "@/lib/log-sanitizer";
 
 /**
@@ -47,7 +44,7 @@ export async function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const method = req.method;
   const path = url.pathname;
-  const clientIp = req.ip ?? getClientIp(req);
+  const clientIp = getClientIp(req);
   const userAgent = req.headers.get("user-agent") || "unknown";
 
   // Add request ID to response headers for correlation
@@ -67,8 +64,8 @@ export async function middleware(req: NextRequest) {
   // Rate limiting for public API routes
   // Strategy: 10 requests per 10 seconds per IP address
   if (url.pathname.startsWith("/api/public/")) {
-    // Use req.ip if available, otherwise extract from headers
-    const clientIp = req.ip ?? getClientIp(req);
+    // Extract IP from headers
+    const clientIp = getClientIp(req);
     const rateLimitResult = await checkPublicApiLimit(clientIp);
 
     if (!rateLimitResult.success) {
@@ -83,7 +80,6 @@ export async function middleware(req: NextRequest) {
         duration,
         ip: clientIp,
         userAgent,
-        requestId,
       });
       logger.warn("Rate limit exceeded for public API", {
         requestId,
@@ -134,14 +130,8 @@ export async function middleware(req: NextRequest) {
       }
     }
 
-    // Generate and set CSRF token for all admin API requests
-    // This ensures the token is always available for subsequent requests
-    // Only set if token doesn't already exist
-    const existingToken = getCsrfTokenFromCookie(req);
-    if (!existingToken) {
-      const token = generateCsrfToken();
-      setCsrfTokenCookie(res, token);
-    }
+    // CSRF token generation happens in /api/csrf-token endpoint (Node.js runtime)
+    // Middleware only checks token presence and match (Edge Runtime compatible)
 
     // First check authentication to get user ID
     const { isAdmin, user } = await checkAdmin(req);
@@ -167,7 +157,6 @@ export async function middleware(req: NextRequest) {
           duration,
           ip: clientIp,
           userAgent,
-          requestId,
         });
         logger.warn("Rate limit exceeded for admin API (unauthenticated)", {
           requestId,
@@ -209,7 +198,6 @@ export async function middleware(req: NextRequest) {
         duration,
         ip: clientIp,
         userAgent,
-        requestId,
       });
       
       return res;
@@ -232,7 +220,6 @@ export async function middleware(req: NextRequest) {
         ip: clientIp,
         userAgent,
         userId,
-        requestId,
       });
       logger.warn("Rate limit exceeded for admin API", {
         requestId,
@@ -276,7 +263,6 @@ export async function middleware(req: NextRequest) {
       ip: clientIp,
       userAgent,
       userId,
-      requestId,
     });
 
     return res;
@@ -298,7 +284,6 @@ export async function middleware(req: NextRequest) {
       duration,
       ip: clientIp,
       userAgent,
-      requestId,
     });
   }
 

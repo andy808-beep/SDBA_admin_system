@@ -94,14 +94,17 @@ export async function POST(req: NextRequest) {
     };
     
     const { data, error } = await trackRpcCall(
-      () => supabaseServer.rpc("approve_registration", rpcParams),
+      async () => {
+        const result = await supabaseServer.rpc("approve_registration", rpcParams);
+        return result;
+      },
       "approve_registration",
       rpcParams
     );
 
     if (error) {
-      // Track failed approval
-      trackRegistrationEvent("approve", payload.registration_id, user.id, false, new Error(error.message));
+      // Track failed approval (fire and forget)
+      trackRegistrationEvent("approve", payload.registration_id, user.id, false, new Error(error.message)).catch(() => {});
       
       // Check if error is "not found or not pending"
       const errorMessage = error.message.toLowerCase();
@@ -117,8 +120,8 @@ export async function POST(req: NextRequest) {
       throw ApiErrors.internalServerError(error.message);
     }
 
-    // Track successful approval
-    trackRegistrationEvent("approve", payload.registration_id, user.id, true);
+    // Track successful approval (fire and forget)
+    trackRegistrationEvent("approve", payload.registration_id, user.id, true).catch(() => {});
 
     // Success: return team_meta_id
     return NextResponse.json({

@@ -14,9 +14,12 @@ export async function POST(req: NextRequest) {
     }
 
     console.log("[Signup API] URL:", env.NEXT_PUBLIC_SUPABASE_URL.substring(0, 30));
-    console.log("[Signup API] Has Service Key:", !!env.SUPABASE_SERVICE_ROLE_KEY);
-    console.log("[Signup API] Key length:", env.SUPABASE_SERVICE_ROLE_KEY.length);
-    console.log("[Signup API] Key first 20 chars:", env.SUPABASE_SERVICE_ROLE_KEY.substring(0, 20));
+    const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
+    console.log("[Signup API] Has Service Key:", !!serviceKey);
+    if (serviceKey) {
+      console.log("[Signup API] Key length:", serviceKey.length);
+      console.log("[Signup API] Key first 20 chars:", serviceKey.substring(0, 20));
+    }
 
     // Test: Try to make a direct API call to see what Supabase returns
     try {
@@ -26,8 +29,8 @@ export async function POST(req: NextRequest) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            "apikey": serviceKey,
+            "Authorization": `Bearer ${serviceKey}`,
           },
           body: JSON.stringify({
             email,
@@ -63,12 +66,6 @@ export async function POST(req: NextRequest) {
         details: fetchError.message 
       }, { status: 500 });
     }
-
-    return NextResponse.json({
-      success: true,
-      user: data.user,
-      message: "Account created successfully! You can now log in.",
-    });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || "Internal server error" },

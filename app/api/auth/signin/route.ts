@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const response = NextResponse.json({
       success: true,
       message: "Logged in successfully",

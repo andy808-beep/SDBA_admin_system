@@ -2,10 +2,15 @@
 
 // lib/supabaseClient.ts
 import { createClient } from '@supabase/supabase-js';
-import { env } from './env';
 
-const url  = env.NEXT_PUBLIC_SUPABASE_URL;
-const anon = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Access environment variables directly (embedded at build time)
+// Don't use env.ts here to avoid validation issues on client
+const url  = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+if (!url || !anon) {
+  console.error('Missing Supabase environment variables. Please check your Vercel environment configuration.');
+}
 
 /**
  * Browser Supabase client (anon key).

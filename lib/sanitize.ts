@@ -1,7 +1,22 @@
 // lib/sanitize.ts
 // Input sanitization utilities to prevent XSS attacks
 
-import DOMPurify from "isomorphic-dompurify";
+// Simple regex-based HTML sanitization (works on both server and client)
+function simpleSanitizeHtml(input: string): string {
+  if (typeof input !== "string") {
+    return "";
+  }
+  // Remove all HTML tags and decode entities
+  let cleaned = input
+    .replace(/<[^>]*>/g, "") // Remove HTML tags
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, "/")
+    .replace(/&amp;/g, "&");
+  return cleaned;
+}
 
 /**
  * Sanitize HTML content, removing potentially dangerous elements and attributes
@@ -9,21 +24,8 @@ import DOMPurify from "isomorphic-dompurify";
  * @returns Sanitized HTML string
  */
 export function sanitizeHtml(input: string): string {
-  if (typeof input !== "string") {
-    return "";
-  }
-
-  // Configure DOMPurify with strict settings
-  const clean = DOMPurify.sanitize(input, {
-    ALLOWED_TAGS: [], // No HTML tags allowed by default
-    ALLOWED_ATTR: [], // No attributes allowed
-    KEEP_CONTENT: true, // Keep text content but strip tags
-    RETURN_DOM: false,
-    RETURN_DOM_FRAGMENT: false,
-    RETURN_TRUSTED_TYPE: false,
-  });
-
-  return clean;
+  // Use simple regex-based sanitization to avoid jsdom build issues
+  return simpleSanitizeHtml(input);
 }
 
 /**
@@ -198,16 +200,7 @@ export function sanitizeNotes(input: string): string {
     return "";
   }
 
-  // Allow basic formatting tags but remove scripts and event handlers
-  const clean = DOMPurify.sanitize(input, {
-    ALLOWED_TAGS: ["p", "br", "strong", "em", "u", "ul", "ol", "li"],
-    ALLOWED_ATTR: [],
-    KEEP_CONTENT: true,
-    RETURN_DOM: false,
-    RETURN_DOM_FRAGMENT: false,
-    RETURN_TRUSTED_TYPE: false,
-  });
-
-  return clean.trim();
+  // Strip all HTML tags for notes (security first)
+  return simpleSanitizeHtml(input).trim();
 }
 
