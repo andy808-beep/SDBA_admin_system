@@ -14,8 +14,12 @@
  *   - SENTRY_DSN (optional)
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const envJsPath = path.join(__dirname, '../public/env.js');
 
@@ -37,22 +41,35 @@ if (!supabaseUrl || !supabaseKey) {
   console.warn('   Using existing values in env.js');
 }
 
-// Replace values in env.js
+// Helper function to escape JavaScript string values
+// Uses JSON.stringify to properly escape all special characters
+function escapeJsString(str) {
+  if (!str) return '';
+  // Use JSON.stringify which handles all escaping correctly
+  // Then remove the surrounding quotes since we'll add them ourselves
+  return JSON.stringify(str).slice(1, -1);
+}
+
+// Replace values in env.js with properly escaped strings
+const escapedUrl = escapeJsString(supabaseUrl || 'https://your-project.supabase.co');
+const escapedKey = escapeJsString(supabaseKey || 'your-anon-key-here');
+
 envJs = envJs.replace(
   /SUPABASE_URL:\s*"[^"]*"/,
-  `SUPABASE_URL: "${supabaseUrl || 'https://your-project.supabase.co'}"`
+  `SUPABASE_URL: "${escapedUrl}"`
 );
 
 envJs = envJs.replace(
   /SUPABASE_ANON_KEY:\s*"[^"]*"/,
-  `SUPABASE_ANON_KEY: "${supabaseKey || 'your-anon-key-here'}"`
+  `SUPABASE_ANON_KEY: "${escapedKey}"`
 );
 
 // Handle SENTRY_DSN (can be null or a string)
 if (sentryDsn && sentryDsn !== 'null' && sentryDsn !== '') {
+  const escapedDsn = escapeJsString(sentryDsn);
   envJs = envJs.replace(
     /SENTRY_DSN:\s*(null|"[^"]*")/,
-    `SENTRY_DSN: "${sentryDsn}"`
+    `SENTRY_DSN: "${escapedDsn}"`
   );
 } else {
   envJs = envJs.replace(
