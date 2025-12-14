@@ -18,3 +18,6 @@ ehthumbs.db
 Thumbs.db
 .vercel
 .env*.local
+
+# Build artifacts
+public/.version

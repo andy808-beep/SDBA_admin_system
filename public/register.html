@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Race Registration</title>
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="css/theme.css" />
+  <link rel="stylesheet" href="styles.css?v=1.0.0-mj5kvh3s" />
+  <link rel="stylesheet" href="css/theme.css?v=1.0.0-mj5kvh3s" />
   <!-- TN Legacy CSS - loaded conditionally when event='tn' -->
-  <link rel="stylesheet" href="css/tn_legacy.css" id="tnLegacyCSS" disabled />
+  <link rel="stylesheet" href="css/tn_legacy.css?v=1.0.0-mj5kvh3s" id="tnLegacyCSS" disabled />
   <style>
     /* Universal form specific styles */
     .form-container {
@@ -494,32 +494,52 @@
     </div>
   </div>
   
-  <script src="env.js"></script>
-  <!-- Sentry Error Monitoring -->
-  <script src="https://browser.sentry-cdn.com/7.91.0/bundle.min.js" integrity="sha384-0S4l5pKKZ8qJg1pz4w2Xq7ng0K1qj2OMvq5kPL1Y4F4/Ma9B8XE4zrW3Xf44F2gF" crossorigin="anonymous"></script>
-  <script type="module">
-    import { initializeSentry } from './js/sentry-config.js';
-    if (window.Sentry) {
-      initializeSentry(window.Sentry);
-    }
+  <script src="env.js?v=1.0.0-mj5kvh3s"></script>
+  <!-- Sentry Error Monitoring (only load if DSN is configured) -->
+  <script>
+    // Only load Sentry if DSN is configured
+    (function() {
+      if (window.ENV && window.ENV.SENTRY_DSN) {
+        const sentryScript = document.createElement('script');
+        sentryScript.src = 'https://browser.sentry-cdn.com/7.91.0/bundle.min.js';
+        sentryScript.integrity = 'sha384-0S4l5pKKZ8qJg1pz4w2Xq7ng0K1qj2OMvq5kPL1Y4F4/Ma9B8XE4zrW3Xf44F2gF';
+        sentryScript.crossOrigin = 'anonymous';
+        sentryScript.onload = function() {
+          // Initialize Sentry after script loads
+          const initScript = document.createElement('script');
+          initScript.type = 'module';
+          initScript.textContent = `
+            import { initializeSentry } from './js/sentry-config.js';
+            if (window.Sentry) {
+              initializeSentry(window.Sentry);
+            }
+          `;
+          document.head.appendChild(initScript);
+        };
+        sentryScript.onerror = function() {
+          console.warn('Sentry: Failed to load SDK');
+        };
+        document.head.appendChild(sentryScript);
+      }
+    })();
   </script>
   <!-- Logger Utility (must load before other JS files) -->
-  <script type="module" src="./js/logger.js"></script>
-  <script src="./js/env_verifier.js"></script>
-  <script type="module" src="./supabase_config.js"></script>
-  <script type="module" src="./js/config_loader.js"></script>
-  <script type="module" src="./js/ui_bindings.js"></script>
-  <script type="module" src="./js/totals.js"></script>
-  <script type="module" src="./js/submit.js"></script>
-  <script type="module" src="./js/event_bootstrap.js"></script>
-  <script type="module" src="./js/tn_wizard.js"></script>
-  <script type="module" src="./js/wu_sc_wizard.js"></script>
-  <script src="./js/tn_verification.js"></script>
+  <script type="module" src="./js/logger.js?v=1.0.0-mj5kvh3s"></script>
+  <script src="./js/env_verifier.js?v=1.0.0-mj5kvh3s"></script>
+  <script type="module" src="./supabase_config.js?v=1.0.0-mj5kvh3s"></script>
+  <script type="module" src="./js/config_loader.js?v=1.0.0-mj5kvh3s"></script>
+  <script type="module" src="./js/ui_bindings.js?v=1.0.0-mj5kvh3s"></script>
+  <script type="module" src="./js/totals.js?v=1.0.0-mj5kvh3s"></script>
+  <script type="module" src="./js/submit.js?v=1.0.0-mj5kvh3s"></script>
+  <script type="module" src="./js/event_bootstrap.js?v=1.0.0-mj5kvh3s"></script>
+  <script type="module" src="./js/tn_wizard.js?v=1.0.0-mj5kvh3s"></script>
+  <script type="module" src="./js/wu_sc_wizard.js?v=1.0.0-mj5kvh3s"></script>
+  <script src="./js/tn_verification.js?v=1.0.0-mj5kvh3s"></script>
   
   <!-- Load Templates -->
   <script>
     // Load TN templates
-    fetch('tn_templates.html')
+    fetch('tn_templates.html?v=1.0.0-mj5kvh3s')
       .then(response => response.text())
       .then(html => {
         const parser = new DOMParser();
@@ -531,7 +551,7 @@
       });
     
     // Load WU/SC templates
-    fetch('wu_sc_templates.html')
+    fetch('wu_sc_templates.html?v=1.0.0-mj5kvh3s')
       .then(response => response.text())
       .then(html => {
         const parser = new DOMParser();

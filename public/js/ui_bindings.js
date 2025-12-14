@@ -862,8 +862,10 @@ export function initFormForEvent(eventShortRef) {
 	if (eventShortRef === 'wu' || eventShortRef === 'sc') {
 		Logger.info('🎯 initFormForEvent: Starting WU/SC multi-step wizard...');
 		// Import and initialize WU/SC wizard
-		import('./wu_sc_wizard.js').then(({ initWUSCWizard }) => {
-			initWUSCWizard(eventShortRef);
+		import('./wu_sc_wizard.js').then(async ({ initWUSCWizard }) => {
+			await initWUSCWizard(eventShortRef);
+		}).catch(err => {
+			Logger.error('Failed to initialize WU/SC wizard:', err);
 		});
 		return;
 	}

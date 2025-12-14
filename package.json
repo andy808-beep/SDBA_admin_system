@@ -5,7 +5,9 @@
   "type": "module",
   "main": "supabase_config.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "node scripts/inject-env.js && node scripts/inject-version.js",
+    "prebuild": "echo 'Building with version injection...'"
   },
   "repository": {
     "type": "git",

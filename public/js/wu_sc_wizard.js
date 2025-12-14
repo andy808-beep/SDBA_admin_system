@@ -30,7 +30,7 @@ let eventType = null; // 'wu' or 'sc'
 /**
  * Initialize WU/SC wizard
  */
-export function initWUSCWizard(eventShortRef) {
+export async function initWUSCWizard(eventShortRef) {
 	Logger.debug('🎯 initWUSCWizard called with:', eventShortRef);
   
   eventType = eventShortRef;
@@ -40,6 +40,43 @@ export function initWUSCWizard(eventShortRef) {
   if (!wuScScope || !wizardMount) {
 	Logger.error('WU/SC wizard containers not found');
     return;
+  }
+  
+  // Check if config is valid (has packages and divisions)
+  const cfg = window.__CONFIG;
+  const hasPackages = cfg?.packages && cfg.packages.length > 0;
+  const hasDivisions = cfg?.divisions && cfg.divisions.length > 0;
+  
+	Logger.debug('Config check:', {
+    hasConfig: !!cfg,
+    hasPackages,
+    packagesCount: cfg?.packages?.length || 0,
+    hasDivisions,
+    divisionsCount: cfg?.divisions?.length || 0
+  });
+  
+  if (!cfg || !hasPackages || !hasDivisions) {
+	Logger.warn('Config is missing packages or divisions, forcing refresh...');
+    // Force refresh config without cache
+    try {
+      const { loadEventConfig, clearConfigCache } = await import('./config_loader.js');
+      // Clear cache first to ensure fresh data
+      clearConfigCache(eventShortRef);
+	Logger.debug('Cache cleared, fetching fresh config...');
+      const refreshedConfig = await loadEventConfig(eventShortRef, { useCache: false });
+	Logger.debug('✅ Config refreshed successfully', {
+        packagesCount: refreshedConfig?.packages?.length || 0,
+        divisionsCount: refreshedConfig?.divisions?.length || 0,
+        packages: refreshedConfig?.packages,
+        divisions: refreshedConfig?.divisions
+      });
+      
+      // Update global config
+      window.__CONFIG = refreshedConfig;
+    } catch (error) {
+	Logger.error('Failed to refresh config:', error);
+      // Continue anyway - error will be shown in Step 1
+    }
   }
   
   // Show WU/SC container
@@ -425,18 +462,81 @@ function initStep1() {
  */
 async function renderTeamDetails(count) {
   const teamDetailsList = document.getElementById('teamDetailsList');
-  if (!teamDetailsList) return;
-  
-  teamDetailsList.innerHTML = '';
-  
-  // Load configuration
-  const cfg = window.__CONFIG;
-  if (!cfg) {
-	Logger.error('Configuration not loaded');
+  if (!teamDetailsList) {
+	Logger.error('renderTeamDetails: teamDetailsList not found');
     return;
   }
   
+  teamDetailsList.innerHTML = '';
+  
+  // Load configuration - wait for it if not ready
+  let cfg = window.__CONFIG;
+  if (!cfg) {
+	Logger.warn('Configuration not immediately available, waiting...');
+    // Wait a bit for config to load (config should be loaded before wizard init, but just in case)
+    await new Promise(resolve => setTimeout(resolve, 100));
+    cfg = window.__CONFIG;
+  }
+  
+  if (!cfg) {
+	Logger.error('Configuration not loaded after waiting. Config object:', window.__CONFIG);
+    const errorMsg = document.createElement('div');
+    errorMsg.className = 'msg error';
+    errorMsg.textContent = 'Configuration not loaded. Please refresh the page.';
+    teamDetailsList.appendChild(errorMsg);
+    return;
+  }
+  
+	Logger.debug('renderTeamDetails: Config loaded', {
+    hasPackages: !!cfg.packages,
+    packagesCount: cfg.packages?.length || 0,
+    hasDivisions: !!cfg.divisions,
+    divisionsCount: cfg.divisions?.length || 0
+  });
+  
+  // Show warning if packages are missing, but still render the form
+  if (!cfg.packages || cfg.packages.length === 0) {
+	Logger.error('No packages found in config', cfg);
+    const warningMsg = document.createElement('div');
+    warningMsg.className = 'msg error';
+    warningMsg.style.marginBottom = '1rem';
+    
+    const strong = document.createElement('strong');
+    strong.textContent = '⚠️ Configuration Issue: No boat types are configured in the database.';
+    warningMsg.appendChild(strong);
+    
+    const br1 = document.createElement('br');
+    warningMsg.appendChild(br1);
+    
+    const text = document.createTextNode('Please contact the administrator to set up packages and divisions for this event.');
+    warningMsg.appendChild(text);
+    
+    const br2 = document.createElement('br');
+    warningMsg.appendChild(br2);
+    
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = 'Clear Cache & Reload';
+    clearBtn.style.marginTop = '0.5rem';
+    clearBtn.style.padding = '0.5rem 1rem';
+    clearBtn.style.background = '#007bff';
+    clearBtn.style.color = 'white';
+    clearBtn.style.border = 'none';
+    clearBtn.style.borderRadius = '4px';
+    clearBtn.style.cursor = 'pointer';
+    clearBtn.onclick = function() {
+      localStorage.removeItem('raceApp:config:WU2025');
+      localStorage.removeItem('raceApp:config:SC2025');
+      location.reload();
+    };
+    warningMsg.appendChild(clearBtn);
+    
+    teamDetailsList.appendChild(warningMsg);
+    // Don't return - continue to render form fields so user can at least see the structure
+  }
+  
+	Logger.debug(`renderTeamDetails: Rendering ${count} team(s)`);
   for (let i = 1; i <= count; i++) {
+	Logger.debug(`renderTeamDetails: Creating form for team ${i}`);
     const teamDiv = document.createElement('div');
     teamDiv.className = 'entry-option';
     teamDiv.innerHTML = `
@@ -458,25 +558,81 @@ async function renderTeamDetails(count) {
     `;
     
     teamDetailsList.appendChild(teamDiv);
+	Logger.debug(`renderTeamDetails: Team ${i} form appended to DOM`);
     
-    // Load boat types and divisions
-    await loadBoatTypesForTeam(i, cfg);
-    await loadDivisionsForTeam(i, cfg);
+    // Small delay to ensure DOM is ready
+    await new Promise(resolve => setTimeout(resolve, 10));
+    
+    // Load boat types and divisions (these may fail if config is empty, but form fields are already rendered)
+    try {
+      await loadBoatTypesForTeam(i, cfg);
+      await loadDivisionsForTeam(i, cfg);
+    } catch (error) {
+	Logger.error(`renderTeamDetails: Error loading boat types/divisions for team ${i}:`, error);
+      // Continue anyway - form fields are already rendered
+    }
   }
+  
+	Logger.debug(`renderTeamDetails: Completed rendering ${count} team(s)`);
 }
 
 /**
  * Load boat types for a specific team
  */
 async function loadBoatTypesForTeam(teamIndex, cfg) {
+	Logger.debug(`loadBoatTypesForTeam: Starting for team ${teamIndex}`);
   const container = document.getElementById(`boatType${teamIndex}`);
   const entryGroupContainer = document.getElementById(`entryGroupContainer${teamIndex}`);
-  if (!container || !entryGroupContainer) return;
   
-  const packages = cfg.packages || [];
+  if (!container) {
+	Logger.error(`loadBoatTypesForTeam: Container boatType${teamIndex} not found in DOM`);
+    // Try to find it again after a short delay
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const retryContainer = document.getElementById(`boatType${teamIndex}`);
+    if (!retryContainer) {
+	Logger.error(`loadBoatTypesForTeam: Container still not found after retry`);
+      return;
+    }
+  }
+  
+  if (!entryGroupContainer) {
+	Logger.error(`loadBoatTypesForTeam: Entry group container entryGroupContainer${teamIndex} not found in DOM`);
+    return;
+  }
+  
+	Logger.debug(`loadBoatTypesForTeam: Containers found, checking config`, {
+    hasConfig: !!cfg,
+    packagesCount: cfg?.packages?.length || 0
+  });
+  
+  const packages = cfg?.packages || [];
+	Logger.debug(`loadBoatTypesForTeam: Found ${packages.length} packages for team ${teamIndex}`, packages);
   
   // Filter out "By Invitation" option
   const validPackages = packages.filter(pkg => pkg.title_en !== 'By Invitation');
+	Logger.debug(`loadBoatTypesForTeam: ${validPackages.length} valid packages after filtering (team ${teamIndex})`);
+  
+  if (validPackages.length === 0) {
+	Logger.error(`loadBoatTypesForTeam: No valid packages found for team ${teamIndex}`, {
+      packagesCount: packages.length,
+      packages: packages,
+      config: cfg
+    });
+    const errorMsg = document.createElement('div');
+    errorMsg.className = 'msg error';
+    errorMsg.style.fontSize = '0.9em';
+    errorMsg.style.padding = '0.75rem';
+    errorMsg.style.marginTop = '0.5rem';
+    errorMsg.style.marginBottom = '0.5rem';
+    errorMsg.style.backgroundColor = '#f8d7da';
+    errorMsg.style.color = '#721c24';
+    errorMsg.style.border = '1px solid #f5c6cb';
+    errorMsg.style.borderRadius = '4px';
+    errorMsg.innerHTML = '<strong>⚠️ No boat types configured.</strong><br/>The database may not have packages set up for this event. Please contact the administrator.';
+    container.appendChild(errorMsg);
+    // Don't return - let the form structure remain visible, but show the error
+    return;
+  }
   
   validPackages.forEach((pkg, index) => {
     const label = document.createElement('label');
@@ -484,20 +640,26 @@ async function loadBoatTypesForTeam(teamIndex, cfg) {
     // XSS FIX: Escape package data (pkg.title_en) before inserting into HTML
     // Package data comes from config, but should be escaped as defense-in-depth
     const safeTitleEn = SafeDOM.escapeHtml(pkg.title_en);
+    const price = pkg.listed_unit_price ? pkg.listed_unit_price.toLocaleString() : '0';
     label.innerHTML = `
       <input type="radio" id="boatType${teamIndex}_${index}" name="boatType${teamIndex}" value="${safeTitleEn}" required />
-      ${safeTitleEn} - HK$${pkg.listed_unit_price.toLocaleString()}
+      ${safeTitleEn} - HK$${price}
     `;
     container.appendChild(label);
     
     // Show divisions when boat type is selected
     const radio = label.querySelector('input');
-    radio.addEventListener('change', () => {
-      // Move entry group container after the selected radio button
-      label.parentNode.appendChild(entryGroupContainer);
-      showDivisionRow(teamIndex);
-    });
+    if (radio) {
+      radio.addEventListener('change', () => {
+	Logger.debug(`Boat type selected for team ${teamIndex}: ${safeTitleEn}`);
+        // Move entry group container after the selected radio button
+        label.parentNode.appendChild(entryGroupContainer);
+        showDivisionRow(teamIndex);
+      });
+    }
   });
+  
+	Logger.debug(`loadBoatTypesForTeam: Successfully loaded ${validPackages.length} boat types for team ${teamIndex}`);
 }
 
 /**
@@ -505,9 +667,13 @@ async function loadBoatTypesForTeam(teamIndex, cfg) {
  */
 async function loadDivisionsForTeam(teamIndex, cfg) {
   const container = document.getElementById(`division${teamIndex}`);
-  if (!container) return;
+  if (!container) {
+	Logger.error(`loadDivisionsForTeam: Container not found for team ${teamIndex}`);
+    return;
+  }
   
   const divisions = cfg.divisions || [];
+	Logger.debug(`loadDivisionsForTeam: Found ${divisions.length} divisions for team ${teamIndex}`);
   
   // Store all divisions for this team (will be filtered when boat type is selected)
   container.dataset.allDivisions = JSON.stringify(divisions);
@@ -522,29 +688,67 @@ async function loadDivisionsForTeam(teamIndex, cfg) {
 function showDivisionRow(teamIndex) {
   const divisionContainer = document.getElementById(`division${teamIndex}`);
   const entryGroupContainer = document.getElementById(`entryGroupContainer${teamIndex}`);
-  if (!divisionContainer || !entryGroupContainer) return;
+  if (!divisionContainer) {
+	Logger.error(`showDivisionRow: Division container not found for team ${teamIndex}`);
+    return;
+  }
+  if (!entryGroupContainer) {
+	Logger.error(`showDivisionRow: Entry group container not found for team ${teamIndex}`);
+    return;
+  }
   
   // Get selected boat type
   const selectedBoatType = document.querySelector(`input[name="boatType${teamIndex}"]:checked`);
-  if (!selectedBoatType) return;
+  if (!selectedBoatType) {
+	Logger.error(`showDivisionRow: No boat type selected for team ${teamIndex}`);
+    return;
+  }
   
   const boatType = selectedBoatType.value;
+	Logger.debug(`showDivisionRow: Filtering divisions for team ${teamIndex}, boat type: ${boatType}`);
   
   // Get all divisions from stored data
-  const allDivisions = JSON.parse(divisionContainer.dataset.allDivisions || '[]');
+  let allDivisions = [];
+  try {
+    const divisionsData = divisionContainer.dataset.allDivisions || '[]';
+    allDivisions = JSON.parse(divisionsData);
+  } catch (e) {
+	Logger.error(`showDivisionRow: Failed to parse divisions data for team ${teamIndex}`, e);
+    return;
+  }
+  
+	Logger.debug(`showDivisionRow: Found ${allDivisions.length} total divisions for team ${teamIndex}`);
   
   // Filter divisions based on boat type
+  // Note: Division names from v_divisions_public view are in format "Standard Boat – Men" or "Small Boat – Ladies"
+  // The view already combines div_main_name_en and div_sub_name_en into name_en
   let filteredDivisions = [];
   if (boatType === 'Standard Boat') {
-    filteredDivisions = allDivisions.filter(div => 
-      div.name_en.includes('Standard Boat') && 
-      (div.name_en.includes('Men') || div.name_en.includes('Ladies') || div.name_en.includes('Mixed'))
-    );
+    filteredDivisions = allDivisions.filter(div => {
+      const nameEn = div.name_en || '';
+      // Check if name contains "Standard Boat" and one of the entry group types
+      return nameEn.includes('Standard Boat') && 
+             (nameEn.includes('Men') || nameEn.includes('Ladies') || nameEn.includes('Mixed'));
+    });
   } else if (boatType === 'Small Boat') {
-    filteredDivisions = allDivisions.filter(div => 
-      div.name_en.includes('Small Boat') && 
-      (div.name_en.includes('Men') || div.name_en.includes('Ladies') || div.name_en.includes('Mixed'))
-    );
+    filteredDivisions = allDivisions.filter(div => {
+      const nameEn = div.name_en || '';
+      // Check if name contains "Small Boat" and one of the entry group types
+      return nameEn.includes('Small Boat') && 
+             (nameEn.includes('Men') || nameEn.includes('Ladies') || nameEn.includes('Mixed'));
+    });
+  }
+  
+	Logger.debug(`showDivisionRow: Filtered to ${filteredDivisions.length} divisions for team ${teamIndex}`);
+  
+  if (filteredDivisions.length === 0) {
+	Logger.warn(`showDivisionRow: No divisions found for boat type "${boatType}" (team ${teamIndex})`);
+    const errorMsg = document.createElement('div');
+    errorMsg.className = 'msg error';
+    errorMsg.textContent = `No entry groups available for ${boatType}. Please contact support.`;
+    divisionContainer.appendChild(errorMsg);
+    entryGroupContainer.hidden = false;
+    return;
   }
   
   // Clear existing divisions
@@ -554,9 +758,12 @@ function showDivisionRow(teamIndex) {
   filteredDivisions.forEach((div, index) => {
     const label = document.createElement('label');
     label.className = 'radio-label';
-    // XSS FIX: Escape division data (div.name_en) before inserting into HTML
-    // Division data comes from config, but should be escaped as defense-in-depth
-    const safeNameEn = SafeDOM.escapeHtml(div.name_en);
+    
+    // Use name_en from the view (already combines main and sub names)
+    const displayName = div.name_en || '';
+    
+    // XSS FIX: Escape division data before inserting into HTML
+    const safeNameEn = SafeDOM.escapeHtml(displayName);
     label.innerHTML = `
       <input type="radio" id="division${teamIndex}_${index}" name="division${teamIndex}" value="${safeNameEn}" required />
       ${safeNameEn}
@@ -566,6 +773,7 @@ function showDivisionRow(teamIndex) {
   
   // Show the entire entry group container (includes label and radio buttons)
   entryGroupContainer.hidden = false;
+	Logger.debug(`showDivisionRow: Successfully displayed ${filteredDivisions.length} divisions for team ${teamIndex}`);
 }
 
 /**

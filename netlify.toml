@@ -4,8 +4,8 @@
 # See DEPLOYMENT.md for detailed deployment instructions.
 
 [build]
-  # Build command: Inject environment variables into env.js
-  command = "node scripts/inject-env.js"
+  # Build command: Inject environment variables and version for cache-busting
+  command = "node scripts/inject-env.js && node scripts/inject-version.js"
   # Publish directory: public folder contains all static files
   publish = "public"
 
@@ -39,11 +39,12 @@
     X-XSS-Protection = "1; mode=block"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# Cache control for JavaScript files (no cache for easier updates)
+# Cache control for JavaScript files
+# With version query parameters, we can cache aggressively
 [[headers]]
   for = "/js/*"
   [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
+    Cache-Control = "public, max-age=31536000, immutable"
 
 # Cache control for CSS files
 [[headers]]

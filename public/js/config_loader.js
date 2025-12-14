@@ -191,42 +191,108 @@ async function fetchConfigFromTables(eventShortRef) {
     throw new Error(`Event not found or not enabled: ${eventShortRef}`);
   }
   
-  // Query divisions
-  const { data: divisionsData } = await sb
-    .from('division')
-    .select('*')
-    .eq('event_short_ref', eventShortRef)
-    .eq('active', true);
+  // Query divisions from view (matching RPC structure)
+  // Note: Views may need to be granted REST API access in Supabase
+  let divisionsData = [];
+  try {
+    const { data, error } = await sb
+      .from('v_divisions_public')
+      .select('event_short_ref, division_code, name_en, name_tc, is_corporate, sort_order, is_active')
+      .eq('event_short_ref', eventShortRef)
+      .eq('is_active', true);
+    if (error) {
+      console.warn('Failed to query v_divisions_public:', error);
+    } else {
+      divisionsData = data || [];
+    }
+  } catch (error) {
+    console.warn('Error querying v_divisions_public:', error);
+  }
     
-  // Query packages
-  const { data: packagesData } = await sb
-    .from('package')
-    .select('*')
-    .eq('event_short_ref', eventShortRef)
-    .eq('active', true);
+  // Query packages from view (matching RPC structure)
+  let packagesData = [];
+  try {
+    const { data, error } = await sb
+      .from('v_packages_public')
+      .select('event_short_ref, package_code, title_en, title_tc, listed_unit_price, included_practice_hours_per_team, tees_qty, padded_shorts_qty, dry_bag_qty, sort_order, is_active')
+      .eq('event_short_ref', eventShortRef)
+      .eq('is_active', true);
+    if (error) {
+      console.warn('Failed to query v_packages_public:', error);
+    } else {
+      packagesData = data || [];
+    }
+  } catch (error) {
+    console.warn('Error querying v_packages_public:', error);
+  }
     
-  // Query race day items
-  const { data: raceDayData } = await sb
-    .from('race_day_item')
-    .select('*')
-    .eq('event_short_ref', eventShortRef)
-    .eq('active', true);
+  // Query race day items from view (matching RPC structure)
+  let raceDayData = [];
+  try {
+    const { data, error } = await sb
+      .from('v_race_day_items_public')
+      .select('event_short_ref, item_code, title_en, title_tc, listed_unit_price, min_qty, max_qty, sort_order')
+      .eq('event_short_ref', eventShortRef);
+    if (error) {
+      console.warn('Failed to query v_race_day_items_public:', error);
+    } else {
+      raceDayData = data || [];
+    }
+  } catch (error) {
+    console.warn('Error querying v_race_day_items_public:', error);
+  }
     
-  // Query practice items
-  const { data: practiceData } = await sb
-    .from('practice_item')
-    .select('*')
-    .eq('event_short_ref', eventShortRef)
-    .eq('active', true);
+  // Query practice items from view (matching RPC structure)
+  let practiceData = [];
+  try {
+    const { data, error } = await sb
+      .from('v_practice_items_public')
+      .select('event_short_ref, item_code, title_en, title_tc, listed_unit_price, sort_order, is_active')
+      .eq('event_short_ref', eventShortRef)
+      .eq('is_active', true);
+    if (error) {
+      console.warn('Failed to query v_practice_items_public:', error);
+    } else {
+      practiceData = data || [];
+    }
+  } catch (error) {
+    console.warn('Error querying v_practice_items_public:', error);
+  }
     
-  // Query timeslots
-  const { data: timeslotsData } = await sb
-    .from('timeslot')
-    .select('*')
-    .eq('event_short_ref', eventShortRef)
-    .eq('active', true);
+  // Query timeslots from view (matching RPC structure - no event_short_ref filter)
+  let timeslotsData = [];
+  try {
+    const { data, error } = await sb
+      .from('v_timeslots_public')
+      .select('slot_code, label, start_time, end_time, day_of_week, duration_hours, sort_order');
+    if (error) {
+      console.warn('Failed to query v_timeslots_public:', error);
+    } else {
+      timeslotsData = data || [];
+    }
+  } catch (error) {
+    console.warn('Error querying v_timeslots_public:', error);
+  }
     
-  // Build config object
+  // Query UI texts from view (matching RPC structure)
+  let uiTextsData = [];
+  try {
+    const { data, error } = await sb
+      .from('v_ui_texts_public')
+      .select('event_short_ref, screen, key, text_en, text_tc, sort_order')
+      .eq('event_short_ref', eventShortRef);
+    if (error) {
+      console.warn('Failed to query v_ui_texts_public:', error);
+    } else {
+      uiTextsData = data || [];
+    }
+  } catch (error) {
+    console.warn('Error querying v_ui_texts_public:', error);
+  }
+  
+  console.log(`Fetched from views: ${packagesData.length} packages, ${divisionsData.length} divisions for ${eventShortRef}`);
+  
+  // Build config object (matching RPC structure)
   const config = {
     config_version: eventData.config_version || 1,
     event: eventData,
@@ -242,7 +308,7 @@ async function fetchConfigFromTables(eventShortRef) {
     raceDay: raceDayData || [],
     practiceItems: practiceData || [],
     timeslots: timeslotsData || [],
-    uiTexts: []
+    uiTexts: uiTextsData || []
   };
   
   // Validate the configuration structure

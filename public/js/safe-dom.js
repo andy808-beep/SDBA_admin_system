@@ -95,10 +95,16 @@ const SafeDOM = {
 };
 
 // Export for ES6 modules
+export { SafeDOM };
+export default SafeDOM;
+
+// Export for CommonJS modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = SafeDOM;
 }
 
 // Make available globally
-window.SafeDOM = SafeDOM;
+if (typeof window !== 'undefined') {
+  window.SafeDOM = SafeDOM;
+}
 
