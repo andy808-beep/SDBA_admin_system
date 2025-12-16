@@ -166,6 +166,15 @@ export function initTNWizard() {
   // Set up deep linking
   initDeepLinking();
   
+  // Listen for language changes to re-render entire current step
+  window.addEventListener('languageChanged', () => {
+    Logger.debug('TN Wizard: Language changed, re-rendering current step');
+    initStepNavigation();
+    updateStepper();
+    // Re-render the current step content with new language
+    loadStepContent(currentStep);
+  });
+  
 	Logger.debug('TN Wizard initialized');
 }
 
@@ -175,15 +184,23 @@ export function initTNWizard() {
 function initStepNavigation() {
   if (!stepper) return;
   
+  // Get step labels from i18n (with fallbacks)
+  const t = (key, fallback) => window.i18n ? window.i18n.t(key) : fallback;
+  const step1 = t('tnStep1', '1. Teams');
+  const step2 = t('tnStep2', '2. Organization');
+  const step3 = t('tnStep3', '3. Race Day');
+  const step4 = t('tnStep4', '4. Practice');
+  const step5 = t('tnStep5', '5. Summary');
+  
   // Create stepper HTML (matching WU/SC style)
   stepper.innerHTML = `
     <div class="stepper-container">
       <div class="stepper-steps">
-        <div class="step ${currentStep >= 1 ? 'active' : ''}" data-step="1">1. Teams</div>
-        <div class="step ${currentStep >= 2 ? 'active' : ''}" data-step="2">2. Organization</div>
-        <div class="step ${currentStep >= 3 ? 'active' : ''}" data-step="3">3. Race Day</div>
-        <div class="step ${currentStep >= 4 ? 'active' : ''}" data-step="4">4. Practice</div>
-        <div class="step ${currentStep >= 5 ? 'active' : ''}" data-step="5">5. Summary</div>
+        <div class="step ${currentStep >= 1 ? 'active' : ''}" data-step="1" data-i18n="tnStep1">${step1}</div>
+        <div class="step ${currentStep >= 2 ? 'active' : ''}" data-step="2" data-i18n="tnStep2">${step2}</div>
+        <div class="step ${currentStep >= 3 ? 'active' : ''}" data-step="3" data-i18n="tnStep3">${step3}</div>
+        <div class="step ${currentStep >= 4 ? 'active' : ''}" data-step="4" data-i18n="tnStep4">${step4}</div>
+        <div class="step ${currentStep >= 5 ? 'active' : ''}" data-step="5" data-i18n="tnStep5">${step5}</div>
       </div>
     </div>
   `;
@@ -400,6 +417,13 @@ async function loadStepContent(step) {
   
   // Update stepper to reflect current step
   updateStepper();
+  
+  // IMPORTANT: Update i18n translations for the newly loaded template content
+  // This ensures all data-i18n elements are translated after template is cloned
+  if (window.i18n && typeof window.i18n.updateUI === 'function') {
+    Logger.debug('loadStepContent: Updating i18n translations for step', step);
+    window.i18n.updateUI();
+  }
 }
 
 /**
@@ -422,24 +446,29 @@ function createTeamCountSelector() {
   const container = document.getElementById('wizardMount');
   if (!container) return;
   
+  // Get translated strings
+  const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+  
+  // Generate team count options
+  const teamOptions = [];
+  for (let i = 1; i <= 10; i++) {
+    const label = i === 1 ? t('oneTeam', { count: i }) : t('nTeams', { count: i });
+    // Fallback if translation key doesn't exist
+    const displayLabel = (label === 'oneTeam' || label === 'nTeams') 
+      ? `${i} team${i > 1 ? 's' : ''}`
+      : label;
+    teamOptions.push(`<option value="${i}">${displayLabel}</option>`);
+  }
+  
   // Create team count question
   const teamCountSection = document.createElement('div');
   teamCountSection.id = 'teamCountSection';
   teamCountSection.innerHTML = `
     <div class="form-group">
-      <label for="teamCount">How many teams do you want to register?</label>
+      <label for="teamCount" data-i18n="howManyTeamsQuestion">${t('howManyTeamsQuestion')}</label>
       <select id="teamCount" name="teamCount" required>
-        <option value="">-- Select number of teams --</option>
-        <option value="1">1 team</option>
-        <option value="2">2 teams</option>
-        <option value="3">3 teams</option>
-        <option value="4">4 teams</option>
-        <option value="5">5 teams</option>
-        <option value="6">6 teams</option>
-        <option value="7">7 teams</option>
-        <option value="8">8 teams</option>
-        <option value="9">9 teams</option>
-        <option value="10">10 teams</option>
+        <option value="" data-i18n="selectNumberOfTeams">${t('selectNumberOfTeams')}</option>
+        ${teamOptions.join('')}
       </select>
     </div>
     <div id="teamFieldsContainer" style="display: none;">
@@ -447,8 +476,8 @@ function createTeamCountSelector() {
     </div>
     <div id="formMsg" class="error-message" style="display: none;"></div>
     <div class="form-actions" id="step1Actions" style="display: none;">
-      <button type="button" id="nextToStep2" class="btn btn-primary">
-        Next: Team Information →
+      <button type="button" id="nextToStep2" class="btn btn-primary" data-i18n="nextTeamInfo">
+        ${t('nextTeamInfo')}
       </button>
     </div>
   `;
@@ -632,7 +661,8 @@ function checkForDuplicateNames() {
   if (hasDuplicates) {
     const msgEl = document.getElementById('formMsg');
     if (msgEl) {
-      msgEl.textContent = 'Warning: Duplicate team names found in the same category. Please use unique names.';
+      const t = (key) => window.i18n ? window.i18n.t(key) : key;
+      msgEl.textContent = t('duplicateTeamNamesWarning');
       msgEl.style.display = 'block';
       msgEl.style.background = '#fff3cd';
       msgEl.style.borderColor = '#ffeaa7';
@@ -685,9 +715,10 @@ async function generateTeamFields(teamCount) {
   try {
 	Logger.debug('🎯 generateTeamFields: Loading categories from database');
     // Try to load categories from v_divisions_public view
+    // Include both _en and _tc columns for bilingual support
     const { data, error } = await sb
       .from('v_divisions_public')
-      .select('division_code, name_en')
+      .select('division_code, name_en, name_tc')
       .eq('event_short_ref', 'TN2025')
       .eq('is_active', true)
       .order('sort_order');
@@ -700,20 +731,20 @@ async function generateTeamFields(teamCount) {
     if (categories.length === 0) {
 	Logger.warn('🎯 generateTeamFields: No categories found in database, using fallback');
       categories = [
-        { division_code: 'M', name_en: 'Open Division – Men' },
-        { division_code: 'L', name_en: 'Open Division – Ladies' },
-        { division_code: 'X', name_en: 'Mixed Division – Open' },
-        { division_code: 'C', name_en: 'Mixed Division – Corporate' }
+        { division_code: 'M', name_en: 'Open Division – Men', name_tc: '公開組 – 男子' },
+        { division_code: 'L', name_en: 'Open Division – Ladies', name_tc: '公開組 – 女子' },
+        { division_code: 'X', name_en: 'Mixed Division – Open', name_tc: '混合組 – 公開' },
+        { division_code: 'C', name_en: 'Mixed Division – Corporate', name_tc: '混合組 – 企業' }
       ];
     }
   } catch (err) {
 	Logger.warn('🎯 generateTeamFields: Failed to load categories, using fallback:', err.message);
-    // Fallback categories (matching main race divisions)
+    // Fallback categories (matching main race divisions) - include both _en and _tc for bilingual
     categories = [
-      { division_code: 'M', name_en: 'Open Division – Men' },
-      { division_code: 'L', name_en: 'Open Division – Ladies' },
-      { division_code: 'X', name_en: 'Mixed Division – Open' },
-      { division_code: 'C', name_en: 'Mixed Division – Corporate' }
+      { division_code: 'M', name_en: 'Open Division – Men', name_tc: '公開組 – 男子' },
+      { division_code: 'L', name_en: 'Open Division – Ladies', name_tc: '公開組 – 女子' },
+      { division_code: 'X', name_en: 'Mixed Division – Open', name_tc: '混合組 – 公開' },
+      { division_code: 'C', name_en: 'Mixed Division – Corporate', name_tc: '混合組 – 企業' }
     ];
   }
   
@@ -721,9 +752,10 @@ async function generateTeamFields(teamCount) {
   let packages = [];
   try {
 	Logger.debug('🎯 generateTeamFields: Loading packages from database');
+    // Include both _en and _tc columns for bilingual support
     const { data: packageData, error: packageError } = await sb
       .from('v_packages_public')
-      .select('package_code, title_en, listed_unit_price, included_practice_hours_per_team, tees_qty, padded_shorts_qty, dry_bag_qty')
+      .select('package_code, title_en, title_tc, listed_unit_price, included_practice_hours_per_team, tees_qty, padded_shorts_qty, dry_bag_qty')
       .eq('event_short_ref', 'TN2025')
       .eq('is_active', true)
       .order('sort_order');
@@ -736,17 +768,20 @@ async function generateTeamFields(teamCount) {
     window.__PACKAGES = packages;
   } catch (err) {
 	Logger.warn('🎯 generateTeamFields: Failed to load packages, using fallback:', err.message);
-    // Fallback packages (from order.sql)
+    // Fallback packages (from order.sql) - include both _en and _tc for bilingual
     packages = [
-      { package_code: 'option_1_non_corp', title_en: 'Option I', listed_unit_price: 20900, included_practice_hours_per_team: 12, tees_qty: 20, padded_shorts_qty: 20, dry_bag_qty: 1 },
-      { package_code: 'option_2_non_corp', title_en: 'Option II', listed_unit_price: 17500, included_practice_hours_per_team: 12, tees_qty: 20, padded_shorts_qty: 0, dry_bag_qty: 1 },
-      { package_code: 'option_1_corp', title_en: 'Option I', listed_unit_price: 21900, included_practice_hours_per_team: 12, tees_qty: 20, padded_shorts_qty: 20, dry_bag_qty: 1 },
-      { package_code: 'option_2_corp', title_en: 'Option II', listed_unit_price: 18500, included_practice_hours_per_team: 12, tees_qty: 20, padded_shorts_qty: 0, dry_bag_qty: 1 }
+      { package_code: 'option_1_non_corp', title_en: 'Option I', title_tc: '選項一', listed_unit_price: 20900, included_practice_hours_per_team: 12, tees_qty: 20, padded_shorts_qty: 20, dry_bag_qty: 1 },
+      { package_code: 'option_2_non_corp', title_en: 'Option II', title_tc: '選項二', listed_unit_price: 17500, included_practice_hours_per_team: 12, tees_qty: 20, padded_shorts_qty: 0, dry_bag_qty: 1 },
+      { package_code: 'option_1_corp', title_en: 'Option I', title_tc: '選項一', listed_unit_price: 21900, included_practice_hours_per_team: 12, tees_qty: 20, padded_shorts_qty: 20, dry_bag_qty: 1 },
+      { package_code: 'option_2_corp', title_en: 'Option II', title_tc: '選項二', listed_unit_price: 18500, included_practice_hours_per_team: 12, tees_qty: 20, padded_shorts_qty: 0, dry_bag_qty: 1 }
     ];
     
     // Store packages globally for use in populatePackageOptions
     window.__PACKAGES = packages;
   }
+  
+  // Get translated strings
+  const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
   
   // Create team fields
   for (let i = 1; i <= teamCount; i++) {
@@ -757,31 +792,32 @@ async function generateTeamFields(teamCount) {
     const categoryOptions = categories.map(cat => {
       // Use division_code and name_en from v_divisions_public view
       const code = cat.division_code;
-      const displayName = cat.name_en;
+      // Use localized division name if db-localization is available
+      const displayName = window.getDivisionName ? window.getDivisionName(cat) : cat.name_en;
       return `<option value="${code}">${displayName}</option>`;
     }).join('');
     
     teamField.innerHTML = `
       <div class="team-header">
-        <h3>Team ${i}</h3>
+        <h3 data-i18n="teamLabel" data-i18n-params='{"num":"${i}"}'>${t('teamLabel', { num: i })}</h3>
       </div>
       <div class="team-inputs">
         <div class="form-group">
-          <label for="teamName${i}">Team Name *</label>
+          <label for="teamName${i}" data-i18n="teamNameLabel">${t('teamNameLabel')}</label>
           <input type="text" id="teamName${i}" name="teamName${i}" required 
-                 placeholder="Enter team name" />
+                 placeholder="${t('enterTeamName')}" data-i18n-placeholder="enterTeamName" />
         </div>
         
         <div class="form-group">
-          <label for="teamCategory${i}">Race Category *</label>
+          <label for="teamCategory${i}" data-i18n="raceCategoryLabel">${t('raceCategoryLabel')}</label>
           <select id="teamCategory${i}" name="teamCategory${i}" required>
-            <option value="">-- Select category --</option>
+            <option value="" data-i18n="selectCategory">${t('selectCategory')}</option>
             ${categoryOptions}
           </select>
         </div>
         
         <div class="form-group" id="teamOptionGroup${i}" style="display: none;">
-          <label>Entry Option *</label>
+          <label data-i18n="entryOptionLabel">${t('entryOptionLabel')}</label>
           <div id="teamOptionBoxes${i}" class="package-options">
             <!-- Package options will be populated based on division selection -->
           </div>
@@ -855,40 +891,45 @@ function populatePackageOptions(teamIndex, divisionCode) {
   
 	Logger.debug(`🎯 Team ${teamIndex}: Showing packages for division ${divisionCode}:`, relevantPackages);
   
+  // Get translated strings
+  const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+  
   // Generate package boxes
   // XSS FIX: Escape package data (pkg.title_en, pkg.package_code) before inserting into HTML
   // Package data comes from config, but should be escaped as a defense-in-depth measure
   optionBoxes.innerHTML = relevantPackages.map((pkg, index) => {
     const safePackageCode = SafeDOM.escapeHtml(pkg.package_code);
-    const safeTitleEn = SafeDOM.escapeHtml(pkg.title_en);
+    // Use localized package title if db-localization is available
+    const packageTitle = window.getPackageTitle ? window.getPackageTitle(pkg) : pkg.title_en;
+    const safeTitleEn = SafeDOM.escapeHtml(packageTitle);
     return `
     <div class="package-option" data-package-code="${safePackageCode}" data-team-index="${teamIndex}">
       <input type="radio" id="teamOption${teamIndex}_${index}" name="teamOption${teamIndex}" value="${safePackageCode}" required style="display: none;">
       <div class="package-box" data-option-index="${index}">
         <div class="package-header">
           <h4>${safeTitleEn}</h4>
-          <div class="package-price">HK$${pkg.listed_unit_price.toLocaleString()}</div>
+          <div class="package-price">${t('hkDollar')}${pkg.listed_unit_price.toLocaleString()}</div>
         </div>
         <div class="package-details">
           <div class="package-item">
             <span class="package-icon">⏰</span>
-            <span>Practice: ${pkg.included_practice_hours_per_team} hours</span>
+            <span data-i18n="practiceHours" data-i18n-params='{"hours":"${pkg.included_practice_hours_per_team}"}'>${t('practiceHours', { hours: pkg.included_practice_hours_per_team })}</span>
           </div>
           <div class="package-item">
             <span class="package-icon">👕</span>
-            <span>T-Shirts: ${pkg.tees_qty} pieces</span>
+            <span data-i18n="tShirts" data-i18n-params='{"qty":"${pkg.tees_qty}"}'>${t('tShirts', { qty: pkg.tees_qty })}</span>
           </div>
           <div class="package-item">
             <span class="package-icon">🩳</span>
-            <span>Padded Shorts: ${pkg.padded_shorts_qty} pieces</span>
+            <span data-i18n="paddedShortsQty" data-i18n-params='{"qty":"${pkg.padded_shorts_qty}"}'>${t('paddedShortsQty', { qty: pkg.padded_shorts_qty })}</span>
           </div>
           <div class="package-item">
             <span class="package-icon">🎒</span>
-            <span>Dry Bags: ${pkg.dry_bag_qty} piece</span>
+            <span data-i18n="dryBagsQty" data-i18n-params='{"qty":"${pkg.dry_bag_qty}"}'>${t('dryBagsQty', { qty: pkg.dry_bag_qty })}</span>
           </div>
         </div>
         <div class="package-selection-indicator">
-          <span class="selection-text">Click to select</span>
+          <span class="selection-text" data-i18n="clickToSelect">${t('clickToSelect')}</span>
         </div>
       </div>
     </div>
@@ -919,7 +960,7 @@ function setupPackageBoxHandlers(teamIndex) {
         // Reset selection text
         const selectionText = option.querySelector('.selection-text');
         if (selectionText) {
-          selectionText.textContent = 'Click to select';
+          selectionText.textContent = window.i18n ? window.i18n.t('clickToSelect') : 'Click to select';
         }
         
         // Clear inline styles
@@ -948,7 +989,7 @@ function setupPackageBoxHandlers(teamIndex) {
         // Update selection text
         const selectionText = packageOption.querySelector('.selection-text');
         if (selectionText) {
-          selectionText.textContent = 'Selected';
+          selectionText.textContent = window.i18n ? window.i18n.t('selected') : 'Selected';
         }
         
         // Debug: Check if class was added
@@ -1002,49 +1043,52 @@ function createOrganizationForm() {
   const container = document.getElementById('wizardMount');
   if (!container) return;
   
+  // Get translated strings
+  const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+  
   container.innerHTML = `
     <div class="organization-form">
-      <h2>Organization & Team Manager Information</h2>
+      <h2 data-i18n="organizationManagerInfo">${t('organizationManagerInfo')}</h2>
       
       <!-- Organization Information -->
       <div class="form-section">
-        <h3>Organization/Group Information</h3>
+        <h3 data-i18n="organizationGroupInfo">${t('organizationGroupInfo')}</h3>
         <div class="form-group">
-          <label for="orgName">Organization/Group Name *</label>
+          <label for="orgName" data-i18n="organizationGroupNameShort">${t('organizationGroupNameShort')}</label>
           <input type="text" id="orgName" name="orgName" required 
-                 placeholder="Enter organization or group name" />
+                 placeholder="${t('enterOrgName')}" data-i18n-placeholder="enterOrgName" />
         </div>
         
         <div class="form-group">
-          <label for="orgAddress">Address *</label>
+          <label for="orgAddress" data-i18n="addressLabel">${t('addressLabel')}</label>
           <textarea id="orgAddress" name="orgAddress" required rows="3"
-                    placeholder="Enter complete address"></textarea>
+                    placeholder="${t('enterCompleteAddress')}" data-i18n-placeholder="enterCompleteAddress"></textarea>
         </div>
       </div>
       
       <!-- Team Manager 1 (Required) -->
       <div class="form-section">
-        <h3>Team Manager 1 (Required)</h3>
+        <h3 data-i18n="teamManager1Required">${t('teamManager1Required')}</h3>
         <div class="manager-grid">
           <div class="form-group">
-            <label for="manager1Name">Name *</label>
+            <label for="manager1Name" data-i18n="nameLabel">${t('nameLabel')}</label>
             <input type="text" id="manager1Name" name="manager1Name" required 
-                   placeholder="Enter full name" />
+                   placeholder="${t('enterFullName')}" data-i18n-placeholder="enterFullName" />
           </div>
           <div class="form-group">
-            <label for="manager1Phone">Phone *</label>
+            <label for="manager1Phone" data-i18n="phoneLabel">${t('phoneLabel')}</label>
             <div class="phone-input-wrapper">
               <span class="phone-prefix">+852</span>
               <input type="tel" id="manager1Phone" name="manager1Phone" required 
-                     placeholder="8-digit number" maxlength="8" inputmode="numeric" 
+                     placeholder="${t('eightDigitNumber')}" data-i18n-placeholder="eightDigitNumber" maxlength="8" inputmode="numeric" 
                      pattern="[0-9]{8}" />
             </div>
             <div class="field-error" id="manager1PhoneError"></div>
           </div>
           <div class="form-group">
-            <label for="manager1Email">Email *</label>
+            <label for="manager1Email" data-i18n="emailLabel">${t('emailLabel')}</label>
             <input type="email" id="manager1Email" name="manager1Email" required 
-                   placeholder="Enter email address" />
+                   placeholder="${t('enterEmailAddress')}" data-i18n-placeholder="enterEmailAddress" />
             <div class="field-error" id="manager1EmailError"></div>
           </div>
         </div>
@@ -1052,27 +1096,27 @@ function createOrganizationForm() {
       
       <!-- Team Manager 2 (Required) -->
       <div class="form-section">
-        <h3>Team Manager 2 (Required)</h3>
+        <h3 data-i18n="teamManager2Required">${t('teamManager2Required')}</h3>
         <div class="manager-grid">
           <div class="form-group">
-            <label for="manager2Name">Name *</label>
+            <label for="manager2Name" data-i18n="nameLabel">${t('nameLabel')}</label>
             <input type="text" id="manager2Name" name="manager2Name" required 
-                   placeholder="Enter full name" />
+                   placeholder="${t('enterFullName')}" data-i18n-placeholder="enterFullName" />
           </div>
           <div class="form-group">
-            <label for="manager2Phone">Phone *</label>
+            <label for="manager2Phone" data-i18n="phoneLabel">${t('phoneLabel')}</label>
             <div class="phone-input-wrapper">
               <span class="phone-prefix">+852</span>
               <input type="tel" id="manager2Phone" name="manager2Phone" required 
-                     placeholder="8-digit number" maxlength="8" inputmode="numeric" 
+                     placeholder="${t('eightDigitNumber')}" data-i18n-placeholder="eightDigitNumber" maxlength="8" inputmode="numeric" 
                      pattern="[0-9]{8}" />
             </div>
             <div class="field-error" id="manager2PhoneError"></div>
           </div>
           <div class="form-group">
-            <label for="manager2Email">Email *</label>
+            <label for="manager2Email" data-i18n="emailLabel">${t('emailLabel')}</label>
             <input type="email" id="manager2Email" name="manager2Email" required 
-                   placeholder="Enter email address" />
+                   placeholder="${t('enterEmailAddress')}" data-i18n-placeholder="enterEmailAddress" />
             <div class="field-error" id="manager2EmailError"></div>
           </div>
         </div>
@@ -1080,27 +1124,27 @@ function createOrganizationForm() {
       
       <!-- Team Manager 3 (Optional) -->
       <div class="form-section">
-        <h3>Team Manager 3 (Optional)</h3>
+        <h3 data-i18n="teamManager3Optional">${t('teamManager3Optional')}</h3>
         <div class="manager-grid">
           <div class="form-group">
-            <label for="manager3Name">Name</label>
+            <label for="manager3Name" data-i18n="nameLabelOptional">${t('nameLabelOptional')}</label>
             <input type="text" id="manager3Name" name="manager3Name" 
-                   placeholder="Enter full name" />
+                   placeholder="${t('enterFullName')}" data-i18n-placeholder="enterFullName" />
           </div>
           <div class="form-group">
-            <label for="manager3Phone">Phone</label>
+            <label for="manager3Phone" data-i18n="phoneLabelOptional">${t('phoneLabelOptional')}</label>
             <div class="phone-input-wrapper">
               <span class="phone-prefix">+852</span>
               <input type="tel" id="manager3Phone" name="manager3Phone" 
-                     placeholder="8-digit number" maxlength="8" inputmode="numeric" 
+                     placeholder="${t('eightDigitNumber')}" data-i18n-placeholder="eightDigitNumber" maxlength="8" inputmode="numeric" 
                      pattern="[0-9]{8}" />
             </div>
             <div class="field-error" id="manager3PhoneError"></div>
           </div>
           <div class="form-group">
-            <label for="manager3Email">Email</label>
+            <label for="manager3Email" data-i18n="emailLabelOptional">${t('emailLabelOptional')}</label>
             <input type="email" id="manager3Email" name="manager3Email" 
-                   placeholder="Enter email address" />
+                   placeholder="${t('enterEmailAddress')}" data-i18n-placeholder="enterEmailAddress" />
             <div class="field-error" id="manager3EmailError"></div>
           </div>
         </div>
@@ -1108,11 +1152,11 @@ function createOrganizationForm() {
       
       <!-- Form Actions -->
       <div class="form-actions">
-        <button type="button" id="backToStep1" class="btn btn-secondary">
-          ← Back: Team Selection
+        <button type="button" id="backToStep1" class="btn btn-secondary" data-i18n="backTeamSelection">
+          ${t('backTeamSelection')}
         </button>
-        <button type="button" id="nextToStep3" class="btn btn-primary">
-          Next: Race Day Arrangements →
+        <button type="button" id="nextToStep3" class="btn btn-primary" data-i18n="nextRaceDay">
+          ${t('nextRaceDay')}
         </button>
       </div>
     </div>
@@ -1352,19 +1396,25 @@ async function createRaceDayForm() {
     // Group items by category for better organization
     const groupedItems = groupRaceDayItems(raceDayItems || []);
     
+    // Get translated strings
+    const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+    
     // Create form HTML
     container.innerHTML = `
       <div class="race-day-form">
-        <h2>Race Day Arrangements</h2>
+        <h2 data-i18n="raceDayArrangements">${t('raceDayArrangements')}</h2>
         
         ${Object.entries(groupedItems).map(([category, items]) => `
           <div class="form-section">
             <h3>${category}</h3>
-            ${items.map(item => `
+            ${items.map(item => {
+              // Use localized race day item title if db-localization is available
+              const itemTitle = window.getRaceDayItemTitle ? window.getRaceDayItemTitle(item) : item.title_en;
+              return `
               <div class="item-row">
                 <div class="item-info">
-                  <span class="item-title">${item.title_en}</span>
-                  <span class="item-price">Unit Price: HK$${item.listed_unit_price}</span>
+                  <span class="item-title">${itemTitle}</span>
+                  <span class="item-price"><span data-i18n="unitPrice">${t('unitPrice')}</span> ${t('hkDollar')}${item.listed_unit_price}</span>
                 </div>
                 <div class="item-controls">
                   <input type="number" 
@@ -1376,17 +1426,17 @@ async function createRaceDayForm() {
                          class="qty-input" />
                 </div>
               </div>
-            `).join('')}
+            `;}).join('')}
           </div>
         `).join('')}
         
         <!-- Form Actions -->
         <div class="form-actions">
-          <button type="button" id="backToStep2" class="btn btn-secondary">
-            ← Back: Team Information
+          <button type="button" id="backToStep2" class="btn btn-secondary" data-i18n="backTeamInfo">
+            ${t('backTeamInfo')}
           </button>
-          <button type="button" id="nextToStep4" class="btn btn-primary">
-            Next: Practice Booking →
+          <button type="button" id="nextToStep4" class="btn btn-primary" data-i18n="nextPractice">
+            ${t('nextPractice')}
           </button>
         </div>
       </div>
@@ -1400,16 +1450,19 @@ async function createRaceDayForm() {
   } catch (error) {
 	Logger.error('🎯 createRaceDayForm: Error creating form:', error);
     
+    // Get translated strings
+    const tErr = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+    
     // Fallback to basic form if database fails
     container.innerHTML = `
       <div class="race-day-form">
-        <h2>Race Day Arrangements</h2>
-        <div class="error-message">
-          Unable to load race day items. Please try again later.
+        <h2 data-i18n="raceDayArrangements">${tErr('raceDayArrangements')}</h2>
+        <div class="error-message" data-i18n="unableToLoadRaceDayItems">
+          ${tErr('unableToLoadRaceDayItems')}
         </div>
         <div class="form-actions">
-          <button type="button" id="backToStep2" class="btn btn-secondary">
-            ← Back: Team Information
+          <button type="button" id="backToStep2" class="btn btn-secondary" data-i18n="backTeamInfo">
+            ${tErr('backTeamInfo')}
           </button>
         </div>
       </div>
@@ -1425,19 +1478,30 @@ async function createRaceDayForm() {
 function groupRaceDayItems(items) {
   const groups = {};
   
+  // Get translated category names
+  const t = (key, fallback) => window.i18n ? window.i18n.t(key) : fallback;
+  
   items.forEach(item => {
-    // Extract category from title or use default
-    let category = 'Race Day Items';
+    // Extract category from title or use default - use translation keys
+    let categoryKey = 'raceDayItems';
+    let categoryFallback = 'Race Day Items';
     
     if (item.title_en.toLowerCase().includes('marquee')) {
-      category = 'Athlete Marquee';
+      categoryKey = 'athleteMarquee';
+      categoryFallback = 'Athlete Marquee';
     } else if (item.title_en.toLowerCase().includes('steersman') || item.title_en.toLowerCase().includes('steer')) {
-      category = 'Official Steersman';
+      categoryKey = 'officialSteersman';
+      categoryFallback = 'Official Steersman';
     } else if (item.title_en.toLowerCase().includes('junk') || item.title_en.toLowerCase().includes('pleasure')) {
-      category = 'Junk Registration';
+      categoryKey = 'junkRegistration';
+      categoryFallback = 'Junk Registration';
     } else if (item.title_en.toLowerCase().includes('speed') || item.title_en.toLowerCase().includes('boat')) {
-      category = 'Speed Boat Registration';
+      categoryKey = 'speedBoatRegistration';
+      categoryFallback = 'Speed Boat Registration';
     }
+    
+    // Get translated category name
+    const category = t(categoryKey, categoryFallback);
     
     if (!groups[category]) {
       groups[category] = [];
@@ -1568,15 +1632,15 @@ function initPracticeConfig() {
   // Get slots from config - try multiple possible locations
   practiceSlots = config?.timeslots || config?.practice?.slots || [];
   
-  // Ensure slots have duration_hours if not present
+  // Ensure slots have duration_hours as number
   practiceSlots = practiceSlots.map(slot => {
-    if (!slot.duration_hours) {
-      // Try to derive from slot name or default to 2 hours
-      if (slot.slot_code && slot.slot_code.includes('1h')) {
-        slot.duration_hours = 1;
-      } else {
-        slot.duration_hours = 2; // Default to 2 hours
-      }
+    // Convert to number if it's a string, or derive from slot name
+    if (slot.duration_hours !== undefined && slot.duration_hours !== null) {
+      slot.duration_hours = Number(slot.duration_hours);
+    } else if (slot.slot_code && slot.slot_code.includes('1h')) {
+      slot.duration_hours = 1;
+    } else {
+      slot.duration_hours = 2; // Default to 2 hours
     }
     return slot;
   });
@@ -1584,17 +1648,22 @@ function initPracticeConfig() {
 	Logger.debug('🎯 initPracticeConfig: Loaded', practiceSlots.length, 'practice slots');
 	Logger.debug('🎯 initPracticeConfig: Slots:', practiceSlots);
   
-  // Update practice window header
+  // Update practice window header with i18n
   if (practiceConfig.practice_start_date && practiceConfig.practice_end_date) {
     try {
       const startDate = new Date(practiceConfig.practice_start_date);
       const endDate = new Date(practiceConfig.practice_end_date);
-      const startStr = startDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      const endStr = endDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
       
+      // Get locale based on current language
+      const locale = window.i18n?.getCurrentLanguage() === 'zh' ? 'zh-TW' : 'en-US';
+      const startStr = startDate.toLocaleDateString(locale, { month: 'short', year: 'numeric' });
+      const endStr = endDate.toLocaleDateString(locale, { month: 'short', year: 'numeric' });
+      
+      const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
       const headerEl = document.querySelector('h2');
-      if (headerEl && headerEl.textContent.includes('Practice Booking')) {
-        headerEl.textContent = `🛶 Practice Booking (${startStr}–${endStr})`;
+      if (headerEl && (headerEl.textContent.includes('Practice Booking') || headerEl.textContent.includes('練習預約'))) {
+        headerEl.textContent = t('practiceBookingTitle', { startMonth: startStr, endMonth: endStr });
+        headerEl.setAttribute('data-i18n', 'practiceBookingTitle');
       }
     } catch (e) {
 	Logger.warn('Invalid practice dates in config:', e);
@@ -1714,10 +1783,8 @@ function createTNCalendar(container, options = {}) {
   
   // Generate months between start and end dates
   const months = generateMonths(start, end);
-	Logger.debug('createTNCalendar: Generated', months.length, 'months');
-  
+
   months.forEach((monthData, index) => {
-	Logger.debug(`createTNCalendar: Creating month ${index + 1}:`, monthData.monthName);
     const monthBlock = createMonthBlock(monthData, allowedWeekdays);
     container.appendChild(monthBlock);
   });
@@ -1777,10 +1844,13 @@ function generateMonths(start, end) {
     const monthStart = new Date(current);
     const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
     
+    // Get locale based on current language
+    const locale = window.i18n?.getCurrentLanguage() === 'zh' ? 'zh-TW' : 'en-US';
+    
     months.push({
       year: current.getFullYear(),
       month: current.getMonth(),
-      monthName: current.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      monthName: current.toLocaleDateString(locale, { month: 'long', year: 'numeric' }),
       startDate: monthStart,
       endDate: monthEnd,
       days: generateMonthDays(monthStart, monthEnd)
@@ -1840,17 +1910,18 @@ function createMonthBlock(monthData, allowedWeekdays = [1,2,3,4,5,6,0]) {
   content.className = 'month-content';
   content.style.display = 'none'; // Start collapsed
   
-  // Weekday headers
+  // Weekday headers with i18n
+  const t = (key, fallback) => window.i18n ? window.i18n.t(key) : fallback;
   const weekdays = document.createElement('div');
   weekdays.className = 'weekdays';
   weekdays.innerHTML = `
-    <div>Sun</div>
-    <div>Mon</div>
-    <div>Tue</div>
-    <div>Wed</div>
-    <div>Thu</div>
-    <div>Fri</div>
-    <div>Sat</div>
+    <div data-i18n="sun">${t('sun')}</div>
+    <div data-i18n="mon">${t('mon')}</div>
+    <div data-i18n="tue">${t('tue')}</div>
+    <div data-i18n="wed">${t('wed')}</div>
+    <div data-i18n="thu">${t('thu')}</div>
+    <div data-i18n="fri">${t('fri')}</div>
+    <div data-i18n="sat">${t('sat')}</div>
   `;
   
   // Calendar grid
@@ -1859,7 +1930,6 @@ function createMonthBlock(monthData, allowedWeekdays = [1,2,3,4,5,6,0]) {
   
   // Generate days with allowed weekdays
   const days = generateMonthDays(monthData.startDate, monthData.endDate, allowedWeekdays);
-	Logger.debug(`createMonthBlock: Generated ${days.length} days for ${monthData.monthName}`);
   
   days.forEach(day => {
     const dayEl = document.createElement('div');
@@ -1870,11 +1940,9 @@ function createMonthBlock(monthData, allowedWeekdays = [1,2,3,4,5,6,0]) {
     } else {
       if (day.available) {
         dayEl.innerHTML = createDayContent(day);
-	Logger.debug(`createMonthBlock: Created available day ${day.day} with checkbox`);
       } else {
         dayEl.innerHTML = `<span class="day-number">${day.day}</span>`;
         dayEl.className += ' unavailable';
-	Logger.debug(`createMonthBlock: Created unavailable day ${day.day}`);
       }
     }
     
@@ -1886,9 +1954,7 @@ function createMonthBlock(monthData, allowedWeekdays = [1,2,3,4,5,6,0]) {
   
   monthBlock.appendChild(toggle);
   monthBlock.appendChild(content);
-  
-	Logger.debug(`createMonthBlock: Created month block for ${monthData.monthName} with ${grid.children.length} day elements`);
-  
+
   return monthBlock;
 }
 
@@ -1910,6 +1976,9 @@ function createDayContent(day) {
   
   const isDisabled = !isWithinWindow || !isAllowedWeekday;
   
+  // Get translated strings for dropdowns
+  const t = (key, fallback) => window.i18n ? window.i18n.t(key) : fallback;
+  
   const html = `
     <label class="day-checkbox">
       <input type="checkbox" data-date="${dateStr}" ${isDisabled ? 'disabled' : ''} />
@@ -1917,18 +1986,17 @@ function createDayContent(day) {
     </label>
     <div class="dropdowns hide">
       <select class="duration">
-        <option value="1">1h</option>
-        <option value="2">2h</option>
+        <option value="1" data-i18n="oneHour">${t('oneHour')}</option>
+        <option value="2" data-i18n="twoHours">${t('twoHours')}</option>
       </select>
       <select class="helpers">
-        <option value="NONE">NONE</option>
-        <option value="S">S</option>
-        <option value="T">T</option>
-        <option value="ST">ST</option>
+        <option value="NONE" data-i18n="helperNone">${t('helperNone')}</option>
+        <option value="S" data-i18n="helperS">${t('helperS')}</option>
+        <option value="T" data-i18n="helperT">${t('helperT')}</option>
+        <option value="ST" data-i18n="helperST">${t('helperST')}</option>
       </select>
     </div>
   `;
-	Logger.debug(`createDayContent: Generated HTML for day ${day.day} (disabled: ${isDisabled}):`, html);
   return html;
 }
 
@@ -2648,14 +2716,14 @@ function addCalendarStyles() {
  * Splits slots into 2-hour vs 1-hour options
  */
 function populateSlotPreferences() {
-  if (!practiceSlots.length) {
-	Logger.warn('No practice slots available');
+  if (!practiceSlots || !practiceSlots.length) {
+    Logger.warn('No practice slots available - check v_timeslots_public view in database');
     return;
   }
   
   // Split slots by duration
-  const slots2h = practiceSlots.filter(slot => slot.duration_hours === 2);
-  const slots1h = practiceSlots.filter(slot => slot.duration_hours === 1);
+  const slots2h = practiceSlots.filter(slot => Number(slot.duration_hours) === 2);
+  const slots1h = practiceSlots.filter(slot => Number(slot.duration_hours) === 1);
   
   // Populate 2-hour selects
   populateSlotSelects(slots2h, ['slotPref2h_1', 'slotPref2h_2', 'slotPref2h_3']);
@@ -2671,14 +2739,14 @@ function populateSlotSelects(slots, selectIds) {
   // Load saved ranks for current team
   const currentTeamKey = getCurrentTeamKey();
   const savedRanks = readTeamRanks(currentTeamKey);
-  
+
   selectIds.forEach(selectId => {
     const select = document.getElementById(selectId);
     if (!select) return;
-    
+
     // Preserve current selection
     const currentValue = select.value;
-    
+
     // Clear existing options
     select.innerHTML = '<option value="">-- Select --</option>';
     
@@ -2699,14 +2767,17 @@ function populateSlotSelects(slots, selectIds) {
     slots.forEach(slot => {
       const option = document.createElement('option');
       option.value = slot.slot_code;
-      option.textContent = slot.label || slot.slot_code;
-      
+      // Use localized label if available (label_tc for Chinese, label_en/label for English)
+      const lang = window.i18n?.getCurrentLanguage?.() || 'en';
+      const localizedLabel = lang === 'zh' ? (slot.label_tc || slot.label_en || slot.label) : (slot.label_en || slot.label);
+      option.textContent = localizedLabel || slot.slot_code;
+
       // Disable if already selected in another select
       if (selectedValues.has(slot.slot_code)) {
         option.disabled = true;
         option.textContent += ' (already selected)';
       }
-      
+
       select.appendChild(option);
     });
     
@@ -2800,8 +2871,8 @@ function refreshSlotSelects() {
   if (!practiceSlots.length) return;
   
   // Split slots by duration
-  const slots2h = practiceSlots.filter(slot => slot.duration_hours === 2);
-  const slots1h = practiceSlots.filter(slot => slot.duration_hours === 1);
+  const slots2h = practiceSlots.filter(slot => Number(slot.duration_hours) === 2);
+  const slots1h = practiceSlots.filter(slot => Number(slot.duration_hours) === 1);
   
   // Refresh 2-hour selects
   populateSlotSelects(slots2h, ['slotPref2h_1', 'slotPref2h_2', 'slotPref2h_3']);
@@ -2875,19 +2946,24 @@ function initTeamSelector() {
     }
   }
   
+  // Get translated strings
+  const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+  
   if (teamNames.length === 0) {
-    teamSelect.innerHTML = '<option disabled>No teams found</option>';
+    teamSelect.innerHTML = `<option disabled data-i18n="noTeams">${t('noTeams')}</option>`;
     teamNameFields.textContent = '';
   } else {
     teamNames.forEach((name, index) => {
       const option = document.createElement('option');
       option.value = index;
-      option.textContent = `Team ${index + 1}: ${name}`;
+      // Use teamLabel translation with team number
+      const teamNum = index + 1;
+      option.textContent = `${t('teamLabel', { num: teamNum })}: ${name}`;
       teamSelect.appendChild(option);
     });
     
     teamSelect.value = '0';
-    teamNameFields.textContent = `Now scheduling: ${teamNames[0]}`;
+    teamNameFields.textContent = t('nowScheduling', { teamName: teamNames[0] });
     
     // Initialize current team key
     setCurrentTeamKey('t1');
@@ -2903,8 +2979,9 @@ function initTeamSelector() {
     updateSlotPreferencesForTeam(selectedIndex);
     updatePracticeSummary(); // Update the practice summary box when switching teams
     
-    const teamName = teamNames[selectedIndex] || `Team ${selectedIndex + 1}`;
-    teamNameFields.textContent = `Now scheduling: ${teamName}`;
+    const tChange = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+    const teamName = teamNames[selectedIndex] || tChange('teamLabel', { num: selectedIndex + 1 });
+    teamNameFields.textContent = tChange('nowScheduling', { teamName: teamName });
     
     // If switching to Team 2 or later, show copy option
     if (selectedIndex > 0) {
@@ -3924,7 +4001,8 @@ function validatePracticeRequired() {
     
     // Check minimum 12 hours requirement
     if (totalHours < 12) {
-      teamErrors.push(`Total practice hours: ${totalHours}h (minimum 12h required)`);
+      const tVal = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+      teamErrors.push(tVal('practiceHoursMinimum', { hours: totalHours, min: 12 }));
     }
     
     // Validate each practice row has complete data

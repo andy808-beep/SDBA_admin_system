@@ -89,7 +89,8 @@ $$;
 -- =========================================================
 create table public.timeslot_catalog (
   slot_code      text primary key,         -- e.g., 'SAT2_0800_1000'
-  label          text not null,            -- e.g., 'Saturday 8:00–10:00 (2h)'
+  label          text not null,            -- English label, e.g., 'Saturday 8:00–10:00 (2h)'
+  label_tc       text,                     -- Traditional Chinese label, e.g., '星期六 8:00–10:00 (2小時)'
   start_time     time not null,
   end_time       time not null,
   duration_hours int  not null check (duration_hours in (1,2)),
@@ -119,70 +120,110 @@ create index if not exists idx_timeslot_group_time
 delete from public.timeslot_catalog;
 
 -- 2h — Saturday (day_of_week = 6) — sort 110..150
-insert into public.timeslot_catalog (slot_code, label, start_time, end_time, duration_hours, day_of_week, is_active, sort_order) values
-('SAT2_0800_1000', 'Saturday 8:00–10:00 (2h)',  '08:00', '10:00', 2, 6, true, 110),
-('SAT2_1000_1200', 'Saturday 10:00–12:00 (2h)', '10:00', '12:00', 2, 6, true, 120),
-('SAT2_1215_1415', 'Saturday 12:15–14:15 (2h)', '12:15', '14:15', 2, 6, true, 130),
-('SAT2_1415_1615', 'Saturday 14:15–16:15 (2h)', '14:15', '16:15', 2, 6, true, 140),
-('SAT2_1615_1815', 'Saturday 16:15–18:15 (2h)', '16:15', '18:15', 2, 6, true, 150);
+insert into public.timeslot_catalog (slot_code, label, label_tc, start_time, end_time, duration_hours, day_of_week, is_active, sort_order) values
+('SAT2_0800_1000', 'Saturday 8:00–10:00 (2h)',  '星期六 8:00–10:00 (2小時)', '08:00', '10:00', 2, 6, true, 110),
+('SAT2_1000_1200', 'Saturday 10:00–12:00 (2h)', '星期六 10:00–12:00 (2小時)', '10:00', '12:00', 2, 6, true, 120),
+('SAT2_1215_1415', 'Saturday 12:15–14:15 (2h)', '星期六 12:15–14:15 (2小時)', '12:15', '14:15', 2, 6, true, 130),
+('SAT2_1415_1615', 'Saturday 14:15–16:15 (2h)', '星期六 14:15–16:15 (2小時)', '14:15', '16:15', 2, 6, true, 140),
+('SAT2_1615_1815', 'Saturday 16:15–18:15 (2h)', '星期六 16:15–18:15 (2小時)', '16:15', '18:15', 2, 6, true, 150);
 
 -- 2h — Sunday (day_of_week = 0) — sort 210..250
-insert into public.timeslot_catalog (slot_code, label, start_time, end_time, duration_hours, day_of_week, is_active, sort_order) values
-('SUN2_0900_1100', 'Sunday 9:00–11:00 (2h)',   '09:00', '11:00', 2, 0, true, 210),
-('SUN2_1100_1300', 'Sunday 11:00–13:00 (2h)',  '11:00', '13:00', 2, 0, true, 220),
-('SUN2_1315_1515', 'Sunday 13:15–15:15 (2h)',  '13:15', '15:15', 2, 0, true, 230),
-('SUN2_1515_1715', 'Sunday 15:15–17:15 (2h)',  '15:15', '17:15', 2, 0, true, 240),
-('SUN2_1715_1915', 'Sunday 17:15–19:15 (2h)',  '17:15', '19:15', 2, 0, true, 250);
+insert into public.timeslot_catalog (slot_code, label, label_tc, start_time, end_time, duration_hours, day_of_week, is_active, sort_order) values
+('SUN2_0900_1100', 'Sunday 9:00–11:00 (2h)',   '星期日 9:00–11:00 (2小時)', '09:00', '11:00', 2, 0, true, 210),
+('SUN2_1100_1300', 'Sunday 11:00–13:00 (2h)',  '星期日 11:00–13:00 (2小時)', '11:00', '13:00', 2, 0, true, 220),
+('SUN2_1315_1515', 'Sunday 13:15–15:15 (2h)',  '星期日 13:15–15:15 (2小時)', '13:15', '15:15', 2, 0, true, 230),
+('SUN2_1515_1715', 'Sunday 15:15–17:15 (2h)',  '星期日 15:15–17:15 (2小時)', '15:15', '17:15', 2, 0, true, 240),
+('SUN2_1715_1915', 'Sunday 17:15–19:15 (2h)',  '星期日 17:15–19:15 (2小時)', '17:15', '19:15', 2, 0, true, 250);
 
 -- 2h — Weekday (Mon–Fri; day_of_week = NULL) — sort 310..350
-insert into public.timeslot_catalog (slot_code, label, start_time, end_time, duration_hours, day_of_week, is_active, sort_order) values
-('WKD2_0800_1000', 'Weekday 8:00–10:00 (2h)',  '08:00', '10:00', 2, NULL, true, 310),
-('WKD2_1000_1200', 'Weekday 10:00–12:00 (2h)', '10:00', '12:00', 2, NULL, true, 320),
-('WKD2_1200_1400', 'Weekday 12:00–14:00 (2h)', '12:00', '14:00', 2, NULL, true, 330),
-('WKD2_1400_1600', 'Weekday 14:00–16:00 (2h)', '14:00', '16:00', 2, NULL, true, 340),
-('WKD2_1600_1800', 'Weekday 16:00–18:00 (2h)', '16:00', '18:00', 2, NULL, true, 350);
+insert into public.timeslot_catalog (slot_code, label, label_tc, start_time, end_time, duration_hours, day_of_week, is_active, sort_order) values
+('WKD2_0800_1000', 'Weekday 8:00–10:00 (2h)',  '平日 8:00–10:00 (2小時)', '08:00', '10:00', 2, NULL, true, 310),
+('WKD2_1000_1200', 'Weekday 10:00–12:00 (2h)', '平日 10:00–12:00 (2小時)', '10:00', '12:00', 2, NULL, true, 320),
+('WKD2_1200_1400', 'Weekday 12:00–14:00 (2h)', '平日 12:00–14:00 (2小時)', '12:00', '14:00', 2, NULL, true, 330),
+('WKD2_1400_1600', 'Weekday 14:00–16:00 (2h)', '平日 14:00–16:00 (2小時)', '14:00', '16:00', 2, NULL, true, 340),
+('WKD2_1600_1800', 'Weekday 16:00–18:00 (2h)', '平日 16:00–18:00 (2小時)', '16:00', '18:00', 2, NULL, true, 350);
 
 -- 1h — Saturday (day_of_week = 6) — sort 410..510
-insert into public.timeslot_catalog (slot_code, label, start_time, end_time, duration_hours, day_of_week, is_active, sort_order) values
-('SAT1_0800_0900', 'Saturday 8:00–9:00 (1h)',    '08:00', '09:00', 1, 6, true, 410),
-('SAT1_0900_1000', 'Saturday 9:00–10:00 (1h)',   '09:00', '10:00', 1, 6, true, 420),
-('SAT1_1000_1100', 'Saturday 10:00–11:00 (1h)',  '10:00', '11:00', 1, 6, true, 430),
-('SAT1_1100_1200', 'Saturday 11:00–12:00 (1h)',  '11:00', '12:00', 1, 6, true, 440),
-('SAT1_1215_1315', 'Saturday 12:15–13:15 (1h)',  '12:15', '13:15', 1, 6, true, 450),
-('SAT1_1315_1415', 'Saturday 13:15–14:15 (1h)',  '13:15', '14:15', 1, 6, true, 460),
-('SAT1_1415_1515', 'Saturday 14:15–15:15 (1h)',  '14:15', '15:15', 1, 6, true, 470),
-('SAT1_1515_1615', 'Saturday 15:15–16:15 (1h)',  '15:15', '16:15', 1, 6, true, 480),
-('SAT1_1615_1715', 'Saturday 16:15–17:15 (1h)',  '16:15', '17:15', 1, 6, true, 490),
-('SAT1_1715_1815', 'Saturday 17:15–18:15 (1h)',  '17:15', '18:15', 1, 6, true, 500),
-('SAT1_1815_1915', 'Saturday 18:15–19:15 (1h)',  '18:15', '19:15', 1, 6, true, 510);
+insert into public.timeslot_catalog (slot_code, label, label_tc, start_time, end_time, duration_hours, day_of_week, is_active, sort_order) values
+('SAT1_0800_0900', 'Saturday 8:00–9:00 (1h)',   '星期六 8:00–9:00 (1小時)', '08:00', '09:00', 1, 6, true, 410),
+('SAT1_0900_1000', 'Saturday 9:00–10:00 (1h)',  '星期六 9:00–10:00 (1小時)', '09:00', '10:00', 1, 6, true, 420),
+('SAT1_1000_1100', 'Saturday 10:00–11:00 (1h)', '星期六 10:00–11:00 (1小時)', '10:00', '11:00', 1, 6, true, 430),
+('SAT1_1100_1200', 'Saturday 11:00–12:00 (1h)', '星期六 11:00–12:00 (1小時)', '11:00', '12:00', 1, 6, true, 440),
+('SAT1_1215_1315', 'Saturday 12:15–13:15 (1h)', '星期六 12:15–13:15 (1小時)', '12:15', '13:15', 1, 6, true, 450),
+('SAT1_1315_1415', 'Saturday 13:15–14:15 (1h)', '星期六 13:15–14:15 (1小時)', '13:15', '14:15', 1, 6, true, 460),
+('SAT1_1415_1515', 'Saturday 14:15–15:15 (1h)', '星期六 14:15–15:15 (1小時)', '14:15', '15:15', 1, 6, true, 470),
+('SAT1_1515_1615', 'Saturday 15:15–16:15 (1h)', '星期六 15:15–16:15 (1小時)', '15:15', '16:15', 1, 6, true, 480),
+('SAT1_1615_1715', 'Saturday 16:15–17:15 (1h)', '星期六 16:15–17:15 (1小時)', '16:15', '17:15', 1, 6, true, 490),
+('SAT1_1715_1815', 'Saturday 17:15–18:15 (1h)', '星期六 17:15–18:15 (1小時)', '17:15', '18:15', 1, 6, true, 500),
+('SAT1_1815_1915', 'Saturday 18:15–19:15 (1h)', '星期六 18:15–19:15 (1小時)', '18:15', '19:15', 1, 6, true, 510);
 
 -- 1h — Sunday (day_of_week = 0) — sort 610..710
-insert into public.timeslot_catalog (slot_code, label, start_time, end_time, duration_hours, day_of_week, is_active, sort_order) values
-('SUN1_0800_0900', 'Sunday 8:00–9:00 (1h)',     '08:00', '09:00', 1, 0, true, 610),
-('SUN1_0900_1000', 'Sunday 9:00–10:00 (1h)',    '09:00', '10:00', 1, 0, true, 620),
-('SUN1_1000_1100', 'Sunday 10:00–11:00 (1h)',   '10:00', '11:00', 1, 0, true, 630),
-('SUN1_1100_1200', 'Sunday 11:00–12:00 (1h)',   '11:00', '12:00', 1, 0, true, 640),
-('SUN1_1215_1315', 'Sunday 12:15–13:15 (1h)',   '12:15', '13:15', 1, 0, true, 650),
-('SUN1_1315_1415', 'Sunday 13:15–14:15 (1h)',   '13:15', '14:15', 1, 0, true, 660),
-('SUN1_1415_1515', 'Sunday 14:15–15:15 (1h)',   '14:15', '15:15', 1, 0, true, 670),
-('SUN1_1515_1615', 'Sunday 15:15–16:15 (1h)',   '15:15', '16:15', 1, 0, true, 680),
-('SUN1_1615_1715', 'Sunday 16:15–17:15 (1h)',   '16:00', '17:15', 1, 0, true, 690),
-('SUN1_1715_1815', 'Sunday 17:15–18:15 (1h)',   '17:15', '18:15', 1, 0, true, 700),
-('SUN1_1815_1915', 'Sunday 18:15–19:15 (1h)',   '18:15', '19:15', 1, 0, true, 710);
+insert into public.timeslot_catalog (slot_code, label, label_tc, start_time, end_time, duration_hours, day_of_week, is_active, sort_order) values
+('SUN1_0800_0900', 'Sunday 8:00–9:00 (1h)',    '星期日 8:00–9:00 (1小時)', '08:00', '09:00', 1, 0, true, 610),
+('SUN1_0900_1000', 'Sunday 9:00–10:00 (1h)',   '星期日 9:00–10:00 (1小時)', '09:00', '10:00', 1, 0, true, 620),
+('SUN1_1000_1100', 'Sunday 10:00–11:00 (1h)',  '星期日 10:00–11:00 (1小時)', '10:00', '11:00', 1, 0, true, 630),
+('SUN1_1100_1200', 'Sunday 11:00–12:00 (1h)',  '星期日 11:00–12:00 (1小時)', '11:00', '12:00', 1, 0, true, 640),
+('SUN1_1215_1315', 'Sunday 12:15–13:15 (1h)',  '星期日 12:15–13:15 (1小時)', '12:15', '13:15', 1, 0, true, 650),
+('SUN1_1315_1415', 'Sunday 13:15–14:15 (1h)',  '星期日 13:15–14:15 (1小時)', '13:15', '14:15', 1, 0, true, 660),
+('SUN1_1415_1515', 'Sunday 14:15–15:15 (1h)',  '星期日 14:15–15:15 (1小時)', '14:15', '15:15', 1, 0, true, 670),
+('SUN1_1515_1615', 'Sunday 15:15–16:15 (1h)',  '星期日 15:15–16:15 (1小時)', '15:15', '16:15', 1, 0, true, 680),
+('SUN1_1615_1715', 'Sunday 16:15–17:15 (1h)',  '星期日 16:15–17:15 (1小時)', '16:00', '17:15', 1, 0, true, 690),
+('SUN1_1715_1815', 'Sunday 17:15–18:15 (1h)',  '星期日 17:15–18:15 (1小時)', '17:15', '18:15', 1, 0, true, 700),
+('SUN1_1815_1915', 'Sunday 18:15–19:15 (1h)',  '星期日 18:15–19:15 (1小時)', '18:15', '19:15', 1, 0, true, 710);
 
 -- 1h — Weekday (Mon–Fri; day_of_week = NULL) — sort 810..910
-insert into public.timeslot_catalog (slot_code, label, start_time, end_time, duration_hours, day_of_week, is_active, sort_order) values
-('WKD1_0800_0900', 'Weekday 8:00–9:00 (1h)',    '08:00', '09:00', 1, NULL, true, 810),
-('WKD1_0900_1000', 'Weekday 9:00–10:00 (1h)',   '09:00', '10:00', 1, NULL, true, 820),
-('WKD1_1000_1100', 'Weekday 10:00–11:00 (1h)',  '10:00', '11:00', 1, NULL, true, 830),
-('WKD1_1100_1200', 'Weekday 11:00–12:00 (1h)',  '11:00', '12:00', 1, NULL, true, 840),
-('WKD1_1200_1300', 'Weekday 12:00–13:00 (1h)',  '12:00', '13:00', 1, NULL, true, 850),
-('WKD1_1300_1400', 'Weekday 13:00–14:00 (1h)',  '13:00', '14:00', 1, NULL, true, 860),
-('WKD1_1400_1500', 'Weekday 14:00–15:00 (1h)',  '14:00', '15:00', 1, NULL, true, 870),
-('WKD1_1500_1600', 'Weekday 15:00–16:00 (1h)',  '15:00', '16:00', 1, NULL, true, 880),
-('WKD1_1600_1700', 'Weekday 16:00–17:00 (1h)',  '16:00', '17:00', 1, NULL, true, 890),
-('WKD1_1700_1800', 'Weekday 17:00–18:00 (1h)',  '17:00', '18:00', 1, NULL, true, 900),
-('WKD1_1800_1900', 'Weekday 18:00–19:00 (1h)',  '18:00', '19:00', 1, NULL, true, 910);
+insert into public.timeslot_catalog (slot_code, label, label_tc, start_time, end_time, duration_hours, day_of_week, is_active, sort_order) values
+('WKD1_0800_0900', 'Weekday 8:00–9:00 (1h)',   '平日 8:00–9:00 (1小時)', '08:00', '09:00', 1, NULL, true, 810),
+('WKD1_0900_1000', 'Weekday 9:00–10:00 (1h)',  '平日 9:00–10:00 (1小時)', '09:00', '10:00', 1, NULL, true, 820),
+('WKD1_1000_1100', 'Weekday 10:00–11:00 (1h)', '平日 10:00–11:00 (1小時)', '10:00', '11:00', 1, NULL, true, 830),
+('WKD1_1100_1200', 'Weekday 11:00–12:00 (1h)', '平日 11:00–12:00 (1小時)', '11:00', '12:00', 1, NULL, true, 840),
+('WKD1_1200_1300', 'Weekday 12:00–13:00 (1h)', '平日 12:00–13:00 (1小時)', '12:00', '13:00', 1, NULL, true, 850),
+('WKD1_1300_1400', 'Weekday 13:00–14:00 (1h)', '平日 13:00–14:00 (1小時)', '13:00', '14:00', 1, NULL, true, 860),
+('WKD1_1400_1500', 'Weekday 14:00–15:00 (1h)', '平日 14:00–15:00 (1小時)', '14:00', '15:00', 1, NULL, true, 870),
+('WKD1_1500_1600', 'Weekday 15:00–16:00 (1h)', '平日 15:00–16:00 (1小時)', '15:00', '16:00', 1, NULL, true, 880),
+('WKD1_1600_1700', 'Weekday 16:00–17:00 (1h)', '平日 16:00–17:00 (1小時)', '16:00', '17:00', 1, NULL, true, 890),
+('WKD1_1700_1800', 'Weekday 17:00–18:00 (1h)', '平日 17:00–18:00 (1小時)', '17:00', '18:00', 1, NULL, true, 900),
+('WKD1_1800_1900', 'Weekday 18:00–19:00 (1h)', '平日 18:00–19:00 (1小時)', '18:00', '19:00', 1, NULL, true, 910);
+
+-- =========================================================
+-- TIMESLOT PUBLIC VIEW (for frontend config loading)
+-- =========================================================
+drop view if exists public.v_timeslots_public;
+create view public.v_timeslots_public as
+select
+  slot_code,
+  label as label_en,
+  coalesce(label_tc, label) as label_tc,
+  -- Computed day name in English
+  case day_of_week
+    when 0 then 'Sunday'
+    when 1 then 'Monday'
+    when 2 then 'Tuesday'
+    when 3 then 'Wednesday'
+    when 4 then 'Thursday'
+    when 5 then 'Friday'
+    when 6 then 'Saturday'
+    else 'Weekday'
+  end as day_name_en,
+  -- Computed day name in Traditional Chinese
+  case day_of_week
+    when 0 then '星期日'
+    when 1 then '星期一'
+    when 2 then '星期二'
+    when 3 then '星期三'
+    when 4 then '星期四'
+    when 5 then '星期五'
+    when 6 then '星期六'
+    else '平日'
+  end as day_name_tc,
+  start_time,
+  end_time,
+  day_of_week,
+  duration_hours,
+  sort_order
+from public.timeslot_catalog
+where is_active = true
+order by sort_order;
 
 -- =========================================================
 -- TEAM META (Page 1–2 → 1 row per team)
@@ -1221,6 +1262,14 @@ alter table public.sc_team_meta          enable row level security;
 -- NOTE: RLS intentionally NOT enabled on team_meta_audit (trigger needs to write freely)
 -- alter table public.team_meta_audit   enable row level security;
 alter table public.timeslot_catalog     enable row level security;
+
+-- Allow anyone to read timeslot catalog (public config data)
+drop policy if exists "Allow public read access to timeslots" on public.timeslot_catalog;
+create policy "Allow public read access to timeslots" on public.timeslot_catalog
+    for select
+    to anon, authenticated
+    using (true);
+
 alter table public.practice_preferences enable row level security;
 alter table public.registration_meta    enable row level security;
 alter table public.race_day_requests    enable row level security;

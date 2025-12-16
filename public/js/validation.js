@@ -141,7 +141,8 @@ export function validateEmailField(inputElement, errorElement = null) {
   if (!isValid) {
     inputElement.classList.add('invalid');
     if (errorElement) {
-      errorElement.textContent = 'Please enter a valid email address.';
+      // Use i18n for error message
+      errorElement.textContent = window.i18n ? window.i18n.t('invalidEmailError') : 'Please enter a valid email address.';
       errorElement.style.display = 'block';
     }
   } else {
@@ -170,7 +171,8 @@ export function validatePhoneField(inputElement, errorElement = null) {
   if (!isValid) {
     inputElement.classList.add('invalid');
     if (errorElement) {
-      errorElement.textContent = 'Please enter an 8-digit Hong Kong phone number.';
+      // Use i18n for error message
+      errorElement.textContent = window.i18n ? window.i18n.t('invalidPhoneError') : 'Please enter an 8-digit Hong Kong phone number.';
       errorElement.style.display = 'block';
     }
   } else {

@@ -264,11 +264,15 @@ async function fetchConfigFromTables(eventShortRef) {
   try {
     const { data, error } = await sb
       .from('v_timeslots_public')
-      .select('slot_code, label, start_time, end_time, day_of_week, duration_hours, sort_order');
+      .select('slot_code, label_en, label_tc, day_name_en, day_name_tc, start_time, end_time, day_of_week, duration_hours, sort_order');
     if (error) {
       console.warn('Failed to query v_timeslots_public:', error);
     } else {
-      timeslotsData = data || [];
+      // Map label_en to label for backwards compatibility
+      timeslotsData = (data || []).map(slot => ({
+        ...slot,
+        label: slot.label_en  // Keep 'label' for backwards compatibility
+      }));
     }
   } catch (error) {
     console.warn('Error querying v_timeslots_public:', error);

@@ -1,0 +1,364 @@
+/**
+ * SDBA Registration Forms - Language Switcher Styles
+ * 
+ * Provides styling for the language toggle component.
+ * Uses CSS variables from theme.css when available.
+ * 
+ * @version 1.0.0
+ * @date 2025-12-15
+ */
+
+/* ============================================
+   CSS VARIABLES (fallbacks if theme.css not loaded)
+   ============================================ */
+
+:root {
+  --lang-switcher-bg: #ffffff;
+  --lang-switcher-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --lang-switcher-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --lang-switcher-radius: 8px;
+  --lang-btn-color: #666666;
+  --lang-btn-color-hover: #333333;
+  --lang-btn-bg-hover: #f5f5f5;
+  --lang-btn-active-bg: var(--theme-primary, #0066cc);
+  --lang-btn-active-color: #ffffff;
+  --lang-btn-radius: 6px;
+  --lang-btn-padding: 8px 14px;
+  --lang-btn-font-size: 14px;
+}
+
+/* ============================================
+   CONTAINER
+   ============================================ */
+
+.language-switcher {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  
+  background: var(--lang-switcher-bg);
+  padding: 4px;
+  border-radius: var(--lang-switcher-radius);
+  box-shadow: var(--lang-switcher-shadow);
+  
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.language-switcher:hover {
+  box-shadow: var(--lang-switcher-shadow-hover);
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+.lang-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  
+  min-width: 40px;
+  padding: var(--lang-btn-padding);
+  
+  border: none;
+  border-radius: var(--lang-btn-radius);
+  background: transparent;
+  
+  color: var(--lang-btn-color);
+  font-family: inherit;
+  font-size: var(--lang-btn-font-size);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  
+  cursor: pointer;
+  outline: none;
+  
+  transition: 
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+}
+
+/* Hover state */
+.lang-btn:hover:not(.active) {
+  background: var(--lang-btn-bg-hover);
+  color: var(--lang-btn-color-hover);
+}
+
+/* Focus state for accessibility */
+.lang-btn:focus {
+  outline: 2px solid var(--lang-btn-active-bg);
+  outline-offset: 2px;
+}
+
+.lang-btn:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.lang-btn:focus-visible {
+  outline: 2px solid var(--lang-btn-active-bg);
+  outline-offset: 2px;
+}
+
+/* Active state */
+.lang-btn.active {
+  background: var(--lang-btn-active-bg);
+  color: var(--lang-btn-active-color);
+  cursor: default;
+  font-weight: 600;
+}
+
+.lang-btn.active:hover {
+  background: var(--lang-btn-active-bg);
+  /* Slightly darker on hover */
+  filter: brightness(0.9);
+}
+
+/* Pressed feedback */
+.lang-btn:active:not(.active) {
+  transform: scale(0.95);
+}
+
+/* ============================================
+   MOBILE RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+  .language-switcher {
+    top: 12px;
+    right: 12px;
+    padding: 3px;
+    gap: 3px;
+  }
+  
+  .lang-btn {
+    min-width: 36px;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .language-switcher {
+    top: 10px;
+    right: 10px;
+    padding: 2px;
+    gap: 2px;
+  }
+  
+  .lang-btn {
+    min-width: 32px;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+/* ============================================
+   INSIDE FORM CONTAINER (relative positioning)
+   ============================================ */
+
+.form-container .language-switcher {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+/* Ensure form container is positioned for absolute child */
+.form-container {
+  position: relative;
+}
+
+/* ============================================
+   INSIDE HEADER (inline positioning)
+   ============================================ */
+
+header .language-switcher,
+.header .language-switcher,
+nav .language-switcher,
+.navbar .language-switcher {
+  position: static;
+  margin-left: auto;
+  box-shadow: none;
+  background: transparent;
+}
+
+header .language-switcher .lang-btn,
+.header .language-switcher .lang-btn,
+nav .language-switcher .lang-btn,
+.navbar .language-switcher .lang-btn {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+header .language-switcher .lang-btn:hover:not(.active),
+.header .language-switcher .lang-btn:hover:not(.active),
+nav .language-switcher .lang-btn:hover:not(.active),
+.navbar .language-switcher .lang-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+  .language-switcher {
+    display: none !important;
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY: REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .language-switcher,
+  .lang-btn {
+    transition: none;
+  }
+  
+  .lang-btn:active:not(.active) {
+    transform: none;
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY: HIGH CONTRAST
+   ============================================ */
+
+@media (prefers-contrast: high) {
+  .language-switcher {
+    border: 2px solid currentColor;
+  }
+  
+  .lang-btn {
+    border: 1px solid transparent;
+  }
+  
+  .lang-btn.active {
+    background: #000000;
+    color: #ffffff;
+    border-color: #ffffff;
+  }
+  
+  .lang-btn:focus {
+    outline-width: 3px;
+  }
+}
+
+/* ============================================
+   DARK MODE SUPPORT
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --lang-switcher-bg: #2d2d2d;
+    --lang-switcher-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --lang-switcher-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --lang-btn-color: #b0b0b0;
+    --lang-btn-color-hover: #ffffff;
+    --lang-btn-bg-hover: #3d3d3d;
+  }
+  
+  .lang-btn.active {
+    /* Keep primary color in dark mode */
+    background: var(--theme-primary, #4a9eff);
+  }
+}
+
+/* ============================================
+   ANIMATION: ENTRANCE
+   ============================================ */
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.language-switcher {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .language-switcher {
+    animation: none;
+  }
+}
+
+/* ============================================
+   TOOLTIP ENHANCEMENT
+   ============================================ */
+
+.lang-btn[title] {
+  position: relative;
+}
+
+/* Native tooltip styling is browser-controlled,
+   but we ensure proper spacing for it */
+.lang-btn:hover[title]::after {
+  /* Leave space for browser tooltip */
+  content: '';
+}
+
+/* ============================================
+   LOADING STATE (optional)
+   ============================================ */
+
+.language-switcher.loading .lang-btn {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* ============================================
+   COMPACT VARIANT
+   ============================================ */
+
+.language-switcher.compact {
+  padding: 2px;
+  gap: 2px;
+  border-radius: 6px;
+}
+
+.language-switcher.compact .lang-btn {
+  min-width: 28px;
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+}
+
+/* ============================================
+   PILL VARIANT (toggle switch style)
+   ============================================ */
+
+.language-switcher.pill {
+  background: #e8e8e8;
+  border-radius: 20px;
+  padding: 3px;
+  gap: 0;
+}
+
+.language-switcher.pill .lang-btn {
+  border-radius: 17px;
+  min-width: 44px;
+}
+
+.language-switcher.pill .lang-btn.active {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .language-switcher.pill {
+    background: #404040;
+  }
+}

@@ -3,15 +3,15 @@
 <template id="wu-sc-step-1">
   <div class="card">
     <form id="categoryForm">
-      <h2>Select Team Details</h2>
+      <h2 data-i18n="selectTeamDetails">Select Team Details</h2>
 
-      <label for="teamCount">How many teams will you register?</label>
-      <input type="number" id="teamCount" min="1" max="10" placeholder="e.g. 2" required />
+      <label for="teamCount" data-i18n="howManyTeams">How many teams will you register?</label>
+      <input type="number" id="teamCount" min="1" max="10" placeholder="e.g. 2" data-i18n-placeholder="exampleTwo" required />
 
       <hr />
 
       <div id="teamDetailsContainer" hidden>
-        <h3>Team Information</h3>
+        <h3 data-i18n="teamInformation">Team Information</h3>
         <div id="teamDetailsList"></div>
       </div>
 
@@ -21,7 +21,7 @@
       <p class="msg" id="formMsg"></p>
       <!-- 🔄 Navigation -->
       <div class="nav-buttons">
-        <button type="submit" id="nextBtn">Next →</button>
+        <button type="submit" id="nextBtn" data-i18n="nextButton">Next →</button>
       </div>
     </form>
   </div>
@@ -30,25 +30,25 @@
 <template id="wu-sc-step-2">
   <div class="card">
     <form id="teamInfoForm">
-      <h2>Team Information</h2>
+      <h2 data-i18n="teamInformation">Team Information</h2>
 
       <div id="teamNameFields"></div>
       <div class="form-group">
-        <label for="orgName">Organization / Group Name</label>
-        <input type="text" id="orgName" name="orgName" placeholder="" required />
+        <label for="orgName" data-i18n="organizationGroupName">Organization / Group Name</label>
+        <input type="text" id="orgName" name="orgName" placeholder="" data-i18n-placeholder="enterOrgName" required />
       </div>
       <div class="form-group">
-        <label for="mailingAddress">Mailing Address</label>
-        <textarea id="mailingAddress" name="mailingAddress" rows="3" placeholder="Room/Floor, Building Name, Street, District, City" required></textarea>
+        <label for="mailingAddress" data-i18n="mailingAddress">Mailing Address</label>
+        <textarea id="mailingAddress" name="mailingAddress" rows="3" placeholder="Room/Floor, Building Name, Street, District, City" data-i18n-placeholder="addressPlaceholder" required></textarea>
       </div>
-      <h3>Team Manager Contact</h3>
+      <h3 data-i18n="teamManagerContact">Team Manager Contact</h3>
       <div id="managerFields"></div>
 
       <p class="msg" id="formMsg"></p>
       <!-- 🔄 Navigation -->
       <div class="nav-buttons">
-        <button type="button" id="backBtn">← Back</button>
-        <button type="submit" id="nextBtn">Next →</button>
+        <button type="button" id="backBtn" data-i18n="backButton">← Back</button>
+        <button type="submit" id="nextBtn" data-i18n="nextButton">Next →</button>
       </div>
     </form>
   </div>
@@ -57,34 +57,34 @@
 <template id="wu-sc-step-3">
   <div class="card">
     <form id="raceDayForm">
-      <h2>Race Day Arrangement</h2>
+      <h2 data-i18n="raceDayArrangement">Race Day Arrangement</h2>
 
       <div class="section">
-        <h3>Athlete Marquee</h3>
+        <h3 data-i18n="athleteMarquee">Athlete Marquee</h3>
         <div class="line-row">
-          <span id="marqueePrice">Unit Price: HK$800</span>
+          <span id="marqueePrice"><span data-i18n="unitPrice">Unit Price:</span> HK$800</span>
           <input type="number" id="marqueeQty" name="marqueeQty" min="0" value="0" />
         </div>
       </div>
 
       <div class="section">
-        <h3>Official Steersman</h3>
-        <p>Teams hired Official Steersman during practice</p>
+        <h3 data-i18n="officialSteersman">Official Steersman</h3>
+        <p data-i18n="teamsHiredSteersman">Teams hired Official Steersman during practice</p>
         <div class="line-row">
-          <span id="steerWithPrice">Unit Price: HK$800</span>
+          <span id="steerWithPrice"><span data-i18n="unitPrice">Unit Price:</span> HK$800</span>
           <input type="number" id="steerWithQty" name="steerWithQty" min="0" value="0" />
         </div>
-        <p>Teams DID NOT hire Official Steersman during practice</p>
+        <p data-i18n="teamsNotHiredSteersman">Teams DID NOT hire Official Steersman during practice</p>
         <div class="line-row">
-          <span id="steerWithoutPrice">Unit Price: HK$1,500</span>
+          <span id="steerWithoutPrice"><span data-i18n="unitPrice">Unit Price:</span> HK$1,500</span>
           <input type="number" id="steerWithoutQty" name="steerWithoutQty" min="0" value="0" />
         </div>
       </div>
 
       <div class="section">
-        <h3>Junk Registration</h3>
+        <h3 data-i18n="junkRegistration">Junk Registration</h3>
         <div class="line-row">
-          <label for="junkBoatNo">Pleasure Boat No.:</label>
+          <label for="junkBoatNo" data-i18n="pleasureBoatNo">Pleasure Boat No.:</label>
           <input type="text" id="junkBoatNo" name="junkBoatNo" />
           <span id="junkPrice">HK$2,500</span>
           <input type="number" id="junkBoatQty" name="junkBoatQty" min="0" value="0"/>
@@ -92,9 +92,9 @@
       </div>
 
       <div class="section">
-        <h3>Speed Boat Registration</h3>
+        <h3 data-i18n="speedBoatRegistration">Speed Boat Registration</h3>
         <div class="line-row">
-          <label for="speedBoatNo">Speed Boat No.:</label>
+          <label for="speedBoatNo" data-i18n="speedBoatNo">Speed Boat No.:</label>
           <input type="text" id="speedBoatNo" name="speedBoatNo" />
           <span id="speedPrice">HK$1,500</span>
           <input type="number" id="speedboatQty" name="speedboatQty" min="0" value="0"/>
@@ -104,8 +104,8 @@
       <p class="msg" id="formMsg"></p>
       <!-- 🔄 Navigation -->
       <div class="nav-buttons">
-        <button type="button" id="backBtn">← Back</button>
-        <button type="submit" id="nextBtn">Next →</button>
+        <button type="button" id="backBtn" data-i18n="backButton">← Back</button>
+        <button type="submit" id="nextBtn" data-i18n="nextButton">Next →</button>
       </div>
     </form>
   </div>
@@ -113,64 +113,64 @@
 
 <template id="wu-sc-step-4">
   <div class="wrap">
-    <h1>Application Summary</h1>
+    <h1 data-i18n="applicationSummary">Application Summary</h1>
 
     <div class="section" id="secBasics">
-      <h2>Basics</h2>
+      <h2 data-i18n="basics">Basics</h2>
       <div class="grid-2">
-        <div class="kv"><div class="k">Season</div><div class="v" id="sumSeason">—</div></div>
-        <div class="kv"><div class="k">Organization</div><div class="v" id="sumOrg">—</div></div>
-        <div class="kv"><div class="k">Mailing Address</div><div class="v" id="sumAddress">—</div></div>
+        <div class="kv"><div class="k" data-i18n="season">Season</div><div class="v" id="sumSeason">—</div></div>
+        <div class="kv"><div class="k" data-i18n="organization">Organization</div><div class="v" id="sumOrg">—</div></div>
+        <div class="kv"><div class="k" data-i18n="mailingAddress">Mailing Address</div><div class="v" id="sumAddress">—</div></div>
       </div>
     </div>
 
     <div class="section" id="secTeams">
-      <h2>Teams</h2>
+      <h2 data-i18n="teams">Teams</h2>
       <table class="summary" id="teamsTable">
         <thead>
           <tr>
-            <th>#</th>
-            <th>Team Name</th>
-            <th>Division</th>
-            <th>Entry Group</th>
+            <th data-i18n="numberSymbol">#</th>
+            <th data-i18n="teamName">Team Name</th>
+            <th data-i18n="division">Division</th>
+            <th data-i18n="entryGroup">Entry Group</th>
           </tr>
         </thead>
-        <tbody id="teamsTbody"><tr><td colspan="4" class="muted">No teams</td></tr></tbody>
+        <tbody id="teamsTbody"><tr><td colspan="4" class="muted" data-i18n="noTeams">No teams</td></tr></tbody>
       </table>
     </div>
 
     <div class="section" id="secManagers">
-      <h2>Team Manager Contact</h2>
+      <h2 data-i18n="teamManagerContact">Team Manager Contact</h2>
       <div class="grid-2">
-        <div class="kv"><div class="k">Manager 1</div><div class="v" id="sumManager1">—</div></div>
-        <div class="kv"><div class="k">Manager 2</div><div class="v" id="sumManager2">—</div></div>
-        <div class="kv"><div class="k">Manager 3</div><div class="v" id="sumManager3">—</div></div>
+        <div class="kv"><div class="k" data-i18n="teamManager1Required">Manager 1</div><div class="v" id="sumManager1">—</div></div>
+        <div class="kv"><div class="k" data-i18n="teamManager2Required">Manager 2</div><div class="v" id="sumManager2">—</div></div>
+        <div class="kv"><div class="k" data-i18n="teamManager3Optional">Manager 3</div><div class="v" id="sumManager3">—</div></div>
       </div>
     </div>
 
     <div class="section" id="secRaceDay">
-      <h2>Race Day Arrangement</h2>
+      <h2 data-i18n="raceDayArrangement">Race Day Arrangement</h2>
       <div class="grid-2">
-        <div class="kv"><div class="k">Athlete Marquee</div><div class="v" id="sumMarquee">—</div></div>
-        <div class="kv"><div class="k">Official Steersman (With Practice)</div><div class="v" id="sumSteerWith">—</div></div>
-        <div class="kv"><div class="k">Official Steersman (Without Practice)</div><div class="v" id="sumSteerWithout">—</div></div>
-        <div class="kv"><div class="k">Junk Registration</div><div class="v" id="sumJunk">—</div></div>
-        <div class="kv"><div class="k">Speed Boat Registration</div><div class="v" id="sumSpeed">—</div></div>
+        <div class="kv"><div class="k" data-i18n="athleteMarquee">Athlete Marquee</div><div class="v" id="sumMarquee">—</div></div>
+        <div class="kv"><div class="k" data-i18n="steersmanWithBoat">Official Steersman (With Practice)</div><div class="v" id="sumSteerWith">—</div></div>
+        <div class="kv"><div class="k" data-i18n="steersmanNoBoat">Official Steersman (Without Practice)</div><div class="v" id="sumSteerWithout">—</div></div>
+        <div class="kv"><div class="k" data-i18n="junkRegistration">Junk Registration</div><div class="v" id="sumJunk">—</div></div>
+        <div class="kv"><div class="k" data-i18n="speedBoatRegistration">Speed Boat Registration</div><div class="v" id="sumSpeed">—</div></div>
       </div>
     </div>
 
     <div class="section" id="secTotal">
-      <h2>Total Cost</h2>
+      <h2 data-i18n="totalCost">Total Cost</h2>
       <div class="total-cost">
-        <div class="kv"><div class="k">Total Amount</div><div class="v" id="sumTotal">HK$0</div></div>
+        <div class="kv"><div class="k" data-i18n="totalAmount">Total Amount</div><div class="v" id="sumTotal">HK$0</div></div>
       </div>
     </div>
 
     <p class="msg" id="formMsg"></p>
     <!-- 🔄 Navigation -->
     <div class="nav-buttons">
-      <button type="button" id="backBtn">← Back</button>
-      <button type="submit" id="submitBtn">Submit Application</button>
+      <button type="button" id="backBtn" data-i18n="backButton">← Back</button>
+      <button type="submit" id="submitBtn" data-i18n="submitButton">Submit Application</button>
     </div>
   </div>
 </template>

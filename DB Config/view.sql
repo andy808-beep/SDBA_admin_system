@@ -20,9 +20,12 @@ BEGIN
       config_version,
       updated_at,
       event_long_name_en,
+      event_long_name_tc,
       event_date_en,
+      event_date_tc,
       event_date,
-      event_location_en
+      event_location_en,
+      event_location_tc
     FROM public.annual_event_config';
   END IF;
 END $$;
@@ -139,7 +142,7 @@ BEGIN
   END IF;
 END $$;
 
--- 6) v_timeslots_public
+-- 6) v_timeslots_public (bilingual support)
 -- Only create if timeslot_catalog table exists
 DO $$
 BEGIN
@@ -148,7 +151,30 @@ BEGIN
     EXECUTE 'CREATE VIEW public.v_timeslots_public AS
     SELECT
       slot_code,
-      label,
+      label AS label_en,
+      COALESCE(label_tc, label) AS label_tc,
+      -- Computed day name in English
+      CASE day_of_week
+        WHEN 0 THEN ''Sunday''
+        WHEN 1 THEN ''Monday''
+        WHEN 2 THEN ''Tuesday''
+        WHEN 3 THEN ''Wednesday''
+        WHEN 4 THEN ''Thursday''
+        WHEN 5 THEN ''Friday''
+        WHEN 6 THEN ''Saturday''
+        ELSE ''Weekday''
+      END AS day_name_en,
+      -- Computed day name in Traditional Chinese
+      CASE day_of_week
+        WHEN 0 THEN ''星期日''
+        WHEN 1 THEN ''星期一''
+        WHEN 2 THEN ''星期二''
+        WHEN 3 THEN ''星期三''
+        WHEN 4 THEN ''星期四''
+        WHEN 5 THEN ''星期五''
+        WHEN 6 THEN ''星期六''
+        ELSE ''平日''
+      END AS day_name_tc,
       start_time,
       end_time,
       day_of_week,
@@ -156,7 +182,7 @@ BEGIN
       COALESCE(sort_order,0) AS sort_order
     FROM public.timeslot_catalog
     WHERE is_active = true
-    ORDER BY duration_hours, day_of_week NULLS LAST, start_time';
+    ORDER BY COALESCE(sort_order,0)';
   END IF;
 END $$;
 

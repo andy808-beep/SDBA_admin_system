@@ -134,6 +134,16 @@ function mapError(code) {
 	const labels = (window.__CONFIG && window.__CONFIG.labels) || {};
 	const fromConfig = labels?.error_codes?.[code];
 	if (fromConfig) return fromConfig;
+	
+	// Use i18n error code mapping if available
+	if (window.i18n && window.errorCodeMap) {
+		const translationKey = window.errorCodeMap[code];
+		if (translationKey) {
+			return window.i18n.t(translationKey);
+		}
+	}
+	
+	// Fallback messages (in case i18n not loaded)
 	const FALLBACK = {
 		'E.EVENT_DISABLED': 'This event is currently not accepting registrations.',
 		'E.DIVISION_INACTIVE': 'That division is not open.',
@@ -169,13 +179,33 @@ function showError(message, details) {
  */
 function formatTimeRemaining(ms) {
 	const seconds = Math.ceil(ms / 1000);
+	
+	// Use i18n if available
+	const t = (key, params) => window.i18n ? window.i18n.t(key, params) : null;
+	
 	if (seconds < 60) {
+		const secondLabel = t(seconds !== 1 ? 'seconds' : 'second');
+		if (secondLabel) {
+			return `${seconds} ${secondLabel}`;
+		}
 		return `${seconds} second${seconds !== 1 ? 's' : ''}`;
 	}
+	
 	const minutes = Math.floor(seconds / 60);
 	const remainingSeconds = seconds % 60;
+	
 	if (remainingSeconds === 0) {
+		const minuteLabel = t(minutes !== 1 ? 'minutes' : 'minute');
+		if (minuteLabel) {
+			return `${minutes} ${minuteLabel}`;
+		}
 		return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+	}
+	
+	const minuteLabel = t(minutes !== 1 ? 'minutes' : 'minute');
+	const secondLabel = t(remainingSeconds !== 1 ? 'seconds' : 'second');
+	if (minuteLabel && secondLabel) {
+		return `${minutes} ${minuteLabel} ${remainingSeconds} ${secondLabel}`;
 	}
 	return `${minutes} minute${minutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''}`;
 }
@@ -336,7 +366,9 @@ async function handleSubmitClick(e) {
 		const timeUntilReset = rateLimiter.getTimeUntilReset();
 		const timeStr = formatTimeRemaining(timeUntilReset);
 		const remaining = rateLimiter.getRemainingRequests();
-		const message = `Please wait before submitting again. You can submit ${RATE_LIMIT_CONFIG.maxRequests} times per minute. Please wait ${timeStr}.`;
+		const message = window.i18n 
+			? window.i18n.t('pleaseWaitBeforeSubmitting', { max: RATE_LIMIT_CONFIG.maxRequests, time: timeStr })
+			: `Please wait before submitting again. You can submit ${RATE_LIMIT_CONFIG.maxRequests} times per minute. Please wait ${timeStr}.`;
 		
 		// Log rate limit hit
 		addBreadcrumb('Rate limit exceeded', 'user', 'warning', {
@@ -424,7 +456,7 @@ async function handleSubmitClick(e) {
 			type: err.name
 		});
 		
-		showError('Network error. Please try again.', { err });
+		showError(window.i18n ? window.i18n.t('networkError') : 'Network error. Please try again.', { err });
 		btn.dataset.busy = '0';
 		// Don't re-enable if rate limited - let updateSubmitButtonState handle it
 		if (rateLimiter.canMakeRequest()) {

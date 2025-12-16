@@ -195,7 +195,7 @@ function showForm() {
 async function fetchEvents() {
   const { data, error } = await sb
     .from('v_event_config_public')
-    .select('event_short_ref, event_long_name_en, event_date_en, event_date, event_location_en, form_enabled')
+    .select('event_short_ref, event_long_name_en, event_long_name_tc, event_date_en, event_date_tc, event_date, event_location_en, event_location_tc, form_enabled')
     .eq('form_enabled', true)
     .order('event_date', { ascending: true });
   if (error) throw error;
@@ -233,12 +233,22 @@ async function loadPicker() {
           } else if (ev.event_short_ref === 'SC2025') {
             mappedRef = 'sc';
           }
-          
+
+          // Get current language for localized display
+          const lang = window.i18n?.getCurrentLanguage?.() || 'en';
+          const isZh = lang === 'zh';
+
           return {
             ref: mappedRef,
-            name: ev.event_long_name_en || ev.event_short_ref,
-            description: ev.event_date_en || '',
-            details: ev.event_location_en || ''
+            name: isZh ? (ev.event_long_name_tc || ev.event_long_name_en) : (ev.event_long_name_en || ev.event_short_ref),
+            name_en: ev.event_long_name_en || ev.event_short_ref,
+            name_tc: ev.event_long_name_tc || ev.event_long_name_en,
+            description: isZh ? (ev.event_date_tc || ev.event_date_en) : (ev.event_date_en || ''),
+            description_en: ev.event_date_en || '',
+            description_tc: ev.event_date_tc || ev.event_date_en || '',
+            details: isZh ? (ev.event_location_tc || ev.event_location_en) : (ev.event_location_en || ''),
+            details_en: ev.event_location_en || '',
+            details_tc: ev.event_location_tc || ev.event_location_en || ''
           };
         });
       } else {
@@ -246,25 +256,45 @@ async function loadPicker() {
       }
     } catch (dbError) {
       Logger.warn('🎯 loadPicker: Database loading failed, using fallback events:', dbError.message);
-      // Fallback to static events if database fails
+      // Fallback to static events if database fails (matches annual_event_config table)
+      const lang = window.i18n?.getCurrentLanguage?.() || 'en';
+      const isZh = lang === 'zh';
       events = [
         {
           ref: 'tn',
-          name: 'TN Dragon Boat Race',
-          description: 'Traditional Dragon Boat Race',
-          details: 'Multi-step registration form with practice booking calendar. Includes team registration, race day arrangements, and practice scheduling.'
+          name: isZh ? '赤柱國際龍舟錦標賽2025' : 'Stanley International Dragon Boat Championships 2025',
+          name_en: 'Stanley International Dragon Boat Championships 2025',
+          name_tc: '赤柱國際龍舟錦標賽2025',
+          description: isZh ? '2025 年 5 月 31 日, 星期六' : '31 May, 2025, Saturday',
+          description_en: '31 May, 2025, Saturday',
+          description_tc: '2025 年 5 月 31 日, 星期六',
+          details: isZh ? '赤柱正灘' : 'Stanley Main Beach',
+          details_en: 'Stanley Main Beach',
+          details_tc: '赤柱正灘'
         },
         {
           ref: 'wu',
-          name: 'WU Dragon Boat Race', 
-          description: 'Water University Dragon Boat Race',
-          details: 'Modern single-page registration form with configurable options. Streamlined registration process with dynamic form fields.'
+          name: isZh ? '赤柱龍舟熱身賽 2025' : 'Stanley Dragon Boat Warm-Up Races 2025',
+          name_en: 'Stanley Dragon Boat Warm-Up Races 2025',
+          name_tc: '赤柱龍舟熱身賽 2025',
+          description: isZh ? '2025 年 5 月 3 日, 星期六' : '3 May, 2025, Saturday',
+          description_en: '3 May, 2025, Saturday',
+          description_tc: '2025 年 5 月 3 日, 星期六',
+          details: isZh ? '赤柱正灘' : 'Stanley Main Beach',
+          details_en: 'Stanley Main Beach',
+          details_tc: '赤柱正灘'
         },
         {
           ref: 'sc',
-          name: 'SC Dragon Boat Race',
-          description: 'Sports Club Dragon Boat Race', 
-          details: 'Modern single-page registration form with configurable options. Streamlined registration process with dynamic form fields.'
+          name: isZh ? '第二十四屆香港龍舟短途賽' : 'The 24th Hong Kong Dragon Boat Short Course Races',
+          name_en: 'The 24th Hong Kong Dragon Boat Short Course Races',
+          name_tc: '第二十四屆香港龍舟短途賽',
+          description: isZh ? '2025 年 6 月 15 日, 星期日' : '15 June, 2025, Sunday',
+          description_en: '15 June, 2025, Sunday',
+          description_tc: '2025 年 6 月 15 日, 星期日',
+          details: isZh ? '赤柱正灘' : 'Stanley Main Beach',
+          details_en: 'Stanley Main Beach',
+          details_tc: '赤柱正灘'
         }
       ];
     }
@@ -272,19 +302,27 @@ async function loadPicker() {
     Logger.info('🎯 loadPicker: Using', events.length, 'events');
     renderEventCards(events);
   } catch (err) {
-    showPicker('Unable to load events. Please try again later.');
+    showPicker(window.i18n ? window.i18n.t('unableToLoadEvents') : 'Unable to load events. Please try again later.');
     Logger.warn('loadPicker failed', err);
   }
 }
 
+// Store loaded events for re-rendering on language change
+let loadedEvents = [];
+
 function renderEventCards(events) {
+  // Store events for language change re-rendering
+  if (events && events.length > 0) {
+    loadedEvents = events;
+  }
+  
   Logger.debug('🎯 renderEventCards: Starting to render', events.length, 'events');
   const grid = q('eventGrid');
   const loading = q('eventLoading');
-  
+
   Logger.debug('🎯 renderEventCards: Grid element found:', !!grid);
   Logger.debug('🎯 renderEventCards: Loading element found:', !!loading);
-  
+
   if (loading) {
     loading.style.display = 'none';
     Logger.debug('🎯 renderEventCards: Loading indicator hidden');
@@ -293,34 +331,50 @@ function renderEventCards(events) {
     Logger.error('🎯 renderEventCards: Grid element not found!');
     return;
   }
-  
+
   grid.innerHTML = '';
   Logger.debug('🎯 renderEventCards: Grid cleared');
-  
+
+  // Get current language for display
+  const lang = window.i18n?.getCurrentLanguage?.() || 'en';
+  const isZh = lang === 'zh';
+
   events.forEach((event, index) => {
     Logger.debug(`🎯 renderEventCards: Creating card ${index + 1} for ${event.name}`);
     const card = document.createElement('div');
     card.className = 'event-card';
     card.setAttribute('data-event', event.ref); // Add data-event for theme colors
     card.onclick = () => selectEvent(event.ref);
-    
-    // XSS FIX: Escape event data (event.name, event.description, event.details) before inserting into HTML
-    // Event data comes from database/config, but should be escaped as defense-in-depth
-    const safeName = escapeHtml(event.name);
-    const safeDescription = escapeHtml(event.description);
-    const safeDetails = escapeHtml(event.details);
-    
+
+    // Use localized name/description/details if available
+    const displayName = isZh ? (event.name_tc || event.name) : (event.name_en || event.name);
+    const displayDescription = isZh ? (event.description_tc || event.description) : (event.description_en || event.description);
+    const displayDetails = isZh ? (event.details_tc || event.details) : (event.details_en || event.details);
+
+    // XSS FIX: Escape event data before inserting into HTML
+    const safeName = escapeHtml(displayName);
+    const safeDescription = escapeHtml(displayDescription);
+    const safeDetails = escapeHtml(displayDetails);
+
     card.innerHTML = `
       <h3>${safeName}</h3>
       <p>${safeDescription}</p>
       <div class="description">${safeDetails}</div>
     `;
-    
+
     grid.appendChild(card);
   });
-  
+
   Logger.debug('🎯 renderEventCards: All cards rendered, grid children count:', grid.children.length);
 }
+
+// Re-render event cards when language changes
+window.addEventListener('languageChanged', () => {
+  if (loadedEvents.length > 0) {
+    Logger.debug('🎯 Event Picker: Language changed, re-rendering event cards');
+    renderEventCards(loadedEvents);
+  }
+});
 
 async function selectEvent(ref) {
   if (!ref) return;
@@ -425,7 +479,7 @@ async function attemptLoad(ref) {
     }, 'error', ['event_loading']);
     
     Logger.warn('attemptLoad failed', err);
-    showPicker('Failed to load event. Please pick another or try again.');
+    showPicker(window.i18n ? window.i18n.t('unableToLoadEvents') : 'Failed to load event. Please pick another or try again.');
     await loadPicker();
   }
 }

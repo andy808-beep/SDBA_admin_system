@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Race Registration</title>
+  <title data-i18n="raceRegistration">Race Registration</title>
   <link rel="stylesheet" href="styles.css?v=1.0.0-mj5lf93y" />
   <link rel="stylesheet" href="css/theme.css?v=1.0.0-mj5lf93y" />
+  <link rel="stylesheet" href="css/language-switcher.css?v=1.0.0-mj5lf93y" />
   <!-- TN Legacy CSS - loaded conditionally when event='tn' -->
   <link rel="stylesheet" href="css/tn_legacy.css?v=1.0.0-mj5lf93y" id="tnLegacyCSS" disabled />
   <style>
@@ -418,8 +419,8 @@
   <div class="form-container">
     <!-- Event Picker Section -->
     <div id="eventPicker" class="event-picker">
-      <h2 id="formTitle">Race Registration</h2>
-      <p id="formSubtitle">Please select the race you would like to register for:</p>
+      <h2 id="formTitle" data-i18n="raceRegistration">Race Registration</h2>
+      <p id="formSubtitle" data-i18n="selectRacePrompt">Please select the race you would like to register for:</p>
       <div id="eventGrid" class="event-grid">
         <!-- Events will be loaded dynamically -->
       </div>
@@ -436,39 +437,39 @@
     <div id="successPage" class="event-picker" style="display: none;">
       <div class="success-container" style="background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
         <div style="font-size: 4rem; color: #28a745; margin-bottom: 1rem;">✓</div>
-        <h2 style="color: #28a745; margin-bottom: 1rem;">Application Submitted Successfully!</h2>
-        <p style="font-size: 1.1rem; color: #495057; margin-bottom: 2rem;">
+        <h2 style="color: #28a745; margin-bottom: 1rem;" data-i18n="applicationSubmittedSuccess">Application Submitted Successfully!</h2>
+        <p style="font-size: 1.1rem; color: #495057; margin-bottom: 2rem;" data-i18n="thankYouMessage">
           Thank you for your registration. Your application has been received.
         </p>
         
         <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
-          <h3 style="margin-top: 0; color: #333;">Registration Details</h3>
+          <h3 style="margin-top: 0; color: #333;" data-i18n="registrationDetails">Registration Details</h3>
           <p style="margin: 0.5rem 0;">
-            <strong>Registration ID:</strong> <span id="successRegistrationId"></span>
+            <strong data-i18n="registrationIdLabel">Registration ID:</strong> <span id="successRegistrationId"></span>
           </p>
           <p style="margin: 0.5rem 0;">
-            <strong>Team Codes:</strong> <span id="successTeamCodes"></span>
+            <strong data-i18n="teamCodesLabel">Team Codes:</strong> <span id="successTeamCodes"></span>
           </p>
           <p style="margin: 0.5rem 0;">
-            <strong>Confirmation Email:</strong> <span id="successEmail"></span>
+            <strong data-i18n="confirmationEmailLabel">Confirmation Email:</strong> <span id="successEmail"></span>
           </p>
         </div>
         
-        <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 1rem;">
+        <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 1rem;" data-i18n="saveRecordsMessage">
           Please save your Registration ID and Team Codes for your records.
         </p>
         
         <div style="margin-bottom: 2rem;">
-          <button id="copyReceiptBtn" class="btn" style="margin-right: 0.5rem;">
+          <button id="copyReceiptBtn" class="btn" style="margin-right: 0.5rem;" data-i18n="copyDetails">
             📋 Copy Details
           </button>
         </div>
         
         <div style="background: #e7f3ff; padding: 1rem; border-radius: 8px; border-left: 4px solid #007bff;">
-          <p style="margin: 0; color: #004085;">
-            Redirecting to event selection in <strong id="countdown">8</strong> seconds...
+          <p id="redirectMessage" style="margin: 0; color: #004085;">
+            <span data-i18n="redirectingMessage" data-i18n-params='{"seconds":"8"}'>Redirecting to event selection in 8 seconds...</span>
           </p>
-          <button id="redirectNowBtn" class="btn" style="margin-top: 1rem; background: #6c757d;">
+          <button id="redirectNowBtn" class="btn" style="margin-top: 1rem; background: #6c757d;" data-i18n="goNowButton">
             Go Now
           </button>
         </div>
@@ -493,6 +494,12 @@
       </div>
     </div>
   </div>
+  
+  <!-- i18n System - Load FIRST -->
+  <script src="js/i18n/translations.js?v=1.0.0-mj5lf93y"></script>
+  <script src="js/i18n/i18n-engine.js?v=1.0.0-mj5lf93y"></script>
+  <script src="js/i18n/db-localization.js?v=1.0.0-mj5lf93y"></script>
+  <script src="js/i18n/language-switcher.js?v=1.0.0-mj5lf93y"></script>
   
   <script src="env.js?v=1.0.0-mj5lf93y"></script>
   <!-- Sentry Error Monitoring (only load if DSN is configured) -->
@@ -595,9 +602,9 @@
               const text = `Registration ID: ${receipt.registration_id}\nTeam Codes: ${receipt.team_codes?.join(', ')}\nEmail: ${receipt.email}`;
               try {
                 await navigator.clipboard.writeText(text);
-                this.textContent = '✓ Copied!';
+                this.textContent = window.i18n ? window.i18n.t('copiedSuccess') : '✓ Copied!';
                 setTimeout(() => {
-                  this.textContent = '📋 Copy Details';
+                  this.textContent = window.i18n ? window.i18n.t('copyDetails') : '📋 Copy Details';
                 }, 2000);
               } catch (err) {
                 console.error('Failed to copy:', err);
