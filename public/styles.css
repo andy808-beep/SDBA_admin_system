@@ -86,17 +86,21 @@ button#submitBtn:hover,
   background: var(--theme-primary-dark);
 }
 
-button#backBtn {
-  background: #6c757d;
+button#backBtn,
+.nav-buttons button#backBtn {
+  background: var(--theme-primary-dark);
   color: white;
   border: none;
   padding: 0.75rem 2rem;
   border-radius: 6px;
   font-weight: 500;
+  transition: background 0.3s ease;
 }
 
-button#backBtn:hover {
-  background: #5a6268;
+button#backBtn:hover,
+.nav-buttons button#backBtn:hover {
+  background: var(--theme-primary);
+  opacity: 0.9;
 }
 
 /* Utility classes */

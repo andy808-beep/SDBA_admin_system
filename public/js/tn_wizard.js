@@ -2149,6 +2149,13 @@ function addCalendarStyles() {
   const style = document.createElement('style');
   style.id = 'tn-calendar-styles';
   style.textContent = `
+    /* Ensure CSS variables are available in tnScope */
+    #tnScope {
+      --theme-primary: var(--theme-primary, #f7b500);
+      --theme-primary-light: var(--theme-primary-light, #fff8e6);
+      --theme-primary-dark: var(--theme-primary-dark, #c79100);
+    }
+    
     #tnScope .month-block {
       border: 1px solid #ccc;
       border-radius: 6px;
@@ -2277,7 +2284,7 @@ function addCalendarStyles() {
     
     #tnScope .team-header h3 {
       margin: 0 0 1rem 0;
-      color: #0f6ec7;
+      color: var(--theme-primary-dark, #c79100) !important;
       font-size: 1.2rem;
     }
     
@@ -2452,7 +2459,9 @@ function addCalendarStyles() {
       text-align: right;
     }
     
-    #tnScope .btn {
+    #tnScope .btn,
+    #tnScope .form-actions .btn,
+    #tnScope .form-actions button {
       display: inline-block;
       padding: 0.75rem 2rem;
       font-size: 1rem;
@@ -2466,21 +2475,36 @@ function addCalendarStyles() {
       min-width: 120px;
     }
     
-    #tnScope .btn-primary {
-      background: linear-gradient(135deg, #007acc, #00a8ff);
-      color: white;
-      box-shadow: 0 2px 8px rgba(0, 122, 204, 0.3);
+    #tnScope .btn-primary,
+    #tnScope .form-actions .btn-primary,
+    #tnScope .form-actions button.btn-primary,
+    #tnScope #nextToStep2,
+    #tnScope #nextToStep3,
+    #tnScope #nextToStep4 {
+      background: var(--theme-primary, #f7b500) !important;
+      color: white !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
     
-    #tnScope .btn-primary:hover {
-      background: linear-gradient(135deg, #005a9e, #0088cc);
-      box-shadow: 0 4px 12px rgba(0, 122, 204, 0.4);
+    #tnScope .btn-primary:hover,
+    #tnScope .form-actions .btn-primary:hover,
+    #tnScope .form-actions button.btn-primary:hover,
+    #tnScope #nextToStep2:hover,
+    #tnScope #nextToStep3:hover,
+    #tnScope #nextToStep4:hover {
+      background: var(--theme-primary-dark, #c79100) !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       transform: translateY(-1px);
     }
     
-    #tnScope .btn-primary:active {
+    #tnScope .btn-primary:active,
+    #tnScope .form-actions .btn-primary:active,
+    #tnScope .form-actions button.btn-primary:active,
+    #tnScope #nextToStep2:active,
+    #tnScope #nextToStep3:active,
+    #tnScope #nextToStep4:active {
       transform: translateY(0);
-      box-shadow: 0 2px 6px rgba(0, 122, 204, 0.3);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     }
     
     /* Organization Form Styles */
@@ -2506,10 +2530,10 @@ function addCalendarStyles() {
     }
     
     #tnScope .form-section h3 {
-      color: #495057;
+      color: var(--theme-primary-dark, #c79100) !important;
       margin-bottom: 1.5rem;
       font-size: 1.2rem;
-      border-bottom: 2px solid #007acc;
+      border-bottom: 2px solid var(--theme-primary, #f7b500);
       padding-bottom: 0.5rem;
     }
     
@@ -2552,9 +2576,13 @@ function addCalendarStyles() {
       min-height: 80px;
     }
     
-    #tnScope .btn-secondary {
-      background: #6c757d;
-      color: white;
+    #tnScope .btn-secondary,
+    #tnScope .form-actions .btn-secondary,
+    #tnScope .form-actions button.btn-secondary,
+    #tnScope #backToStep1,
+    #tnScope #backToStep2 {
+      background: var(--theme-primary-dark, #c79100) !important;
+      color: white !important;
       border: none;
       padding: 0.75rem 2rem;
       border-radius: 8px;
@@ -2564,8 +2592,13 @@ function addCalendarStyles() {
       transition: all 0.2s ease;
     }
     
-    #tnScope .btn-secondary:hover {
-      background: #5a6268;
+    #tnScope .btn-secondary:hover,
+    #tnScope .form-actions .btn-secondary:hover,
+    #tnScope .form-actions button.btn-secondary:hover,
+    #tnScope #backToStep1:hover,
+    #tnScope #backToStep2:hover {
+      background: var(--theme-primary, #f7b500) !important;
+      opacity: 0.9;
       transform: translateY(-1px);
     }
     
@@ -2602,10 +2635,10 @@ function addCalendarStyles() {
     }
     
     #tnScope .race-day-form .form-section h3 {
-      color: #495057;
+      color: var(--theme-primary-dark, #c79100) !important;
       margin-bottom: 1.5rem;
       font-size: 1.2rem;
-      border-bottom: 2px solid #007acc;
+      border-bottom: 2px solid var(--theme-primary, #f7b500);
       padding-bottom: 0.5rem;
     }
     

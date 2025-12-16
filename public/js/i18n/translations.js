@@ -76,6 +76,7 @@ const translations = {
     // ============================================
     
     // Main page
+    stanleyDragonBoatAssociation: "Stanley Dragon Boat Association",
     raceRegistration: "Race Registration",
     selectRacePrompt: "Please select the race you would like to register for:",
     
@@ -458,6 +459,7 @@ const translations = {
     // ============================================
     
     // Main page
+    stanleyDragonBoatAssociation: "赤柱龍舟協會",
     raceRegistration: "賽事報名",
     selectRacePrompt: "請選擇您想報名的賽事：",
     
