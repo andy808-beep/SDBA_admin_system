@@ -20,7 +20,7 @@ import Logger from './logger.js';
 import { fetchWithErrorHandling } from './api-client.js';
 
 // WU/SC Wizard State
-let currentStep = 1;
+let currentStep = 0; // Start at step 0 (Race Info)
 let totalSteps = 4; // Step 1: Team Details, Step 2: Team Info, Step 3: Race Day, Step 4: Summary
 let wuScScope = null;
 let wizardMount = null;
@@ -82,11 +82,11 @@ export async function initWUSCWizard(eventShortRef) {
   // Show WU/SC container
   wuScScope.hidden = false;
   
-  // Initialize stepper
+  // Initialize stepper (will be hidden for step 0)
   initStepper();
   
-  // Load first step
-  loadStep(1);
+  // Load first step (step 0 - Race Info)
+  loadStep(0);
   
   // Set up debug functions
   setupDebugFunctions();
@@ -336,6 +336,14 @@ function initStepper() {
   const step3 = t('wuScStep3', '3. Race Day');
   const step4 = t('wuScStep4', '4. Summary');
   
+  // For step 0 (Race Info), don't show stepper
+  if (currentStep === 0) {
+    wuScScope.innerHTML = '<div id="wuScWizardMount"></div>';
+    wizardMount = document.getElementById('wuScWizardMount');
+    stepper = null;
+    return;
+  }
+  
   const stepperHTML = `
     <div class="stepper-container">
       <div class="stepper-steps">
@@ -356,15 +364,21 @@ function initStepper() {
  * Load a specific step
  */
 async function loadStep(step) {
-  if (step < 1 || step > totalSteps) {
+  // Allow step 0 (Race Info) through totalSteps
+  if (step < 0 || step > totalSteps) {
 	Logger.error(`Invalid step: ${step}`);
     return;
   }
   
   currentStep = step;
   
-  // Update stepper
-  updateStepper();
+  // Reinitialize stepper (handles showing/hiding for step 0)
+  if (step === 0) {
+    initStepper();
+  } else {
+    // Update stepper
+    updateStepper();
+  }
   
   // Load step content
   await loadStepContent(step);
@@ -399,6 +413,19 @@ async function loadStepContent(step) {
 	Logger.debug(`loadStepContent: Loading step ${step}`);
   if (!wizardMount) {
 	Logger.error('loadStepContent: wizardMount not found');
+    return;
+  }
+  
+  // Handle step 0 (Race Info) specially - no template, generated content
+  if (step === 0) {
+    wizardMount.innerHTML = '';
+    wizardMount.appendChild(createRaceInfoContent());
+    initStep0();
+    // Update i18n translations
+    if (window.i18n && typeof window.i18n.updateUI === 'function') {
+      Logger.debug('loadStepContent: Updating i18n translations for step 0');
+      window.i18n.updateUI();
+    }
     return;
   }
   
@@ -444,6 +471,234 @@ async function loadStepContent(step) {
   if (window.i18n && typeof window.i18n.updateUI === 'function') {
     Logger.debug('loadStepContent: Updating i18n translations for step', step);
     window.i18n.updateUI();
+  }
+}
+
+/**
+ * Create Race Info content for Step 0
+ * @returns {HTMLElement} Race info content container
+ */
+function createRaceInfoContent() {
+  const t = (key, fallback) => window.i18n ? window.i18n.t(key) : fallback;
+  
+  // Get event config from window (loaded by config_loader)
+  const eventConfig = window.eventConfig || window.__CONFIG || {};
+  const event = eventConfig.event || {};
+  
+  // Determine theme colors based on event type
+  const isWU = eventType === 'wu';
+  const primaryColor = isWU ? '#0070c0' : '#00a651'; // WU blue or SC green
+  const primaryDark = isWU ? '#005090' : '#007a3d';
+  
+  // Helper to get bilingual display (both languages shown)
+  const getBilingual = (en, tc) => {
+    const enVal = en || '';
+    const tcVal = tc || '';
+    if (enVal && tcVal && enVal !== tcVal) {
+      return `${tcVal} ${enVal}`;
+    }
+    return enVal || tcVal || '—';
+  };
+  
+  // Extract event data with placeholders for missing fields
+  const eventName = getBilingual(event.event_long_name_en, event.event_long_name_tc);
+  const eventDate = getBilingual(event.event_date_en, event.event_date_tc);
+  const eventTime = getBilingual(event.event_time_en || 'TBA', event.event_time_tc || '待定');
+  const eventVenue = getBilingual(event.event_location_en, event.event_location_tc);
+  const raceCourse = getBilingual(event.course_length_en || 'Standard Course', event.course_length_tc || '標準賽道');
+  const deadline = getBilingual(event.reg_deadline_date_en || 'TBA', event.reg_deadline_date_tc || '待定');
+  const appendixLink = event.appendix_hyperlink || '#';
+  
+  const container = document.createElement('div');
+  container.className = 'race-info-page';
+  container.innerHTML = `
+    <style>
+      #wuScContainer .race-info-page {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      #wuScContainer .race-info-card {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+      #wuScContainer .race-info-card h2 {
+        color: ${primaryDark};
+        margin: 0 0 1.5rem 0;
+        font-size: 1.75rem;
+        text-align: center;
+        border-bottom: 2px solid ${primaryColor};
+        padding-bottom: 0.75rem;
+      }
+      #wuScContainer .race-info-banner {
+        margin-bottom: 2rem;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      #wuScContainer .banner-placeholder {
+        background: linear-gradient(135deg, ${isWU ? '#e6f2ff' : '#e6f7ed'} 0%, ${primaryColor} 100%);
+        height: 180px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: ${primaryDark};
+        font-size: 1.1rem;
+        gap: 0.5rem;
+      }
+      #wuScContainer .banner-placeholder span:first-child {
+        font-size: 3rem;
+      }
+      #wuScContainer .race-info-details {
+        margin-bottom: 2rem;
+      }
+      #wuScContainer .info-row {
+        display: flex;
+        padding: 0.875rem 0;
+        border-bottom: 1px solid #eee;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      #wuScContainer .info-row:last-child {
+        border-bottom: none;
+      }
+      #wuScContainer .info-label {
+        font-weight: 600;
+        color: ${primaryDark};
+        min-width: 180px;
+        flex-shrink: 0;
+      }
+      #wuScContainer .info-value {
+        color: #333;
+        flex: 1;
+      }
+      #wuScContainer .info-value.deadline {
+        color: #dc3545;
+        font-weight: 600;
+      }
+      #wuScContainer .appendix-row {
+        padding-top: 1rem;
+      }
+      #wuScContainer .appendix-btn {
+        background: ${primaryDark} !important;
+        color: white !important;
+        padding: 0.5rem 1.25rem !important;
+        font-size: 0.95rem !important;
+        text-decoration: none !important;
+        display: inline-block !important;
+        border-radius: 6px !important;
+        border: none !important;
+      }
+      #wuScContainer .appendix-btn:hover {
+        background: ${primaryColor} !important;
+      }
+      #wuScContainer .race-info-actions {
+        text-align: center;
+        padding-top: 1rem;
+      }
+      #wuScContainer #raceInfoNextBtn {
+        background: ${primaryColor} !important;
+        color: white !important;
+        padding: 0.875rem 2.5rem !important;
+        font-size: 1.1rem !important;
+        border: none !important;
+        border-radius: 6px !important;
+        cursor: pointer !important;
+        font-weight: 600 !important;
+      }
+      #wuScContainer #raceInfoNextBtn:hover {
+        background: ${primaryDark} !important;
+      }
+      @media (max-width: 600px) {
+        #wuScContainer .info-row {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        #wuScContainer .info-label {
+          min-width: auto;
+          margin-bottom: 0.25rem;
+        }
+      }
+    </style>
+    <div class="card race-info-card">
+      <h2 data-i18n="raceInfoTitle">${t('raceInfoTitle', 'Race Info')}</h2>
+      
+      <!-- Banner placeholder -->
+      <div class="race-info-banner">
+        <div class="banner-placeholder">
+          <span>🏁</span>
+          <span>Banner Image Coming Soon</span>
+        </div>
+      </div>
+      
+      <!-- Event Details -->
+      <div class="race-info-details">
+        <div class="info-row">
+          <span class="info-label" data-i18n="raceInfoEvent">${t('raceInfoEvent', 'Event')}:</span>
+          <span class="info-value">${eventName}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label" data-i18n="raceInfoDate">${t('raceInfoDate', 'Date')}:</span>
+          <span class="info-value">${eventDate}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label" data-i18n="raceInfoTime">${t('raceInfoTime', 'Time')}:</span>
+          <span class="info-value">${eventTime}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label" data-i18n="raceInfoVenue">${t('raceInfoVenue', 'Venue')}:</span>
+          <span class="info-value">${eventVenue}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label" data-i18n="raceInfoCourse">${t('raceInfoCourse', 'Race Course')}:</span>
+          <span class="info-value">${raceCourse}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label" data-i18n="raceInfoDeadline">${t('raceInfoDeadline', 'Application Deadline')}:</span>
+          <span class="info-value deadline">${deadline}</span>
+        </div>
+        
+        <div class="info-row appendix-row">
+          <span class="info-label" data-i18n="raceInfoAppendix">${t('raceInfoAppendix', 'Registration Appendix')}:</span>
+          <a href="${appendixLink}" target="_blank" rel="noopener noreferrer" class="appendix-btn" data-i18n="raceInfoClickHere">${t('raceInfoClickHere', 'Click Here')}</a>
+        </div>
+      </div>
+      
+      <!-- Next Button -->
+      <div class="race-info-actions">
+        <button type="button" id="raceInfoNextBtn">
+          <span data-i18n="raceInfoNext">${t('raceInfoNext', 'Next')}</span> →
+        </button>
+      </div>
+    </div>
+  `;
+  
+  return container;
+}
+
+/**
+ * Initialize Step 0 - Race Info page
+ */
+function initStep0() {
+  Logger.debug('🎯 initStep0: Initializing Race Info page');
+  
+  // Set up Next button handler
+  const nextBtn = document.getElementById('raceInfoNextBtn');
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      Logger.debug('🎯 initStep0: Next button clicked, going to step 1');
+      // Reinitialize stepper before going to step 1
+      currentStep = 1;
+      initStepper();
+      loadStep(1);
+    });
   }
 }
 

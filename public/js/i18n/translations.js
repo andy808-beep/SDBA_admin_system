@@ -80,6 +80,18 @@ const translations = {
     raceRegistration: "Race Registration",
     selectRacePrompt: "Please select the race you would like to register for:",
     
+    // Race Info page (before step 1)
+    raceInfoTitle: "Race Info",
+    raceInfoEvent: "Event",
+    raceInfoDate: "Date",
+    raceInfoTime: "Time",
+    raceInfoVenue: "Venue",
+    raceInfoCourse: "Race Course",
+    raceInfoDeadline: "Application Deadline",
+    raceInfoAppendix: "Registration Appendix",
+    raceInfoClickHere: "Click Here",
+    raceInfoNext: "Next",
+    
     // Success page
     applicationSubmittedSuccess: "Application Submitted Successfully!",
     thankYouMessage: "Thank you for your registration. Your application has been received.",
@@ -462,6 +474,18 @@ const translations = {
     stanleyDragonBoatAssociation: "赤柱龍舟協會",
     raceRegistration: "賽事報名",
     selectRacePrompt: "請選擇您想報名的賽事：",
+    
+    // Race Info page (before step 1)
+    raceInfoTitle: "賽事資訊",
+    raceInfoEvent: "賽事",
+    raceInfoDate: "日期",
+    raceInfoTime: "時間",
+    raceInfoVenue: "地點",
+    raceInfoCourse: "賽道",
+    raceInfoDeadline: "截止報名日期",
+    raceInfoAppendix: "參賽附錄",
+    raceInfoClickHere: "按此",
+    raceInfoNext: "下一步",
     
     // Success page
     applicationSubmittedSuccess: "申請已成功提交！",

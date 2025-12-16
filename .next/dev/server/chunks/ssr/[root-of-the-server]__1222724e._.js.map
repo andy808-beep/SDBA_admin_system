@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": [],
+  "debugId": "e2b31370-dff1-c249-98a9-3fdf6e9a2a2d",
+  "sections": [
+    {"offset": {"line": 19, "column": 0}, "map": {"version":3,"sources":["file:///Users/andywang/Desktop/SDBA_admin_system-1/app/page.tsx"],"sourcesContent":["import Link from 'next/link';\n\nexport default function Home() {\n  return (\n    <main className=\"p-6\">\n      <h1 className=\"text-2xl font-semibold\">StanleyDB</h1>\n      <p className=\"mt-4\">\n        Go to <Link className=\"text-blue-600 underline\" href=\"/auth\">Auth</Link>\n      </p>\n    </main>\n  );\n}"],"names":[],"mappings":";;;;;AAAA;;;AAEe,SAAS;IACtB,qBACE,8OAAC;QAAK,WAAU;;0BACd,8OAAC;gBAAG,WAAU;0BAAyB;;;;;;0BACvC,8OAAC;gBAAE,WAAU;;oBAAO;kCACZ,8OAAC,0LAAI;wBAAC,WAAU;wBAA0B,MAAK;kCAAQ;;;;;;;;;;;;;;;;;;AAIrE"}}]
+}

@@ -1,0 +1,51 @@
+{
+  "sorted_middleware": [],
+  "middleware": {
+    "/": {
+      "files": [
+        "server/edge/chunks/_bbce24ce._.js",
+        "server/edge/chunks/node_modules_@opentelemetry_api_build_esm_4557a825._.js",
+        "server/edge/chunks/node_modules_@supabase_auth-js_dist_module_86187e7b._.js",
+        "server/edge/chunks/node_modules_@sentry_core_build_esm_3db37592._.js",
+        "server/edge/chunks/node_modules_@sentry_opentelemetry_build_esm_index_db3dec2d.js",
+        "server/edge/chunks/node_modules_@sentry_vercel-edge_build_esm_index_d9c50487.js",
+        "server/edge/chunks/node_modules_@sentry_nextjs_build_esm_d30f41cb._.js",
+        "server/edge/chunks/node_modules_@upstash_redis_fa08835e._.js",
+        "server/edge/chunks/node_modules_e73615c7._.js",
+        "server/edge/chunks/[root-of-the-server]__159736bf._.js",
+        "server/edge/chunks/turbopack-edge-wrapper_45c20f1b.js"
+      ],
+      "name": "middleware",
+      "page": "/",
+      "matchers": [
+        {
+          "regexp": "/:nextData(_next/data/[^/]{1,})?/admin/:path*{(\\\\.json)}?",
+          "originalSource": "/admin/:path*"
+        },
+        {
+          "regexp": "/:nextData(_next/data/[^/]{1,})?/auth{(\\\\.json)}?",
+          "originalSource": "/auth"
+        },
+        {
+          "regexp": "/:nextData(_next/data/[^/]{1,})?/api/public/:path*{(\\\\.json)}?",
+          "originalSource": "/api/public/:path*"
+        },
+        {
+          "regexp": "/:nextData(_next/data/[^/]{1,})?/api/admin/:path*{(\\\\.json)}?",
+          "originalSource": "/api/admin/:path*"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "development",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "IvR3qn2QIYiF1Grui6/asvwb4E+EOoZIxEdpFMWylYw=",
+        "__NEXT_PREVIEW_MODE_ID": "db409f29ab9b5ca940ed4ead58282826",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "448a374e8e712140a624d7e8f69c29f10faa3363bfa512a08ff98e5aecbf3541",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "8816d6b01ba11436c631c00460fc6b205b51f03d049d9f6f91cf8e91a04917f4"
+      }
+    }
+  },
+  "instrumentation": null,
+  "functions": {}
+}

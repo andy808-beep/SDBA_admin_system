@@ -89,7 +89,7 @@
   padding: 0.7rem;
   border: none;
   border-radius: 4px;
-  background: #0f6ec7;
+  background: var(--theme-primary);
   color: #fff;
   font-weight: bold;
   cursor: pointer;
@@ -97,7 +97,7 @@
 }
 
 #tnScope button:hover {
-  background: #0c5aa3;
+  background: var(--theme-primary-dark);
 }
 
 /* ========== DUPLICATE ERROR ========== */
@@ -147,7 +147,7 @@
 
 #tnScope .month-toggle {
   cursor: pointer;
-  background: #0f6ec7;
+  background: var(--theme-primary);
   color: white;
   padding: 0.5rem 1rem;
   border-radius: 5px;

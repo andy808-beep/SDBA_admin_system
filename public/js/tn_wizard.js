@@ -106,7 +106,7 @@ function setupDebugFunctions() {
 }
 
 // TN Wizard State
-let currentStep = 1;
+let currentStep = 0; // Start at step 0 (Race Info)
 let totalSteps = 5;
 let tnScope = null;
 let wizardMount = null;
@@ -159,9 +159,9 @@ export function initTNWizard() {
   // Initialize step navigation
   initStepNavigation();
   
-  // Load step 1 (category selection)
-	Logger.debug('initTNWizard: Loading step 1');
-  loadStep(1);
+  // Load step 0 (Race Info) first
+	Logger.debug('initTNWizard: Loading step 0 (Race Info)');
+  loadStep(0);
   
   // Set up deep linking
   initDeepLinking();
@@ -192,6 +192,16 @@ function initStepNavigation() {
   const step4 = t('tnStep4', '4. Practice');
   const step5 = t('tnStep5', '5. Summary');
   
+  // Hide stepper on step 0 (Race Info page)
+  if (currentStep === 0) {
+    stepper.innerHTML = '';
+    stepper.style.display = 'none';
+    return;
+  }
+  
+  // Show stepper for steps 1-5
+  stepper.style.display = 'block';
+  
   // Create stepper HTML (matching WU/SC style)
   stepper.innerHTML = `
     <div class="stepper-container">
@@ -205,19 +215,19 @@ function initStepNavigation() {
     </div>
   `;
   
-  // Add stepper styles (matching WU/SC style)
+  // Add stepper styles (scoped to #tnScope for proper theme variable inheritance)
   const style = document.createElement('style');
   style.textContent = `
-    .stepper-container {
+    #tnScope .stepper-container {
       margin-bottom: 2rem;
     }
-    .stepper-steps {
+    #tnScope .stepper-steps {
       display: flex;
       gap: 0.5rem;
       justify-content: center;
       flex-wrap: wrap;
     }
-    .step {
+    #tnScope .step {
       padding: 0.75rem 1.5rem;
       background: #e9ecef;
       color: #6c757d;
@@ -228,13 +238,151 @@ function initStepNavigation() {
       transition: all 0.3s ease;
       white-space: nowrap;
     }
-    .step.active {
-      background: var(--theme-primary, #007bff);
-      color: white;
+    #tnScope .step.active {
+      background: #f7b500 !important;
+      color: white !important;
     }
-    .step.completed {
-      background: #d4edda;
-      color: #155724;
+    #tnScope .step.completed {
+      background: #c79100 !important;
+      color: white !important;
+    }
+    /* TN Theme Nav Buttons */
+    #tnScope .nav-buttons button,
+    #tnScope button[type="submit"],
+    #tnScope button#nextBtn,
+    #tnScope .btn,
+    #tnScope .btn-primary,
+    #tnScope button#nextToStep2,
+    #tnScope button#nextToStep3,
+    #tnScope button#nextToStep4 {
+      background: #f7b500 !important;
+      color: white !important;
+      border: none !important;
+      padding: 0.75rem 1.5rem !important;
+      border-radius: 6px !important;
+      font-weight: 600 !important;
+      cursor: pointer !important;
+    }
+    #tnScope .nav-buttons button:hover,
+    #tnScope button[type="submit"]:hover,
+    #tnScope button#nextBtn:hover,
+    #tnScope .btn:hover,
+    #tnScope .btn-primary:hover,
+    #tnScope button#nextToStep2:hover,
+    #tnScope button#nextToStep3:hover,
+    #tnScope button#nextToStep4:hover {
+      background: #c79100 !important;
+    }
+    #tnScope button#backBtn,
+    #tnScope button#backToStep1,
+    #tnScope button#backToStep2,
+    #tnScope button#backToStep3 {
+      background: #c79100 !important;
+      color: white !important;
+    }
+    #tnScope button#backBtn:hover,
+    #tnScope button#backToStep1:hover,
+    #tnScope button#backToStep2:hover,
+    #tnScope button#backToStep3:hover {
+      background: #f7b500 !important;
+    }
+    /* Race Info Page (Step 0) Styles */
+    #tnScope .race-info-page {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    #tnScope .race-info-card {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    #tnScope .race-info-card h2 {
+      color: #c79100;
+      margin: 0 0 1.5rem 0;
+      font-size: 1.75rem;
+      text-align: center;
+      border-bottom: 2px solid #f7b500;
+      padding-bottom: 0.75rem;
+    }
+    #tnScope .race-info-banner {
+      margin-bottom: 2rem;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #tnScope .banner-placeholder {
+      background: linear-gradient(135deg, #fff8e6 0%, #f7b500 100%);
+      height: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #c79100;
+      font-size: 1.1rem;
+      gap: 0.5rem;
+    }
+    #tnScope .banner-placeholder span:first-child {
+      font-size: 3rem;
+    }
+    #tnScope .race-info-details {
+      margin-bottom: 2rem;
+    }
+    #tnScope .info-row {
+      display: flex;
+      padding: 0.875rem 0;
+      border-bottom: 1px solid #eee;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    #tnScope .info-row:last-child {
+      border-bottom: none;
+    }
+    #tnScope .info-label {
+      font-weight: 600;
+      color: #c79100;
+      min-width: 180px;
+      flex-shrink: 0;
+    }
+    #tnScope .info-value {
+      color: #333;
+      flex: 1;
+    }
+    #tnScope .info-value.deadline {
+      color: #dc3545;
+      font-weight: 600;
+    }
+    #tnScope .appendix-row {
+      padding-top: 1rem;
+    }
+    #tnScope .appendix-btn {
+      background: #c79100 !important;
+      color: white !important;
+      padding: 0.5rem 1.25rem !important;
+      font-size: 0.95rem !important;
+      text-decoration: none !important;
+      display: inline-block !important;
+    }
+    #tnScope .appendix-btn:hover {
+      background: #f7b500 !important;
+    }
+    #tnScope .race-info-actions {
+      text-align: center;
+      padding-top: 1rem;
+    }
+    #tnScope #raceInfoNextBtn {
+      padding: 0.875rem 2.5rem !important;
+      font-size: 1.1rem !important;
+    }
+    @media (max-width: 600px) {
+      #tnScope .info-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      #tnScope .info-label {
+        min-width: auto;
+        margin-bottom: 0.25rem;
+      }
     }
   `;
   document.head.appendChild(style);
@@ -249,7 +397,8 @@ function initDeepLinking() {
   const stepParam = urlParams.get('step');
   if (stepParam) {
     const step = parseInt(stepParam, 10);
-    if (step >= 1 && step <= totalSteps) {
+    // Allow step 0 (Race Info) through step 5
+    if (step >= 0 && step <= totalSteps) {
       currentStep = step;
     }
   }
@@ -316,7 +465,8 @@ function clearStepDataFromHere(fromStep) {
  * Load a specific step
  */
 async function loadStep(step) {
-  if (step < 1 || step > totalSteps) {
+  // Allow step 0 (Race Info) through totalSteps
+  if (step < 0 || step > totalSteps) {
 	Logger.error(`Invalid step: ${step}`);
     return;
   }
@@ -375,6 +525,21 @@ async function loadStepContent(step) {
     return;
   }
   
+  // Handle step 0 (Race Info) specially - no template, generated content
+  if (step === 0) {
+    wizardMount.innerHTML = '';
+    wizardMount.appendChild(createRaceInfoContent());
+    initStep0();
+    // Update stepper (will hide it for step 0)
+    initStepNavigation();
+    // Update i18n translations
+    if (window.i18n && typeof window.i18n.updateUI === 'function') {
+      Logger.debug('loadStepContent: Updating i18n translations for step 0');
+      window.i18n.updateUI();
+    }
+    return;
+  }
+  
   const templateId = `tn-step-${step}`;
   const template = document.getElementById(templateId);
   
@@ -423,6 +588,233 @@ async function loadStepContent(step) {
   if (window.i18n && typeof window.i18n.updateUI === 'function') {
     Logger.debug('loadStepContent: Updating i18n translations for step', step);
     window.i18n.updateUI();
+  }
+}
+
+/**
+ * Create Race Info content for Step 0
+ * @returns {HTMLElement} Race info content container
+ */
+function createRaceInfoContent() {
+  const t = (key, fallback) => window.i18n ? window.i18n.t(key) : fallback;
+  
+  // Get event config from window (loaded by config_loader)
+  const eventConfig = window.eventConfig || window.__CONFIG || {};
+  const event = eventConfig.event || {};
+  
+  // TN theme colors
+  const primaryColor = '#f7b500'; // TN Gold
+  const primaryDark = '#c79100';  // TN Dark Gold
+  
+  // Helper to get bilingual display (both languages shown)
+  const getBilingual = (en, tc) => {
+    const enVal = en || '';
+    const tcVal = tc || '';
+    if (enVal && tcVal && enVal !== tcVal) {
+      return `${tcVal} ${enVal}`;
+    }
+    return enVal || tcVal || '—';
+  };
+  
+  // Extract event data with placeholders for missing fields
+  const eventName = getBilingual(event.event_long_name_en, event.event_long_name_tc);
+  const eventDate = getBilingual(event.event_date_en, event.event_date_tc);
+  const eventTime = getBilingual(event.event_time_en || 'TBA', event.event_time_tc || '待定');
+  const eventVenue = getBilingual(event.event_location_en, event.event_location_tc);
+  const raceCourse = getBilingual(event.course_length_en || 'Standard Course', event.course_length_tc || '標準賽道');
+  const deadline = getBilingual(event.reg_deadline_date_en || 'TBA', event.reg_deadline_date_tc || '待定');
+  const appendixLink = event.appendix_hyperlink || '#';
+  
+  const container = document.createElement('div');
+  container.className = 'race-info-page';
+  container.innerHTML = `
+    <style>
+      #tnScope .race-info-page {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      #tnScope .race-info-card {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+      #tnScope .race-info-card h2 {
+        color: ${primaryDark};
+        margin: 0 0 1.5rem 0;
+        font-size: 1.75rem;
+        text-align: center;
+        border-bottom: 2px solid ${primaryColor};
+        padding-bottom: 0.75rem;
+      }
+      #tnScope .race-info-banner {
+        margin-bottom: 2rem;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      #tnScope .banner-placeholder {
+        background: linear-gradient(135deg, #fff8e6 0%, ${primaryColor} 100%);
+        height: 180px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: ${primaryDark};
+        font-size: 1.1rem;
+        gap: 0.5rem;
+      }
+      #tnScope .banner-placeholder span:first-child {
+        font-size: 3rem;
+      }
+      #tnScope .race-info-details {
+        margin-bottom: 2rem;
+      }
+      #tnScope .info-row {
+        display: flex;
+        padding: 0.875rem 0;
+        border-bottom: 1px solid #eee;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      #tnScope .info-row:last-child {
+        border-bottom: none;
+      }
+      #tnScope .info-label {
+        font-weight: 600;
+        color: ${primaryDark};
+        min-width: 180px;
+        flex-shrink: 0;
+      }
+      #tnScope .info-value {
+        color: #333;
+        flex: 1;
+      }
+      #tnScope .info-value.deadline {
+        color: #dc3545;
+        font-weight: 600;
+      }
+      #tnScope .appendix-row {
+        padding-top: 1rem;
+      }
+      #tnScope .appendix-btn {
+        background: ${primaryColor} !important;
+        color: white !important;
+        padding: 0.5rem 1.25rem !important;
+        font-size: 0.95rem !important;
+        text-decoration: none !important;
+        display: inline-block !important;
+        border-radius: 6px !important;
+        border: none !important;
+      }
+      #tnScope .appendix-btn:hover {
+        background: ${primaryDark} !important;
+      }
+      #tnScope .race-info-actions {
+        text-align: center;
+        padding-top: 1rem;
+      }
+      #tnScope #raceInfoNextBtn {
+        background: ${primaryColor} !important;
+        color: white !important;
+        padding: 0.875rem 2.5rem !important;
+        font-size: 1.1rem !important;
+        border: none !important;
+        border-radius: 6px !important;
+        cursor: pointer !important;
+        font-weight: 600 !important;
+      }
+      #tnScope #raceInfoNextBtn:hover {
+        background: ${primaryDark} !important;
+      }
+      @media (max-width: 600px) {
+        #tnScope .info-row {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        #tnScope .info-label {
+          min-width: auto;
+          margin-bottom: 0.25rem;
+        }
+      }
+    </style>
+    <div class="card race-info-card">
+      <h2 data-i18n="raceInfoTitle">${t('raceInfoTitle', 'Race Info')}</h2>
+      
+      <!-- Banner placeholder -->
+      <div class="race-info-banner">
+        <div class="banner-placeholder">
+          <span>🏁</span>
+          <span>Banner Image Coming Soon</span>
+        </div>
+      </div>
+      
+      <!-- Event Details -->
+      <div class="race-info-details">
+        <div class="info-row">
+          <span class="info-label" data-i18n="raceInfoEvent">${t('raceInfoEvent', 'Event')}</span>
+          <span class="info-value">${eventName}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label" data-i18n="raceInfoDate">${t('raceInfoDate', 'Date')}</span>
+          <span class="info-value">${eventDate}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label" data-i18n="raceInfoTime">${t('raceInfoTime', 'Time')}</span>
+          <span class="info-value">${eventTime}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label" data-i18n="raceInfoVenue">${t('raceInfoVenue', 'Venue')}</span>
+          <span class="info-value">${eventVenue}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label" data-i18n="raceInfoCourse">${t('raceInfoCourse', 'Race Course')}</span>
+          <span class="info-value">${raceCourse}</span>
+        </div>
+        
+        <div class="info-row">
+          <span class="info-label" data-i18n="raceInfoDeadline">${t('raceInfoDeadline', 'Application Deadline')}</span>
+          <span class="info-value deadline">${deadline}</span>
+        </div>
+        
+        <div class="info-row appendix-row">
+          <span class="info-label" data-i18n="raceInfoAppendix">${t('raceInfoAppendix', 'Registration Appendix')}</span>
+          <a href="${appendixLink}" target="_blank" rel="noopener noreferrer" class="appendix-btn" data-i18n="raceInfoClickHere">${t('raceInfoClickHere', 'Click Here')}</a>
+        </div>
+      </div>
+      
+      <!-- Next Button -->
+      <div class="race-info-actions">
+        <button type="button" id="raceInfoNextBtn">
+          <span data-i18n="raceInfoNext">${t('raceInfoNext', 'Next')}</span> →
+        </button>
+      </div>
+    </div>
+  `;
+  
+  return container;
+}
+
+/**
+ * Initialize Step 0 - Race Info page
+ */
+function initStep0() {
+  Logger.debug('🎯 initStep0: Initializing Race Info page');
+  
+  // Set up Next button handler
+  const nextBtn = document.getElementById('raceInfoNextBtn');
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      Logger.debug('🎯 initStep0: Next button clicked, going to step 1');
+      currentStep = 1;
+      // Reinitialize stepper (to show it for step 1)
+      initStepNavigation();
+      loadStep(1);
+    });
   }
 }
 
