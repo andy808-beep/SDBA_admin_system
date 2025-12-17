@@ -50,6 +50,8 @@ drop table if exists public.race_day_requests cascade;
 drop table if exists public.registration_meta cascade;
 drop table if exists public.team_meta cascade;
 drop table if exists public.team_meta_audit cascade;
+drop table if exists public.wu_team_meta cascade;
+drop table if exists public.sc_team_meta cascade;
 drop table if exists public.timeslot_catalog cascade;
 
 -- =========================================================
@@ -250,12 +252,13 @@ CREATE TABLE IF NOT EXISTS public.team_meta (
 
   option_choice text NOT NULL CHECK (option_choice IN ('Option 1','Option 2')),
   team_code     text NOT NULL,       -- assigned/validated by trigger
-  team_name     citext NOT NULL,
+  team_name_en  citext NOT NULL,
+  team_name_tc  citext,
 
   -- normalized for uniqueness (case/space insensitive)
   team_name_normalized citext
     GENERATED ALWAYS AS (
-      lower( regexp_replace(btrim(team_name::text), '\s+', ' ', 'g') )
+      lower( regexp_replace(btrim(team_name_en::text), '\s+', ' ', 'g') )
     ) STORED,
 
   -- Org info (client uses organization_name/address via view)
@@ -282,7 +285,7 @@ CREATE TABLE IF NOT EXISTS public.team_meta (
   -- Constraints
   CONSTRAINT uniq_teamcode_global UNIQUE (team_code),
   CONSTRAINT uniq_teamname_per_div_season_norm UNIQUE (season, division_code, team_name_normalized),
-  CHECK (length(btrim(team_name::text)) > 0),
+  CHECK (length(btrim(team_name_en::text)) > 0),
   CHECK (length(btrim(team_code)) > 0)
 );
 
@@ -395,7 +398,8 @@ SELECT
   division_code,
   option_choice,
   team_code,
-  team_name,
+  team_name_en,
+  team_name_tc,
   team_name_normalized,
   org_name    AS organization_name,
   org_address AS address,
@@ -465,84 +469,6 @@ create or replace view public.mixed_corporate_team_list
 with (security_invoker = true) as
 select * from public.team_meta where category = 'mixed_corporate';
 
--- ==================== WU (Warm-Up) - 9 Divisions ====================
-
--- Standard Boat Divisions
-create or replace view public.wu_men_std_team_list
-with (security_invoker = true) as
-select * from public.wu_team_meta where division_code = 'WM';
-
-create or replace view public.wu_ladies_std_team_list
-with (security_invoker = true) as
-select * from public.wu_team_meta where division_code = 'WL';
-
-create or replace view public.wu_mixed_std_team_list
-with (security_invoker = true) as
-select * from public.wu_team_meta where division_code = 'WX';
-
--- Small Boat Divisions
-create or replace view public.wu_men_smallboat_team_list
-with (security_invoker = true) as
-select * from public.wu_team_meta where division_code = 'WPM';
-
-create or replace view public.wu_ladies_smallboat_team_list
-with (security_invoker = true) as
-select * from public.wu_team_meta where division_code = 'WPL';
-
-create or replace view public.wu_mixed_smallboat_team_list
-with (security_invoker = true) as
-select * from public.wu_team_meta where division_code = 'WPX';
-
--- Special Divisions (By Invitation)
-create or replace view public.wu_youth_open_team_list
-with (security_invoker = true) as
-select * from public.wu_team_meta where division_code = 'Y';
-
-create or replace view public.wu_youth_ladies_team_list
-with (security_invoker = true) as
-select * from public.wu_team_meta where division_code = 'YL';
-
-create or replace view public.wu_disciplinary_forces_team_list
-with (security_invoker = true) as
-select * from public.wu_team_meta where division_code = 'D';
-
--- ==================== SC (Short Course) - 8 Divisions ====================
-
--- Standard Boat Divisions
-create or replace view public.sc_men_std_team_list
-with (security_invoker = true) as
-select * from public.sc_team_meta where division_code = 'SM';
-
-create or replace view public.sc_ladies_std_team_list
-with (security_invoker = true) as
-select * from public.sc_team_meta where division_code = 'SL';
-
-create or replace view public.sc_mixed_std_team_list
-with (security_invoker = true) as
-select * from public.sc_team_meta where division_code = 'SX';
-
--- Small Boat Divisions
-create or replace view public.sc_men_smallboat_team_list
-with (security_invoker = true) as
-select * from public.sc_team_meta where division_code = 'SPM';
-
-create or replace view public.sc_ladies_smallboat_team_list
-with (security_invoker = true) as
-select * from public.sc_team_meta where division_code = 'SPL';
-
-create or replace view public.sc_mixed_smallboat_team_list
-with (security_invoker = true) as
-select * from public.sc_team_meta where division_code = 'SPX';
-
--- Special Divisions (By Invitation)
-create or replace view public.sc_post_secondary_team_list
-with (security_invoker = true) as
-select * from public.sc_team_meta where division_code = 'SU';
-
-create or replace view public.sc_hku_invitational_team_list
-with (security_invoker = true) as
-select * from public.sc_team_meta where division_code = 'HKU';
-
 -- =========================================================
 -- PRACTICE PREFERENCES (1 row per team per date)
 -- =========================================================
@@ -603,12 +529,13 @@ create table public.registration_meta (
 
   option_choice text CHECK (option_choice IN ('Option 1','Option 2')),  -- Only required for TN events
   team_code     text NOT NULL,       -- assigned/validated by trigger
-  team_name     citext NOT NULL,
+  team_name_en  citext NOT NULL,
+  team_name_tc  citext,
 
   -- normalized for uniqueness (case/space insensitive)
   team_name_normalized citext
     GENERATED ALWAYS AS (
-      lower( regexp_replace(btrim(team_name::text), '\s+', ' ', 'g') )
+      lower( regexp_replace(btrim(team_name_en::text), '\s+', ' ', 'g') )
     ) STORED,
 
   -- Org info (client uses organization_name/address via view)
@@ -650,7 +577,7 @@ create table public.registration_meta (
   CONSTRAINT uniq_registration_teamcode_global UNIQUE (team_code),
   CONSTRAINT uniq_registration_teamname_per_div_season_norm UNIQUE (season, division_code, team_name_normalized),
   -- Removed uniq_registration_client_tx constraint to allow multiple teams per submission
-  CHECK (length(btrim(team_name::text)) > 0),
+  CHECK (length(btrim(team_name_en::text)) > 0),
   CHECK (length(btrim(team_code)) > 0),
   -- TN events require option_choice, WU/SC events don't
   CONSTRAINT ck_option_choice_required_for_tn CHECK (
@@ -747,8 +674,8 @@ BEGIN
   END IF;
 
   -- Normalize team name for uniqueness constraint
-  IF NEW.team_name IS NOT NULL THEN
-    NEW.team_name_normalized := upper(replace(replace(replace(btrim(NEW.team_name), ' ', ''), '-', ''), '_', ''));
+  IF NEW.team_name_en IS NOT NULL THEN
+    NEW.team_name_normalized := upper(replace(replace(replace(btrim(NEW.team_name_en), ' ', ''), '-', ''), '_', ''));
   END IF;
 
   RETURN NEW;
@@ -770,10 +697,11 @@ CREATE TABLE IF NOT EXISTS public.wu_team_meta (
   division_code text, -- WU-specific divisions (e.g., 'WM', 'WL', 'WX', 'WPM', 'WPL', 'WPX', 'Y', 'YL', 'D')
 
   team_code text NOT NULL,
-  team_name citext NOT NULL,
+  team_name_en citext NOT NULL,
+  team_name_tc citext,
   team_name_normalized citext
     GENERATED ALWAYS AS (
-      lower( regexp_replace(btrim(team_name::text), '\s+', ' ', 'g') )
+      lower( regexp_replace(btrim(team_name_en::text), '\s+', ' ', 'g') )
     ) STORED,
 
   -- WU-specific fields (simpler than TN)
@@ -798,7 +726,7 @@ CREATE TABLE IF NOT EXISTS public.wu_team_meta (
   -- Constraints
   CONSTRAINT uniq_wu_teamcode_global UNIQUE (team_code),
   CONSTRAINT uniq_wu_teamname_per_div_season_norm UNIQUE (season, division_code, team_name_normalized),
-  CHECK (length(btrim(team_name::text)) > 0),
+  CHECK (length(btrim(team_name_en::text)) > 0),
   CHECK (length(btrim(team_code)) > 0)
 );
 
@@ -876,10 +804,11 @@ CREATE TABLE IF NOT EXISTS public.sc_team_meta (
   division_code text, -- SC-specific divisions (e.g., 'SM', 'SL', 'SX', 'SU', 'HKU', 'SPM', 'SPL', 'SPX')
 
   team_code text NOT NULL,
-  team_name citext NOT NULL,
+  team_name_en citext NOT NULL,
+  team_name_tc citext,
   team_name_normalized citext
     GENERATED ALWAYS AS (
-      lower( regexp_replace(btrim(team_name::text), '\s+', ' ', 'g') )
+      lower( regexp_replace(btrim(team_name_en::text), '\s+', ' ', 'g') )
     ) STORED,
 
   -- SC-specific fields (simpler than TN)
@@ -904,7 +833,7 @@ CREATE TABLE IF NOT EXISTS public.sc_team_meta (
   -- Constraints
   CONSTRAINT uniq_sc_teamcode_global UNIQUE (team_code),
   CONSTRAINT uniq_sc_teamname_per_div_season_norm UNIQUE (season, division_code, team_name_normalized),
-  CHECK (length(btrim(team_name::text)) > 0),
+  CHECK (length(btrim(team_name_en::text)) > 0),
   CHECK (length(btrim(team_code)) > 0)
 );
 
@@ -971,6 +900,84 @@ CREATE TRIGGER trg_sc_team_meta_updated_at
 BEFORE UPDATE ON public.sc_team_meta
 FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
+-- ==================== WU (Warm-Up) - 9 Divisions ====================
+
+-- Standard Boat Divisions
+create or replace view public.wu_men_std_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'WM';
+
+create or replace view public.wu_ladies_std_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'WL';
+
+create or replace view public.wu_mixed_std_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'WX';
+
+-- Small Boat Divisions
+create or replace view public.wu_men_smallboat_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'WPM';
+
+create or replace view public.wu_ladies_smallboat_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'WPL';
+
+create or replace view public.wu_mixed_smallboat_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'WPX';
+
+-- Special Divisions (By Invitation)
+create or replace view public.wu_youth_open_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'Y';
+
+create or replace view public.wu_youth_ladies_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'YL';
+
+create or replace view public.wu_disciplinary_forces_team_list
+with (security_invoker = true) as
+select * from public.wu_team_meta where division_code = 'D';
+
+-- ==================== SC (Short Course) - 8 Divisions ====================
+
+-- Standard Boat Divisions
+create or replace view public.sc_men_std_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SM';
+
+create or replace view public.sc_ladies_std_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SL';
+
+create or replace view public.sc_mixed_std_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SX';
+
+-- Small Boat Divisions
+create or replace view public.sc_men_smallboat_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SPM';
+
+create or replace view public.sc_ladies_smallboat_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SPL';
+
+create or replace view public.sc_mixed_smallboat_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SPX';
+
+-- Special Divisions (By Invitation)
+create or replace view public.sc_post_secondary_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'SU';
+
+create or replace view public.sc_hku_invitational_team_list
+with (security_invoker = true) as
+select * from public.sc_team_meta where division_code = 'HKU';
+
 -- =========================================================
 -- ADMIN VIEWS FOR REGISTRATION APPROVAL WORKFLOW
 -- =========================================================
@@ -987,7 +994,8 @@ SELECT
   division_code,
   option_choice,
   team_code,
-  team_name,
+  team_name_en,
+  team_name_tc,
   team_name_normalized,
   org_name,
   org_address,
@@ -1020,7 +1028,8 @@ SELECT
   division_code,
   option_choice,
   team_code,
-  team_name,
+  team_name_en,
+  team_name_tc,
   team_name_normalized,
   org_name,
   org_address,
@@ -1069,14 +1078,14 @@ BEGIN
     -- Insert into team_meta for TN
     INSERT INTO public.team_meta (
       user_id, season, category, division_code, option_choice,
-      team_code, team_name, team_name_normalized, org_name, org_address,
+      team_code, team_name_en, team_name_tc, team_name_normalized, org_name, org_address,
       team_manager_1, mobile_1, email_1,
       team_manager_2, mobile_2, email_2,
       team_manager_3, mobile_3, email_3,
       registration_id
     ) VALUES (
       reg_record.user_id, reg_record.season, reg_record.category, reg_record.division_code, reg_record.option_choice,
-      reg_record.team_code, reg_record.team_name, reg_record.team_name_normalized, reg_record.org_name, reg_record.org_address,
+      reg_record.team_code, reg_record.team_name_en, reg_record.team_name_tc, reg_record.team_name_normalized, reg_record.org_name, reg_record.org_address,
       reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
       reg_record.team_manager_2, reg_record.mobile_2, reg_record.email_2,
       reg_record.team_manager_3, reg_record.mobile_3, reg_record.email_3,
@@ -1087,14 +1096,14 @@ BEGIN
     -- Insert into wu_team_meta for WU (team_code will be auto-generated by trigger)
     INSERT INTO public.wu_team_meta (
       user_id, season, division_code,
-      team_code, team_name,
+      team_code, team_name_en, team_name_tc,
       package_choice, team_size,
       team_manager, mobile, email,
       org_name, org_address,
       registration_id
     ) VALUES (
       reg_record.user_id, reg_record.season, reg_record.division_code,
-      '', reg_record.team_name,  -- Empty team_code will trigger auto-generation
+      '', reg_record.team_name_en, reg_record.team_name_tc,  -- Empty team_code will trigger auto-generation
       reg_record.package_choice, reg_record.team_size,
       reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
       reg_record.org_name, reg_record.org_address,
@@ -1105,14 +1114,14 @@ BEGIN
     -- Insert into sc_team_meta for SC (team_code will be auto-generated by trigger)
     INSERT INTO public.sc_team_meta (
       user_id, season, division_code,
-      team_code, team_name,
+      team_code, team_name_en, team_name_tc,
       package_choice, team_size,
       team_manager, mobile, email,
       org_name, org_address,
       registration_id
     ) VALUES (
       reg_record.user_id, reg_record.season, reg_record.division_code,
-      '', reg_record.team_name,  -- Empty team_code will trigger auto-generation
+      '', reg_record.team_name_en, reg_record.team_name_tc,  -- Empty team_code will trigger auto-generation
       reg_record.package_choice, reg_record.team_size,
       reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
       reg_record.org_name, reg_record.org_address,

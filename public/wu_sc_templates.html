@@ -5,8 +5,11 @@
     <form id="categoryForm">
       <h2 data-i18n="selectTeamDetails">Select Team Details</h2>
 
-      <label for="teamCount" data-i18n="howManyTeams">How many teams will you register?</label>
-      <input type="number" id="teamCount" min="1" max="10" placeholder="e.g. 2" data-i18n-placeholder="exampleTwo" required />
+      <label for="teamCount" data-i18n="howManyTeamsQuestion">How many teams do you want to register?</label>
+      <select id="teamCount" name="teamCount" required>
+        <option value="" data-i18n="selectNumberOfTeams">-- Select number of teams --</option>
+        <!-- Options will be generated dynamically in initStep1() -->
+      </select>
 
       <hr />
 
@@ -20,7 +23,7 @@
 
       <p class="msg" id="formMsg"></p>
       <!-- 🔄 Navigation -->
-      <div class="nav-buttons">
+      <div class="nav-buttons" id="step1Actions" style="display: none;">
         <button type="submit" id="nextBtn" data-i18n="nextButton">Next →</button>
       </div>
     </form>

@@ -139,17 +139,17 @@ async function fillStep1TestData() {
 	Logger.debug('🎯 Filling Step 1 with test data...');
   
   // Fill team count
-  const teamCountInput = document.getElementById('teamCount');
-  if (teamCountInput) {
-    teamCountInput.value = '3';
-    teamCountInput.dispatchEvent(new Event('input', { bubbles: true }));
+  const teamCountSelect = document.getElementById('teamCount');
+  if (teamCountSelect) {
+    teamCountSelect.value = '3';
+    teamCountSelect.dispatchEvent(new Event('change', { bubbles: true }));
     
     // Wait for teams to render
     await new Promise(resolve => setTimeout(resolve, 500));
     
     // Fill Team 1 - Small Boat
-    const team1Name = document.getElementById('teamName1');
-    if (team1Name) team1Name.value = 'Test Team 1 - Small Boat';
+    const team1NameEn = document.getElementById('teamNameEn1');
+    if (team1NameEn) team1NameEn.value = 'Test Team 1 - Small Boat';
     
     const team1SmallBoat = document.querySelector('input[name="boatType1"][value="Small Boat"]');
     if (team1SmallBoat) {
@@ -165,8 +165,8 @@ async function fillStep1TestData() {
     }
     
     // Fill Team 2 - Standard Boat
-    const team2Name = document.getElementById('teamName2');
-    if (team2Name) team2Name.value = 'Test Team 2 - Standard Boat';
+    const team2NameEn = document.getElementById('teamNameEn2');
+    if (team2NameEn) team2NameEn.value = 'Test Team 2 - Standard Boat';
     
     const team2StandardBoat = document.querySelector('input[name="boatType2"][value="Standard Boat"]');
     if (team2StandardBoat) {
@@ -182,8 +182,8 @@ async function fillStep1TestData() {
     }
     
     // Fill Team 3 - Standard Boat
-    const team3Name = document.getElementById('teamName3');
-    if (team3Name) team3Name.value = 'Test Team 3 - Standard Boat';
+    const team3NameEn = document.getElementById('teamNameEn3');
+    if (team3NameEn) team3NameEn.value = 'Test Team 3 - Standard Boat';
     
     const team3StandardBoat = document.querySelector('input[name="boatType3"][value="Standard Boat"]');
     if (team3StandardBoat) {
@@ -708,31 +708,77 @@ function initStep0() {
 function initStep1() {
 	Logger.debug('🎯 initStep1: Initializing team details step');
   
-  const teamCountInput = document.getElementById('teamCount');
+  const teamCountSelect = document.getElementById('teamCount');
   const teamDetailsContainer = document.getElementById('teamDetailsContainer');
   const teamDetailsList = document.getElementById('teamDetailsList');
   
-  if (!teamCountInput || !teamDetailsContainer || !teamDetailsList) {
+  if (!teamCountSelect || !teamDetailsContainer || !teamDetailsList) {
 	Logger.error('Step 1 elements not found');
     return;
   }
   
-  // Handle team count change (both input and change events)
+  // Get translated strings
+  const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+  
+  // Generate team count options (matching TN form implementation)
+  const teamOptions = [];
+  for (let i = 1; i <= 10; i++) {
+    const label = i === 1 ? t('oneTeam', { count: i }) : t('nTeams', { count: i });
+    // Fallback if translation key doesn't exist
+    const displayLabel = (label === 'oneTeam' || label === 'nTeams') 
+      ? `${i} team${i > 1 ? 's' : ''}`
+      : label;
+    teamOptions.push(`<option value="${i}">${displayLabel}</option>`);
+  }
+  
+  // Populate dropdown options (insert after the placeholder option)
+  const placeholderOption = teamCountSelect.querySelector('option[value=""]');
+  if (placeholderOption) {
+    placeholderOption.insertAdjacentHTML('afterend', teamOptions.join(''));
+  } else {
+    // If no placeholder, just add all options
+    teamCountSelect.innerHTML = `<option value="" data-i18n="selectNumberOfTeams">${t('selectNumberOfTeams')}</option>${teamOptions.join('')}`;
+  }
+  
+  // Handle team count change
   const handleTeamCountChange = async (e) => {
     const count = parseInt(e.target.value) || 0;
 	Logger.debug('Team count changed to:', count);
     
+    const step1Actions = document.getElementById('step1Actions');
+    
     if (count > 0) {
       teamDetailsContainer.hidden = false;
       await renderTeamDetails(count);
+      // Show next button after team details are rendered
+      if (step1Actions) {
+        step1Actions.style.display = 'block';
+      }
     } else {
       teamDetailsContainer.hidden = true;
       teamDetailsList.innerHTML = '';
+      // Hide next button when no team count selected
+      if (step1Actions) {
+        step1Actions.style.display = 'none';
+      }
     }
   };
   
-  teamCountInput.addEventListener('input', handleTeamCountChange);
-  teamCountInput.addEventListener('change', handleTeamCountChange);
+  teamCountSelect.addEventListener('change', handleTeamCountChange);
+  
+  // Restore team count from session storage if available (e.g., when navigating back)
+  const savedTeamCount = sessionStorage.getItem(`${eventType}_team_count`);
+  if (savedTeamCount) {
+    const count = parseInt(savedTeamCount, 10);
+    if (count > 0 && count <= 10) {
+      teamCountSelect.value = count;
+      // Trigger the change handler to render team details and show the button
+      // Use setTimeout to ensure DOM is fully ready
+      setTimeout(() => {
+        handleTeamCountChange({ target: teamCountSelect });
+      }, 0);
+    }
+  }
 }
 
 /**
@@ -826,14 +872,18 @@ async function renderTeamDetails(count) {
     teamDiv.innerHTML = `
       <strong data-i18n="teamLabel" data-i18n-params='{"num":"${i}"}'>${t('teamLabel', { num: i })}</strong>
       <div class="form-group">
-        <label for="teamName${i}" data-i18n="teamName">${t('teamName')}</label>
-        <input type="text" id="teamName${i}" name="teamName${i}" required placeholder="${t('enterTeamName')}" data-i18n-placeholder="enterTeamName" />
+        <label for="teamNameEn${i}" data-i18n="teamNameEnLabel">${t('teamNameEnLabel')}</label>
+        <input type="text" id="teamNameEn${i}" name="teamNameEn${i}" required placeholder="${t('teamNameEnPlaceholder')}" data-i18n-placeholder="teamNameEnPlaceholder" />
+      </div>
+      <div class="form-group">
+        <label for="teamNameTc${i}" data-i18n="teamNameTcLabel">${t('teamNameTcLabel')}</label>
+        <input type="text" id="teamNameTc${i}" name="teamNameTc${i}" placeholder="${t('teamNameTcPlaceholder')}" data-i18n-placeholder="teamNameTcPlaceholder" />
       </div>
       <div class="form-group">
         <label style="font-weight: bold; font-size: 1.05em; color: #0f6ec7;" data-i18n="divisionLabel">${t('divisionLabel')}</label>
         <div id="boatTypeContainer${i}">
           <div id="boatType${i}" class="radio-group"></div>
-          <div class="form-group" id="entryGroupContainer${i}" style="margin-left: 1.5rem; padding-left: 1rem; border-left: 3px solid #e0e0e0; margin-top: 0.5rem;" hidden>
+          <div class="form-group" id="entryGroupContainer${i}" style="margin-left: 1.5rem; padding-left: 1rem; border-left: 3px solid #e0e0e0; margin-top: 0.25rem; max-width: calc(100% - 1.5rem); box-sizing: border-box; overflow: hidden;" hidden>
             <label style="font-weight: normal; font-size: 0.95em; color: #555;" data-i18n="entryGroupLabel">${t('entryGroupLabel')}</label>
             <div id="division${i}" class="radio-group"></div>
           </div>
@@ -1015,17 +1065,44 @@ function showDivisionRow(teamIndex) {
   // Filter divisions based on boat type
   // Note: Division names from v_divisions_public view are in format "Standard Boat – Men" or "Small Boat – Ladies"
   // The view already combines div_main_name_en and div_sub_name_en into name_en
+  // Exclude divisions where by_invitation_only=true
   let filteredDivisions = [];
   if (boatType === 'Standard Boat') {
     filteredDivisions = allDivisions.filter(div => {
       const nameEn = div.name_en || '';
+      // Exclude invitation-only divisions (check for truthy value)
+      if (div.by_invitation_only === true || div.by_invitation_only === 'true' || div.by_invitation_only === 1) {
+	Logger.debug(`showDivisionRow: Excluding invitation-only division: ${nameEn}`);
+        return false;
+      }
       // Check if name contains "Standard Boat" and one of the entry group types
+      // Exclude special invitation divisions by checking for keywords
+      if (nameEn.includes('Hong Kong Youth Group') || 
+          nameEn.includes('Disciplinary Forces') ||
+          nameEn.includes('Post-Secondary') ||
+          nameEn.includes('HKU Invitational')) {
+	Logger.debug(`showDivisionRow: Excluding special division: ${nameEn}`);
+        return false;
+      }
       return nameEn.includes('Standard Boat') && 
              (nameEn.includes('Men') || nameEn.includes('Ladies') || nameEn.includes('Mixed'));
     });
   } else if (boatType === 'Small Boat') {
     filteredDivisions = allDivisions.filter(div => {
       const nameEn = div.name_en || '';
+      // Exclude invitation-only divisions (check for truthy value)
+      if (div.by_invitation_only === true || div.by_invitation_only === 'true' || div.by_invitation_only === 1) {
+	Logger.debug(`showDivisionRow: Excluding invitation-only division: ${nameEn}`);
+        return false;
+      }
+      // Exclude special invitation divisions by checking for keywords
+      if (nameEn.includes('Hong Kong Youth Group') || 
+          nameEn.includes('Disciplinary Forces') ||
+          nameEn.includes('Post-Secondary') ||
+          nameEn.includes('HKU Invitational')) {
+	Logger.debug(`showDivisionRow: Excluding special division: ${nameEn}`);
+        return false;
+      }
       // Check if name contains "Small Boat" and one of the entry group types
       return nameEn.includes('Small Boat') && 
              (nameEn.includes('Men') || nameEn.includes('Ladies') || nameEn.includes('Mixed'));
@@ -1129,8 +1206,8 @@ function renderTeamNameFields() {
   
   let html = `<h3 data-i18n="teams">${t('teams')}</h3>`;
   for (let i = 1; i <= teamCount; i++) {
-    const teamName = sessionStorage.getItem(`${eventType}_team${i}_name`) || `${t('team')} ${i}`;
-    const safeTeamName = SafeDOM.escapeHtml(teamName);
+    const teamNameEn = sessionStorage.getItem(`${eventType}_team${i}_name_en`) || `${t('team')} ${i}`;
+    const safeTeamName = SafeDOM.escapeHtml(teamNameEn);
     html += `
       <div class="form-group">
         <label>${t('team')} ${i}</label>
@@ -1302,7 +1379,7 @@ function populateTeamsSummary() {
 
   let html = '';
   for (let i = 1; i <= teamCount; i++) {
-    const teamName = sessionStorage.getItem(`${eventType}_team${i}_name`) || `Team ${i}`;
+    const teamNameEn = sessionStorage.getItem(`${eventType}_team${i}_name_en`) || `Team ${i}`;
     const boatTypeCode = sessionStorage.getItem(`${eventType}_team${i}_boatType`) || '—';
     const divisionCode = sessionStorage.getItem(`${eventType}_team${i}_division`) || '—';
 
@@ -1550,12 +1627,13 @@ function validateStep1() {
   sessionStorage.setItem(`${eventType}_team_count`, count);
   
   for (let i = 1; i <= count; i++) {
-    const teamName = document.getElementById(`teamName${i}`);
+    const teamNameEn = document.getElementById(`teamNameEn${i}`);
+    const teamNameTc = document.getElementById(`teamNameTc${i}`);
     const boatType = document.querySelector(`input[name="boatType${i}"]:checked`);
     const division = document.querySelector(`input[name="division${i}"]:checked`);
     
-    if (!teamName || !teamName.value.trim()) {
-      showError(`Please enter team name for Team ${i}`);
+    if (!teamNameEn || !teamNameEn.value.trim()) {
+      showError(`Please enter team name (English) for Team ${i}`);
       return false;
     }
     
@@ -1570,7 +1648,8 @@ function validateStep1() {
     }
     
     // Save team data to sessionStorage
-    sessionStorage.setItem(`${eventType}_team${i}_name`, teamName.value.trim());
+    sessionStorage.setItem(`${eventType}_team${i}_name_en`, teamNameEn.value.trim());
+    sessionStorage.setItem(`${eventType}_team${i}_name_tc`, teamNameTc?.value?.trim() || '');
     sessionStorage.setItem(`${eventType}_team${i}_boatType`, boatType.value);
     sessionStorage.setItem(`${eventType}_team${i}_division`, division.value);
   }
@@ -1831,12 +1910,15 @@ function collectFormData() {
   
   // Collect team data
   for (let i = 1; i <= teamCount; i++) {
-    const teamName = sessionStorage.getItem(`${eventType}_team${i}_name`);
+    const teamNameEn = sessionStorage.getItem(`${eventType}_team${i}_name_en`);
+    const teamNameTc = sessionStorage.getItem(`${eventType}_team${i}_name_tc`);
     const boatType = sessionStorage.getItem(`${eventType}_team${i}_boatType`); // e.g., "Standard Boat"
     const division = sessionStorage.getItem(`${eventType}_team${i}_division`); // e.g., "Standard Boat – Men"
     
     teams.push({
-      name: teamName,
+      name: teamNameEn, // Backward compatibility
+      name_en: teamNameEn,
+      name_tc: teamNameTc || '',
       boat_type: boatType,
       division: division,
       category: division // Division already contains "Boat Type – Entry Group"

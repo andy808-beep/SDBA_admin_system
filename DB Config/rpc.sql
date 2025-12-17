@@ -42,7 +42,7 @@ BEGIN
   INTO _divisions
   FROM (
     SELECT
-      division_code, name_en, name_tc, is_corporate, sort_order, is_active
+      division_code, name_en, name_tc, is_corporate, sort_order, is_active, by_invitation_only
     FROM public.v_divisions_public
     WHERE event_short_ref = p_event_short_ref
     ORDER BY sort_order, name_en

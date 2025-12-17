@@ -55,7 +55,8 @@ BEGIN
       END                         AS name_tc,
       d.is_corporate,
       COALESCE(d.sort_order,0)   AS sort_order,
-      (d.status = ''active'')      AS is_active
+      (d.status = ''active'')      AS is_active,
+      d.by_invitation_only
     FROM public.annual_event_division_map aedm
     JOIN public.division_config_general d
       ON d.div_id = aedm.div_id

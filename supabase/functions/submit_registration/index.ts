@@ -87,7 +87,9 @@ type Payload = {
   org_name: string;
   org_address?: string | null;
   counts: { num_teams: number; num_teams_opt1: number; num_teams_opt2: number };
-  team_names: string[];
+  team_names: string[]; // Backward compatibility
+  team_names_en?: string[];
+  team_names_tc?: string[];
   team_options: ("opt1" | "opt2")[];
   managers: Manager[];
   race_day?: {
@@ -98,7 +100,9 @@ type Payload = {
   client_tx_id?: string;
   // New structure for WU/SC
   teams?: Array<{
-    name: string;
+    name: string; // Backward compatibility
+    name_en?: string;
+    name_tc?: string;
     category: string;
     boat_type: string;
     division: string;
@@ -203,7 +207,7 @@ Deno.serve(async (req) => {
 
   const {
     eventShortRef, category, season, org_name, org_address,
-    counts, team_names = [], team_options = [], managers = [], race_day = null, practice: initialPractice = [],
+    counts, team_names = [], team_names_en = [], team_names_tc = [], team_options = [], managers = [], race_day = null, practice: initialPractice = [],
   } = payload ?? {} as Payload;
 
   if (!eventShortRef) return bad(req, "eventShortRef is required");
@@ -228,8 +232,14 @@ Deno.serve(async (req) => {
   if (!isWUSC) {
     const { num_teams, num_teams_opt1, num_teams_opt2 } = counts || {};
     if (!Number.isInteger(num_teams) || num_teams < 1) return bad(req, "num_teams invalid");
-    if (team_names.length !== num_teams || team_options.length !== num_teams) {
+    // Use team_names_en if provided, otherwise fall back to team_names
+    const effectiveTeamNames = (team_names_en && team_names_en.length > 0) ? team_names_en : team_names;
+    if (effectiveTeamNames.length !== num_teams || team_options.length !== num_teams) {
       return bad(req, "team_names / team_options length must equal num_teams");
+    }
+    // If team_names_tc is provided, it should match length (but can be empty strings)
+    if (team_names_tc && team_names_tc.length > 0 && team_names_tc.length !== num_teams) {
+      return bad(req, "team_names_tc length must equal num_teams if provided");
     }
     if ((num_teams_opt1 + num_teams_opt2) !== num_teams) {
       return bad(req, "num_teams_opt1 + num_teams_opt2 must equal num_teams");
@@ -506,7 +516,11 @@ Deno.serve(async (req) => {
     
     if (eventType === 'tn') {
       // TN: Use existing logic with team_names array
-      registrationsToInsert = team_names.map((team_name, idx) => ({
+      // Use team_names_en if provided, otherwise fall back to team_names for backward compatibility
+      const namesEn = (team_names_en && team_names_en.length > 0) ? team_names_en : team_names;
+      const namesTc = team_names_tc || [];
+      
+      registrationsToInsert = namesEn.map((team_name_en, idx) => ({
         event_type: 'tn',
         event_short_ref: eventShortRef,
         client_tx_id: payload.client_tx_id,
@@ -514,7 +528,8 @@ Deno.serve(async (req) => {
         category,
         division_code: divLetter,
         option_choice: optionText(team_options[idx]),
-        team_name,
+        team_name_en: team_name_en || '',
+        team_name_tc: (namesTc[idx] || '').trim() || null,
         org_name,
         org_address: org_address ?? null,
         team_manager_1: mgrs[0]?.name || "",
@@ -585,7 +600,8 @@ Deno.serve(async (req) => {
         category: team.category || team.boat_type || '',
         division_code: divisionMap.get(team.division) || '', // Use div_code_prefix
         option_choice: null,  // Not used for WU/SC events
-        team_name: team.name || '',
+        team_name_en: team.name_en || team.name || '',
+        team_name_tc: (team.name_tc || '').trim() || null,
         org_name,
         org_address: org_address ?? null,
         package_choice: team.boat_type || '',
@@ -607,7 +623,8 @@ Deno.serve(async (req) => {
       count: registrationsToInsert.length,
       client_tx_id: payload.client_tx_id,
       event_short_ref: eventShortRef,
-      first_team: registrationsToInsert[0]?.team_name
+      first_team_en: registrationsToInsert[0]?.team_name_en,
+      first_team_tc: registrationsToInsert[0]?.team_name_tc
     });
     
     const { data: insertedRegistrations, error: regError } = await admin

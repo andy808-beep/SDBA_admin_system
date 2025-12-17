@@ -424,7 +424,8 @@ function clearStepDataFromHere(fromStep) {
   if (fromStep <= 2) {
     const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
     for (let i = 1; i <= teamCount; i++) {
-      sessionStorage.removeItem(`tn_team_name_${i}`);
+      sessionStorage.removeItem(`tn_team_name_en_${i}`);
+      sessionStorage.removeItem(`tn_team_name_tc_${i}`);
       sessionStorage.removeItem(`tn_team_category_${i}`);
       sessionStorage.removeItem(`tn_team_option_${i}`);
     }
@@ -954,12 +955,13 @@ function setupErrorClearing() {
   
   // Clear errors when any team field changes
   document.addEventListener('input', (event) => {
-    if (event.target.id && (event.target.id.startsWith('teamName') || 
-                           event.target.id.startsWith('teamCategory') || 
+    if (event.target.id && (event.target.id.startsWith('teamNameEn') || 
+                           event.target.id.startsWith('teamNameTc') ||
+                           event.target.id.startsWith('teamCategory') ||
                            event.target.id.startsWith('teamOption'))) {
       clearErrors();
       // Check for duplicates in real-time
-      if (event.target.id.startsWith('teamName') || event.target.id.startsWith('teamCategory')) {
+      if (event.target.id.startsWith('teamNameEn') || event.target.id.startsWith('teamCategory')) {
         checkForDuplicateNames();
       }
     }
@@ -967,12 +969,13 @@ function setupErrorClearing() {
   
   // Clear errors when any team field changes (for radio buttons)
   document.addEventListener('change', (event) => {
-    if (event.target.id && (event.target.id.startsWith('teamName') || 
-                           event.target.id.startsWith('teamCategory') || 
+    if (event.target.id && (event.target.id.startsWith('teamNameEn') || 
+                           event.target.id.startsWith('teamNameTc') ||
+                           event.target.id.startsWith('teamCategory') ||
                            event.target.id.startsWith('teamOption'))) {
       clearErrors();
       // Check for duplicates in real-time
-      if (event.target.id.startsWith('teamName') || event.target.id.startsWith('teamCategory')) {
+      if (event.target.id.startsWith('teamNameEn') || event.target.id.startsWith('teamCategory')) {
         checkForDuplicateNames();
       }
     }
@@ -1002,15 +1005,15 @@ function checkForDuplicateNames() {
   
   // Collect all team data
   for (let i = 1; i <= teamCountValue; i++) {
-    const teamName = document.getElementById(`teamName${i}`);
+    const teamNameEn = document.getElementById(`teamNameEn${i}`);
     const teamCategory = document.getElementById(`teamCategory${i}`);
-    
-    if (teamName?.value?.trim() && teamCategory?.value) {
+
+    if (teamNameEn?.value?.trim() && teamCategory?.value) {
       teamData.push({
         index: i,
-        name: teamName.value.trim(),
+        name: teamNameEn.value.trim(),
         category: teamCategory.value,
-        nameElement: teamName
+        nameElement: teamNameEn
       });
     }
   }
@@ -1195,9 +1198,15 @@ async function generateTeamFields(teamCount) {
       </div>
       <div class="team-inputs">
         <div class="form-group">
-          <label for="teamName${i}" data-i18n="teamNameLabel">${t('teamNameLabel')}</label>
-          <input type="text" id="teamName${i}" name="teamName${i}" required 
-                 placeholder="${t('enterTeamName')}" data-i18n-placeholder="enterTeamName" />
+          <label for="teamNameEn${i}" data-i18n="teamNameEnLabel">${t('teamNameEnLabel')}</label>
+          <input type="text" id="teamNameEn${i}" name="teamNameEn${i}" required 
+                 placeholder="${t('teamNameEnPlaceholder')}" data-i18n-placeholder="teamNameEnPlaceholder" />
+        </div>
+        
+        <div class="form-group">
+          <label for="teamNameTc${i}" data-i18n="teamNameTcLabel">${t('teamNameTcLabel')}</label>
+          <input type="text" id="teamNameTc${i}" name="teamNameTc${i}" 
+                 placeholder="${t('teamNameTcPlaceholder')}" data-i18n-placeholder="teamNameTcPlaceholder" />
         </div>
         
         <div class="form-group">
@@ -1304,29 +1313,33 @@ function populatePackageOptions(teamIndex, divisionCode) {
         </div>
         <div class="package-details">
           <div class="package-item">
-            <span class="package-icon">⏰</span>
             <span data-i18n="practiceHours" data-i18n-params='{"hours":"${pkg.included_practice_hours_per_team}"}'>${t('practiceHours', { hours: pkg.included_practice_hours_per_team })}</span>
           </div>
           <div class="package-item">
-            <span class="package-icon">👕</span>
             <span data-i18n="tShirts" data-i18n-params='{"qty":"${pkg.tees_qty}"}'>${t('tShirts', { qty: pkg.tees_qty })}</span>
           </div>
           <div class="package-item">
-            <span class="package-icon">🩳</span>
             <span data-i18n="paddedShortsQty" data-i18n-params='{"qty":"${pkg.padded_shorts_qty}"}'>${t('paddedShortsQty', { qty: pkg.padded_shorts_qty })}</span>
           </div>
           <div class="package-item">
-            <span class="package-icon">🎒</span>
             <span data-i18n="dryBagsQty" data-i18n-params='{"qty":"${pkg.dry_bag_qty}"}'>${t('dryBagsQty', { qty: pkg.dry_bag_qty })}</span>
           </div>
         </div>
         <div class="package-selection-indicator">
-          <span class="selection-text" data-i18n="clickToSelect">${t('clickToSelect')}</span>
+          <span class="selection-text" data-i18n="clickToSelect" style="font-weight: bold;">${t('clickToSelect')}</span>
         </div>
       </div>
     </div>
   `;
   }).join('');
+  
+  // Apply bold styling to all selection-text elements
+  setTimeout(() => {
+    const selectionTexts = optionBoxes.querySelectorAll('.selection-text');
+    selectionTexts.forEach(text => {
+      text.style.fontWeight = 'bold';
+    });
+  }, 0);
   
   // Add click handlers for package selection
   setupPackageBoxHandlers(teamIndex);
@@ -1353,6 +1366,7 @@ function setupPackageBoxHandlers(teamIndex) {
         const selectionText = option.querySelector('.selection-text');
         if (selectionText) {
           selectionText.textContent = window.i18n ? window.i18n.t('clickToSelect') : 'Click to select';
+          selectionText.style.fontWeight = 'bold';
         }
         
         // Clear inline styles
@@ -1382,6 +1396,7 @@ function setupPackageBoxHandlers(teamIndex) {
         const selectionText = packageOption.querySelector('.selection-text');
         if (selectionText) {
           selectionText.textContent = window.i18n ? window.i18n.t('selected') : 'Selected';
+          selectionText.style.fontWeight = 'bold';
         }
         
         // Debug: Check if class was added
@@ -1697,13 +1712,18 @@ function loadTeamData() {
 	Logger.debug('🎯 loadTeamData: Loading data for', teamCount, 'teams');
   
   for (let i = 1; i <= teamCount; i++) {
-    const teamName = sessionStorage.getItem(`tn_team_name_${i}`);
+    const teamNameEn = sessionStorage.getItem(`tn_team_name_en_${i}`);
+    const teamNameTc = sessionStorage.getItem(`tn_team_name_tc_${i}`);
     const teamCategory = sessionStorage.getItem(`tn_team_category_${i}`);
     const teamOption = sessionStorage.getItem(`tn_team_option_${i}`);
-    
-    if (teamName) {
-      const nameEl = document.getElementById(`teamName${i}`);
-      if (nameEl) nameEl.value = teamName;
+
+    if (teamNameEn) {
+      const nameEnEl = document.getElementById(`teamNameEn${i}`);
+      if (nameEnEl) nameEnEl.value = teamNameEn;
+    }
+    if (teamNameTc) {
+      const nameTcEl = document.getElementById(`teamNameTc${i}`);
+      if (nameTcEl) nameTcEl.value = teamNameTc;
     }
     
     if (teamCategory) {
@@ -1728,12 +1748,16 @@ function saveTeamData() {
 	Logger.debug('🎯 saveTeamData: Saving data for', teamCount, 'teams');
   
   for (let i = 1; i <= teamCount; i++) {
-    const nameEl = document.getElementById(`teamName${i}`);
+    const nameEnEl = document.getElementById(`teamNameEn${i}`);
+    const nameTcEl = document.getElementById(`teamNameTc${i}`);
     const categoryEl = document.getElementById(`teamCategory${i}`);
     const optionEl = document.getElementById(`teamOption${i}`);
-    
-    if (nameEl && nameEl.value) {
-      sessionStorage.setItem(`tn_team_name_${i}`, nameEl.value);
+
+    if (nameEnEl && nameEnEl.value) {
+      sessionStorage.setItem(`tn_team_name_en_${i}`, nameEnEl.value);
+    }
+    if (nameTcEl && nameTcEl.value) {
+      sessionStorage.setItem(`tn_team_name_tc_${i}`, nameTcEl.value);
     }
     
     if (categoryEl && categoryEl.value) {
@@ -2826,10 +2850,12 @@ function addCalendarStyles() {
       opacity: 1;
     }
     
-    #tnScope .selection-text {
+    #tnScope .selection-text,
+    #tnScope .package-selection-indicator .selection-text,
+    #tnScope .package-option.selected .package-selection-indicator .selection-text {
       color: #666;
       font-size: 0.9rem;
-      font-weight: 500;
+      font-weight: bold !important;
     }
     
     @media (max-width: 768px) {
@@ -4077,7 +4103,8 @@ function previewStep5WithSampleData() {
   
   sampleTeams.forEach((team, index) => {
     const i = index + 1;
-    sessionStorage.setItem(`tn_team_name_${i}`, team.name);
+    sessionStorage.setItem(`tn_team_name_en_${i}`, team.name_en || team.name || '');
+    sessionStorage.setItem(`tn_team_name_tc_${i}`, team.name_tc || '');
     sessionStorage.setItem(`tn_team_category_${i}`, team.category);
     sessionStorage.setItem(`tn_team_option_${i}`, team.option);
     
@@ -4921,7 +4948,8 @@ function loadTeamSummary() {
   
   const teams = [];
   for (let i = 1; i <= 10; i++) {
-    const name = sessionStorage.getItem(`tn_team_name_${i}`);
+    const nameEn = sessionStorage.getItem(`tn_team_name_en_${i}`);
+    const nameTc = sessionStorage.getItem(`tn_team_name_tc_${i}`);
     const category = sessionStorage.getItem(`tn_team_category_${i}`);
     const option = sessionStorage.getItem(`tn_team_option_${i}`);
     
@@ -5252,13 +5280,14 @@ function validateStep1() {
   
   // First pass: collect all team data and check for missing fields
   for (let i = 1; i <= teamCountValue; i++) {
-    const teamName = document.getElementById(`teamName${i}`);
+    const teamNameEn = document.getElementById(`teamNameEn${i}`);
+    const teamNameTc = document.getElementById(`teamNameTc${i}`);
     const teamCategory = document.getElementById(`teamCategory${i}`);
     const teamOption = document.getElementById(`teamOption${i}`);
     
-    if (!teamName?.value?.trim()) {
-      missingFields.push(`Team ${i} name`);
-      highlightField(teamName);
+    if (!teamNameEn?.value?.trim()) {
+      missingFields.push(`Team ${i} name (English)`);
+      highlightField(teamNameEn);
     }
     
     if (!teamCategory?.value) {
@@ -5283,12 +5312,12 @@ function validateStep1() {
     }
     
     // Collect team data for duplicate checking
-    if (teamName?.value?.trim() && teamCategory?.value) {
+    if (teamNameEn?.value?.trim() && teamCategory?.value) {
       teamData.push({
         index: i,
-        name: teamName.value.trim(),
+        name: teamNameEn.value.trim(),
         category: teamCategory.value,
-        nameElement: teamName,
+        nameElement: teamNameEn,
         categoryElement: teamCategory
       });
     }
@@ -5791,13 +5820,16 @@ function collectTeamData() {
   const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
   
   for (let i = 0; i < teamCount; i++) {
-    const teamName = sessionStorage.getItem(`tn_team_name_${i+1}`);
+    const teamNameEn = sessionStorage.getItem(`tn_team_name_en_${i+1}`);
+    const teamNameTc = sessionStorage.getItem(`tn_team_name_tc_${i+1}`);
     const teamCategory = sessionStorage.getItem(`tn_team_category_${i+1}`);
     const teamOption = sessionStorage.getItem(`tn_team_option_${i+1}`);
     
-    if (teamName) {
+    if (teamNameEn) {
       teams.push({
-        name: teamName,
+        name: teamNameEn, // Keep 'name' for backward compatibility, but it's now name_en
+        name_en: teamNameEn,
+        name_tc: teamNameTc || '',
         category: teamCategory,
         option: teamOption,
         index: i
@@ -5944,7 +5976,9 @@ async function submitTNForm() {
         num_teams_opt1: opt1Count,
         num_teams_opt2: opt2Count
       },
-      team_names: teams.map(t => t.name),
+      team_names: teams.map(t => t.name_en || t.name), // Backward compatibility
+      team_names_en: teams.map(t => t.name_en || t.name),
+      team_names_tc: teams.map(t => t.name_tc || ''),
       team_options: teams.map(t => t.option),
       managers: managers,
       race_day: raceDay.length > 0 ? {

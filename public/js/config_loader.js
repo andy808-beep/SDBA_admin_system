@@ -197,7 +197,7 @@ async function fetchConfigFromTables(eventShortRef) {
   try {
     const { data, error } = await sb
       .from('v_divisions_public')
-      .select('event_short_ref, division_code, name_en, name_tc, is_corporate, sort_order, is_active')
+      .select('event_short_ref, division_code, name_en, name_tc, is_corporate, sort_order, is_active, by_invitation_only')
       .eq('event_short_ref', eventShortRef)
       .eq('is_active', true);
     if (error) {
