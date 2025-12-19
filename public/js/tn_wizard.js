@@ -541,6 +541,20 @@ async function loadStepContent(step) {
     return;
   }
   
+  // For step 1, check if we're already on step 1 with existing fields
+  // If so, preserve the fields by saving data first
+  if (step === 1) {
+    const existingTeamFieldsContainer = document.getElementById('teamFieldsContainer');
+    if (existingTeamFieldsContainer && existingTeamFieldsContainer.children.length > 0) {
+      Logger.debug('loadStepContent: Step 1 already loaded with fields, saving data before reload');
+      // Save current field values before clearing
+      const savedTeamCount = sessionStorage.getItem('tn_team_count');
+      if (savedTeamCount) {
+        saveTeamData();
+      }
+    }
+  }
+  
   const templateId = `tn-step-${step}`;
   const template = document.getElementById(templateId);
   
@@ -562,7 +576,7 @@ async function loadStepContent(step) {
   // Initialize step-specific functionality
   switch (step) {
     case 1:
-      initStep1();
+      await initStep1();
       break;
     case 2:
       await initStep2();
@@ -822,14 +836,17 @@ function initStep0() {
 /**
  * Initialize Step 1 - Category Selection
  */
-function initStep1() {
+async function initStep1() {
 	Logger.debug('🎯 initStep1: Starting team count selection');
   
-  // Create team count selection UI
+  // Create team count selection UI (will replace template content)
   createTeamCountSelector();
   
   // Set up team count change handler
   setupTeamCountHandler();
+  
+  // Restore previously selected team count if it exists (await to ensure fields are generated)
+  await restoreTeamCountSelection();
 }
 
 /**
@@ -838,6 +855,32 @@ function initStep1() {
 function createTeamCountSelector() {
   const container = document.getElementById('wizardMount');
   if (!container) return;
+  
+  // Check if team count section already exists with fields - if so, don't recreate it
+  const existingTeamCountSection = document.getElementById('teamCountSection');
+  const existingTeamFieldsContainer = document.getElementById('teamFieldsContainer');
+  if (existingTeamCountSection && existingTeamFieldsContainer && existingTeamFieldsContainer.children.length > 0) {
+    Logger.debug('🎯 createTeamCountSelector: Team count section already exists with fields, skipping recreation');
+    return;
+  }
+  
+  // IMPORTANT: Save current field values to sessionStorage before clearing, so we can restore them
+  // This prevents data loss when fields are regenerated (e.g., after validation errors)
+  const currentTeamCountEl = document.getElementById('teamCount');
+  const currentTeamCount = currentTeamCountEl?.value || sessionStorage.getItem('tn_team_count');
+  if (currentTeamCount && parseInt(currentTeamCount, 10) > 0) {
+    Logger.debug('🎯 createTeamCountSelector: Saving current field values before recreation');
+    // Temporarily set team count in sessionStorage if not already set, so saveTeamData can work
+    const wasTeamCountSet = sessionStorage.getItem('tn_team_count');
+    if (!wasTeamCountSet) {
+      sessionStorage.setItem('tn_team_count', currentTeamCount);
+    }
+    saveTeamData(); // Save any existing field values
+    // Restore previous state if we temporarily set it
+    if (!wasTeamCountSet) {
+      sessionStorage.removeItem('tn_team_count');
+    }
+  }
   
   // Get translated strings
   const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
@@ -889,6 +932,12 @@ function setupTeamCountHandler() {
   const teamCountSelect = document.getElementById('teamCount');
   if (!teamCountSelect) return;
   
+  // Check if handler already attached (using data attribute)
+  if (teamCountSelect.dataset.handlerAttached === 'true') {
+    Logger.debug('🎯 setupTeamCountHandler: Handler already attached, skipping');
+    return;
+  }
+  
   teamCountSelect.addEventListener('change', async (event) => {
     const teamCount = parseInt(event.target.value, 10);
 	Logger.debug('🎯 initStep1: Team count selected:', teamCount);
@@ -922,25 +971,84 @@ function setupTeamCountHandler() {
     }
   });
   
-  // Add next button handler
+  // Mark handler as attached
+  teamCountSelect.dataset.handlerAttached = 'true';
+  
+  // Add next button handler (check if already attached)
   const nextButton = document.getElementById('nextToStep2');
   if (nextButton) {
-    nextButton.addEventListener('click', () => {
-	Logger.debug('🎯 initStep1: Next button clicked, validating step 1');
-      
-      // Validate all team information before proceeding
-      if (validateStep1()) {
-	Logger.debug('🎯 initStep1: Validation passed, saving data and proceeding to step 2');
-        saveStep1Data();
-        loadStep(2);
-      } else {
-	Logger.debug('🎯 initStep1: Validation failed, staying on step 1');
-      }
-    });
+    if (nextButton.dataset.handlerAttached === 'true') {
+      Logger.debug('🎯 setupTeamCountHandler: Next button handler already attached, skipping');
+    } else {
+      nextButton.addEventListener('click', () => {
+        Logger.debug('🎯 initStep1: Next button clicked, validating step 1');
+        
+        // Validate all team information before proceeding
+        if (validateStep1()) {
+          Logger.debug('🎯 initStep1: Validation passed, saving data and proceeding to step 2');
+          saveStep1Data();
+          loadStep(2);
+        } else {
+          Logger.debug('🎯 initStep1: Validation failed, staying on step 1');
+        }
+      });
+      nextButton.dataset.handlerAttached = 'true';
+    }
   }
   
   // Set up error clearing when user starts typing
   setupErrorClearing();
+}
+
+/**
+ * Restore previously selected team count and regenerate fields
+ */
+async function restoreTeamCountSelection() {
+  const savedTeamCount = sessionStorage.getItem('tn_team_count');
+  const teamCountSelect = document.getElementById('teamCount');
+  
+  if (savedTeamCount && teamCountSelect) {
+    const teamCount = parseInt(savedTeamCount, 10);
+    if (teamCount > 0 && teamCount <= 10) {
+      Logger.debug('🎯 restoreTeamCountSelection: Restoring team count:', teamCount);
+      
+      // Set the selected value
+      teamCountSelect.value = teamCount.toString();
+      
+      // Check if fields already exist - if so, just show them and load data, don't regenerate
+      const teamFieldsContainer = document.getElementById('teamFieldsContainer');
+      const existingFieldsCount = teamFieldsContainer ? teamFieldsContainer.querySelectorAll('.team-field').length : 0;
+      
+      if (existingFieldsCount === teamCount) {
+        Logger.debug('🎯 restoreTeamCountSelection: Fields already exist for', teamCount, 'teams, skipping regeneration');
+        // Just show the container and load data
+        if (teamFieldsContainer) {
+          teamFieldsContainer.style.display = 'block';
+        }
+        const step1Actions = document.getElementById('step1Actions');
+        if (step1Actions) {
+          step1Actions.style.display = 'block';
+        }
+        // Load saved team data back into the fields
+        loadTeamData();
+      } else {
+      // Generate team fields (now async)
+      await generateTeamFields(teamCount);
+      
+      // Show team fields container and next button
+      if (teamFieldsContainer) {
+        teamFieldsContainer.style.display = 'block';
+      }
+        const step1Actions = document.getElementById('step1Actions');
+      if (step1Actions) {
+        step1Actions.style.display = 'block';
+      }
+      
+      // Load saved team data back into the fields
+      loadTeamData();
+      }
+    }
+  }
 }
 
 /**
@@ -1102,6 +1210,13 @@ async function generateTeamFields(teamCount) {
   
 	Logger.debug('🎯 generateTeamFields: Creating', teamCount, 'team fields');
   
+  // IMPORTANT: Save current field values to sessionStorage before clearing, so we can restore them
+  // This prevents data loss when fields are regenerated (e.g., after validation errors)
+  if (container.children.length > 0) {
+    Logger.debug('🎯 generateTeamFields: Saving current field values before clearing');
+    saveTeamData(); // Save any existing field values before clearing
+  }
+  
   // Clear existing team fields
   container.innerHTML = '';
   
@@ -1233,6 +1348,14 @@ async function generateTeamFields(teamCount) {
   setupCategoryChangeHandlers(teamCount);
   
 	Logger.debug('🎯 generateTeamFields: Created', teamCount, 'team input fields');
+  
+  // IMPORTANT: After generating fields, restore any saved data
+  // This ensures user input is preserved when fields are regenerated
+  const savedTeamCount = sessionStorage.getItem('tn_team_count');
+  if (savedTeamCount && parseInt(savedTeamCount, 10) === teamCount) {
+    Logger.debug('🎯 generateTeamFields: Restoring saved field values after generation');
+    loadTeamData();
+  }
 }
 
 /**
@@ -1728,12 +1851,32 @@ function loadTeamData() {
     
     if (teamCategory) {
       const categoryEl = document.getElementById(`teamCategory${i}`);
-      if (categoryEl) categoryEl.value = teamCategory;
+      if (categoryEl) {
+        categoryEl.value = teamCategory;
+        // Trigger change event to populate entry options
+        categoryEl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
     }
     
-    if (teamOption) {
-      const optionEl = document.getElementById(`teamOption${i}`);
-      if (optionEl) optionEl.value = teamOption;
+    // Restore entry option after category is set and options are populated
+    // Use setTimeout to ensure options are populated first
+    if (teamOption && teamCategory) {
+      setTimeout(() => {
+        const optionRadios = document.querySelectorAll(`input[name="teamOption${i}"]`);
+        optionRadios.forEach(radio => {
+          if (radio.value === teamOption) {
+            radio.checked = true;
+            // Trigger click on the package box to update styling
+            const packageOption = radio.closest('.package-option');
+            if (packageOption) {
+              const packageBox = packageOption.querySelector('.package-box');
+              if (packageBox) {
+                packageBox.click();
+              }
+            }
+          }
+        });
+      }, 100);
     }
   }
 }

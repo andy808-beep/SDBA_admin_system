@@ -584,14 +584,73 @@ textarea.invalid {
   background-color: #fff5f5;
 }
 
-.field-error {
+/* ========================================
+   FIELD ERROR STYLING
+   Fix: Ensure form inputs with .field-error are ALWAYS VISIBLE
+   ======================================== */
+
+/* Form input/select/textarea error styling - MUST keep fields visible! 
+   CRITICAL: These use !important to override any display: none rules */
+input.field-error,
+select.field-error,
+textarea.field-error {
+  border-color: #dc3545 !important;
+  background-color: #fff5f5 !important;
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2) !important;
+  display: block !important; /* CRITICAL: Force visibility */
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+input.field-error:focus,
+select.field-error:focus,
+textarea.field-error:focus {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.3) !important;
+  outline: none !important;
+}
+
+/* Radio buttons and checkboxes - use inline-block instead of block */
+input[type="radio"].field-error,
+input[type="checkbox"].field-error {
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Container/group elements with .field-error (like option groups) - must be visible */
+div.field-error[id*="OptionGroup"],
+div.field-error[role="group"] {
+  border: 2px solid #dc3545 !important;
+  background-color: #fff5f5 !important;
+  padding: 0.5rem !important;
+  border-radius: 4px !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* Error message divs - hidden by default, shown with .show class
+   This applies to divs that are NOT form inputs or containers */
+div.field-error:not([id*="OptionGroup"]):not([role="group"]) {
   color: #dc3545;
   font-size: 0.875rem;
   margin-top: 0.25rem;
   display: none;
 }
 
-.field-error.show {
+div.field-error:not([id*="OptionGroup"]):not([role="group"]).show {
+  display: block;
+}
+
+/* Preferred class name for error message divs (recommended going forward) */
+.field-error-message {
+  color: #dc3545;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  display: none;
+}
+
+.field-error-message.show {
   display: block;
 }
 
