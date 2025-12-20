@@ -1,6 +1,11 @@
 /* Universal Form Styles */
 /* Base styles for WU/SC forms and event picker */
 
+/* Import Unified Error System */
+/* @import url('css/error-system.css'); */
+/* Note: error-system.css should be loaded separately via <link> tag in HTML */
+/* See: public/css/error-system.css for Phase 2 unified error system */
+
 /* Theme Colors - Dynamic per event */
 :root {
   /* Default theme */

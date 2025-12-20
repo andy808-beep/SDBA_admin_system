@@ -376,7 +376,14 @@ async function handleSubmitClick(e) {
 			remaining
 		});
 		
-		showError(message, { rateLimited: true, timeUntilReset });
+		if (window.errorSystem) {
+			window.errorSystem.showSystemError('rateLimitExceeded', {
+				persistent: true,
+				dismissible: true
+			});
+		} else {
+			showError(message, { rateLimited: true, timeUntilReset });
+		}
 		updateSubmitButtonState();
 		return;
 	}
@@ -433,8 +440,29 @@ async function handleSubmitClick(e) {
 				message: errorMessage
 			});
 			
-			// Show user-friendly error message
-			showError(errorMessage, { code, status, payload });
+			// Show user-friendly error message using error system
+			if (window.errorSystem) {
+				if (status === 429) {
+					window.errorSystem.showSystemError('rateLimitExceeded', {
+						persistent: true,
+						dismissible: true
+					});
+				} else if (status >= 500) {
+					window.errorSystem.showSystemError('serverErrorDetailed', {
+						dismissible: true
+					});
+				} else if (status === 409) {
+					window.errorSystem.showSystemError('duplicateRegistration', {
+						dismissible: true
+					});
+				} else {
+					window.errorSystem.showSystemError('serverErrorDetailed', {
+						dismissible: true
+					});
+				}
+			} else {
+				showError(errorMessage, { code, status, payload });
+			}
 			btn.dataset.busy = '0';
 			// Don't re-enable if rate limited - let updateSubmitButtonState handle it
 			if (rateLimiter.canMakeRequest()) {
@@ -456,7 +484,13 @@ async function handleSubmitClick(e) {
 			type: err.name
 		});
 		
-		showError(window.i18n ? window.i18n.t('networkError') : 'Network error. Please try again.', { err });
+		if (window.errorSystem) {
+			window.errorSystem.showSystemError('networkErrorDetailed', {
+				dismissible: true
+			});
+		} else {
+			showError(window.i18n ? window.i18n.t('networkError') : 'Network error. Please try again.', { err });
+		}
 		btn.dataset.busy = '0';
 		// Don't re-enable if rate limited - let updateSubmitButtonState handle it
 		if (rateLimiter.canMakeRequest()) {

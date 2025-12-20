@@ -28,12 +28,31 @@ let stepper = null;
 let eventType = null; // 'wu' or 'sc'
 
 /**
+ * Get event short ref for auto-save
+ * Returns full event short ref like 'WU2025' or 'SC2025'
+ */
+function getWUSCEventShortRef() {
+  // eventType is 'wu' or 'sc' (lowercase, extracted from eventShortRef)
+  // Construct full ref for auto-save
+  if (eventType) {
+    return eventType.toUpperCase() + '2025';
+  }
+  // Fallback to config or imported function
+  const cfg = window.__CONFIG;
+  const eventRef = cfg?.event?.event_short_ref || cfg?.event?.short_ref || getEventShortRef();
+  return eventRef || 'WU2025';
+}
+
+/**
  * Initialize WU/SC wizard
  */
 export async function initWUSCWizard(eventShortRef) {
 	Logger.debug('🎯 initWUSCWizard called with:', eventShortRef);
+  console.log('🎯 Initializing WU/SC Wizard with auto-save');
   
-  eventType = eventShortRef;
+  // eventShortRef is like 'WU2025' or 'SC2025'
+  // Extract just the type part ('wu' or 'sc') for sessionStorage keys
+  eventType = eventShortRef ? eventShortRef.substring(0, 2).toLowerCase() : 'wu';
   wuScScope = document.getElementById('wuScContainer');
   wizardMount = document.getElementById('wuScWizardMount');
   
@@ -85,8 +104,52 @@ export async function initWUSCWizard(eventShortRef) {
   // Initialize stepper (will be hidden for step 0)
   initStepper();
   
-  // Load first step (step 0 - Race Info)
-  loadStep(0);
+  // Auto-save integration
+  // Use the eventShortRef parameter directly (e.g., 'WU2025' or 'SC2025')
+  const eventRef = eventShortRef || getWUSCEventShortRef();
+  
+  // Try to restore from localStorage FIRST (before loading step 0)
+  if (window.AutoSave) {
+    const restoredDraft = AutoSave.restoreDraft(eventRef);
+    
+    if (restoredDraft && restoredDraft.step > 0) {
+      // User accepted restoration - load their last step
+      console.log('💾 Loading from restored draft, step:', restoredDraft.step);
+      loadStep(restoredDraft.step);
+    } else {
+      // No draft or user declined - start fresh at step 0
+      console.log('🎯 Starting fresh from step 0');
+      loadStep(0);
+    }
+    
+    // Start auto-save timer
+    AutoSave.startAutoSave(eventRef, () => currentStep);
+    
+    // Mark dirty on any input change within WU/SC scope
+    document.addEventListener('input', (e) => {
+      if (e.target.closest('#wuScContainer') && e.target.matches('input, select, textarea')) {
+        AutoSave.markDirty();
+      }
+    });
+    
+    document.addEventListener('change', (e) => {
+      if (e.target.closest('#wuScContainer') && e.target.matches('input[type="radio"], input[type="checkbox"]')) {
+        AutoSave.markDirty();
+      }
+    });
+    
+    // Warn before leaving page if dirty
+    window.addEventListener('beforeunload', (e) => {
+      if (AutoSave.isDirty && currentStep > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+  } else {
+    // AutoSave not available, start normally
+    console.log('⚠️ AutoSave not available, starting normally');
+    loadStep(0);
+  }
   
   // Set up debug functions
   setupDebugFunctions();
@@ -768,14 +831,30 @@ function initStep1() {
   
   // Restore team count from session storage if available (e.g., when navigating back)
   const savedTeamCount = sessionStorage.getItem(`${eventType}_team_count`);
+  
+  // Debug what we have
+  console.log(`\n=== ${eventType.toUpperCase()} STEP 1: RESTORE ===`);
+  if (window.FieldRestoreUtility) {
+    FieldRestoreUtility.debugStorage(eventType + '_');
+  }
+  
   if (savedTeamCount) {
     const count = parseInt(savedTeamCount, 10);
     if (count > 0 && count <= 10) {
       teamCountSelect.value = count;
       // Trigger the change handler to render team details and show the button
       // Use setTimeout to ensure DOM is fully ready
-      setTimeout(() => {
-        handleTeamCountChange({ target: teamCountSelect });
+      setTimeout(async () => {
+        await handleTeamCountChange({ target: teamCountSelect });
+        // Restore team details after fields are rendered (legacy for backward compatibility)
+        setTimeout(() => {
+          restoreTeamDetails();
+        }, 150); // Wait for renderTeamDetails() to complete
+        
+        // Restore with FieldRestoreUtility after team fields are rendered
+        setTimeout(() => {
+          restoreWUSCStep1Teams(count);
+        }, 300);
       }, 0);
     }
   }
@@ -874,6 +953,7 @@ async function renderTeamDetails(count) {
       <div class="form-group">
         <label for="teamNameEn${i}" data-i18n="teamNameEnLabel">${t('teamNameEnLabel')}</label>
         <input type="text" id="teamNameEn${i}" name="teamNameEn${i}" required placeholder="${t('teamNameEnPlaceholder')}" data-i18n-placeholder="teamNameEnPlaceholder" />
+        <div class="field-error-message" id="error-teamNameEn${i}"></div>
       </div>
       <div class="form-group">
         <label for="teamNameTc${i}" data-i18n="teamNameTcLabel">${t('teamNameTcLabel')}</label>
@@ -888,6 +968,8 @@ async function renderTeamDetails(count) {
             <div id="division${i}" class="radio-group"></div>
           </div>
         </div>
+        <div class="field-error-message" id="error-boatType${i}"></div>
+        <div class="field-error-message" id="error-division${i}"></div>
       </div>
     `;
     
@@ -908,6 +990,121 @@ async function renderTeamDetails(count) {
   }
   
 	Logger.debug(`renderTeamDetails: Completed rendering ${count} team(s)`);
+}
+
+/**
+ * Restore saved team details from sessionStorage
+ */
+function restoreTeamDetails() {
+  const count = parseInt(sessionStorage.getItem(`${eventType}_team_count`), 10);
+  if (!count || count < 1) return;
+  
+	Logger.debug(`🎯 restoreTeamDetails: Restoring data for ${count} team(s)`);
+  
+  for (let i = 1; i <= count; i++) {
+    // Restore team names
+    const nameEn = sessionStorage.getItem(`${eventType}_team${i}_name_en`);
+    const nameTc = sessionStorage.getItem(`${eventType}_team${i}_name_tc`);
+    const boatType = sessionStorage.getItem(`${eventType}_team${i}_boatType`);
+    const division = sessionStorage.getItem(`${eventType}_team${i}_division`);
+    
+    // Populate name fields
+    const nameEnField = document.getElementById(`teamNameEn${i}`);
+    const nameTcField = document.getElementById(`teamNameTc${i}`);
+    if (nameEnField && nameEn) {
+      nameEnField.value = nameEn;
+	Logger.debug(`🎯 restoreTeamDetails: Restored team ${i} name (EN):`, nameEn);
+    }
+    if (nameTcField && nameTc) {
+      nameTcField.value = nameTc;
+	Logger.debug(`🎯 restoreTeamDetails: Restored team ${i} name (TC):`, nameTc);
+    }
+    
+    // Restore boat type radio
+    if (boatType) {
+      // Find radio button by value (boatType is stored as title_en from packages)
+      const boatTypeRadio = document.querySelector(`input[name="boatType${i}"][value="${boatType}"]`);
+      if (boatTypeRadio) {
+        boatTypeRadio.checked = true;
+	Logger.debug(`🎯 restoreTeamDetails: Restored team ${i} boat type:`, boatType);
+        // Trigger change to show division options
+        boatTypeRadio.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+	Logger.warn(`🎯 restoreTeamDetails: Boat type radio not found for team ${i}, value:`, boatType);
+      }
+    }
+    
+    // Restore division radio (after boat type triggers division display)
+    if (division) {
+      // Use setTimeout to ensure division options are rendered first
+      setTimeout(() => {
+        // Find radio button by value (division is stored as division_code)
+        const divisionRadio = document.querySelector(`input[name="division${i}"][value="${division}"]`);
+        if (divisionRadio) {
+          divisionRadio.checked = true;
+	Logger.debug(`🎯 restoreTeamDetails: Restored team ${i} division:`, division);
+        } else {
+	Logger.warn(`🎯 restoreTeamDetails: Division radio not found for team ${i}, value:`, division);
+        }
+      }, 150); // Wait for boat type change handler to complete and show divisions
+    }
+  }
+  
+	Logger.debug('🎯 restoreTeamDetails: Completed restoration');
+}
+
+/**
+ * Restore WU/SC Step 1 team fields using FieldRestoreUtility
+ */
+function restoreWUSCStep1Teams(teamCount) {
+  if (!window.FieldRestoreUtility) {
+    Logger.warn(`🎯 restoreWUSCStep1Teams: FieldRestoreUtility not available, falling back to restoreTeamDetails`);
+    restoreTeamDetails();
+    return;
+  }
+  
+  console.log(`[${eventType.toUpperCase()} Step 1] Restoring ${teamCount} teams...`);
+  
+  for (let i = 1; i <= teamCount; i++) {
+    // Team names
+    FieldRestoreUtility.restoreField(
+      `teamNameEn${i}`,
+      `team${i}_name_en`,
+      { prefix: eventType + '_', debug: true }
+    );
+    
+    FieldRestoreUtility.restoreField(
+      `teamNameTc${i}`,
+      `team${i}_name_tc`,
+      { prefix: eventType + '_', debug: true }
+    );
+    
+    // Boat type (triggers division display)
+    const boatType = sessionStorage.getItem(`${eventType}_team${i}_boatType`);
+    if (boatType) {
+      const radio = document.querySelector(`input[name="boatType${i}"][value="${boatType}"]`);
+      if (radio) {
+        radio.checked = true;
+        console.log(`[Restore] ✓ boatType${i}: "${boatType}"`);
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
+        
+        // Division (after boat type renders it)
+        setTimeout(() => {
+          FieldRestoreUtility.restoreRadio(
+            `division${i}`,
+            `team${i}_division`,
+            { prefix: eventType + '_', debug: true }
+          );
+        }, 150);
+      }
+    }
+  }
+  
+  setTimeout(() => {
+    if (window.FieldRestoreUtility) {
+      FieldRestoreUtility.debugDOM('wuScWizardMount');
+    }
+  }, 500);
 }
 
 /**
@@ -1166,25 +1363,246 @@ function initStep2() {
   // Render manager contact fields
   renderManagerFields();
   
+  // Add error divs for organization fields (if not already present)
+  addOrganizationErrorDivs();
+  
   // Set up validation for email and phone fields
   setupStep2Validation();
+  
+  // Restore organization and manager data after fields are rendered (legacy)
+  setTimeout(() => {
+    restoreOrganizationData();
+  }, 100); // Wait for DOM to update
+  
+  // Debug what we have
+  console.log(`\n=== ${eventType.toUpperCase()} STEP 2: RESTORE ===`);
+  if (window.FieldRestoreUtility) {
+    FieldRestoreUtility.debugStorage(eventType + '_');
+  }
+  
+  // Restore with FieldRestoreUtility
+  setTimeout(() => {
+    restoreWUSCStep2();
+  }, 250);
+}
+
+/**
+ * Add error divs for organization fields
+ */
+function addOrganizationErrorDivs() {
+  const orgName = document.getElementById('orgName');
+  if (orgName) {
+    const existingError = document.getElementById('error-orgName');
+    if (!existingError) {
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'field-error-message';
+      errorDiv.id = 'error-orgName';
+      orgName.parentNode.appendChild(errorDiv);
+    }
+  }
+  
+  const mailingAddress = document.getElementById('mailingAddress');
+  if (mailingAddress) {
+    const existingError = document.getElementById('error-mailingAddress');
+    if (!existingError) {
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'field-error-message';
+      errorDiv.id = 'error-mailingAddress';
+      mailingAddress.parentNode.appendChild(errorDiv);
+    }
+  }
+}
+
+/**
+ * Restore organization and manager data from sessionStorage
+ */
+function restoreOrganizationData() {
+	Logger.debug('🎯 restoreOrganizationData: Starting restoration');
+  
+  // Restore organization details
+  const orgName = sessionStorage.getItem(`${eventType}_orgName`);
+  const mailingAddress = sessionStorage.getItem(`${eventType}_mailingAddress`);
+  
+  const orgNameField = document.getElementById('orgName');
+  const addressField = document.getElementById('mailingAddress');
+  
+  if (orgNameField && orgName) {
+    orgNameField.value = orgName;
+	Logger.debug('🎯 restoreOrganizationData: Restored org name:', orgName);
+  }
+  if (addressField && mailingAddress) {
+    addressField.value = mailingAddress;
+	Logger.debug('🎯 restoreOrganizationData: Restored mailing address');
+  }
+  
+  // Restore Manager 1
+  restoreManagerFields(1);
+  
+  // Restore Manager 2
+  restoreManagerFields(2);
+  
+  // Restore Manager 3 (optional)
+  restoreManagerFields(3);
+  
+	Logger.debug('🎯 restoreOrganizationData: Completed restoration');
+}
+
+/**
+ * Restore individual manager fields
+ */
+function restoreManagerFields(managerNum) {
+  const name = sessionStorage.getItem(`${eventType}_manager${managerNum}Name`);
+  const phone = sessionStorage.getItem(`${eventType}_manager${managerNum}Phone`);
+  const email = sessionStorage.getItem(`${eventType}_manager${managerNum}Email`);
+  
+  const nameField = document.getElementById(`manager${managerNum}Name`);
+  const phoneField = document.getElementById(`manager${managerNum}Phone`);
+  const emailField = document.getElementById(`manager${managerNum}Email`);
+  
+  if (nameField && name) {
+    nameField.value = name;
+	Logger.debug(`🎯 restoreManagerFields: Restored manager ${managerNum} name`);
+  }
+  if (emailField && email) {
+    emailField.value = email;
+	Logger.debug(`🎯 restoreManagerFields: Restored manager ${managerNum} email`);
+  }
+  
+  // Extract local phone number (remove +852 prefix if present)
+  if (phoneField && phone) {
+    const localPhone = extractLocalNumber(phone);
+    phoneField.value = localPhone;
+	Logger.debug(`🎯 restoreManagerFields: Restored manager ${managerNum} phone (extracted from: ${phone})`);
+  }
+}
+
+/**
+ * Restore WU/SC Step 2 organization and manager fields using FieldRestoreUtility
+ */
+function restoreWUSCStep2() {
+  if (!window.FieldRestoreUtility) {
+    Logger.warn(`🎯 restoreWUSCStep2: FieldRestoreUtility not available, using legacy restoreOrganizationData`);
+    return;
+  }
+  
+  console.log(`[${eventType.toUpperCase()} Step 2] Restoring org & managers...`);
+  
+  // Organization
+  FieldRestoreUtility.restoreField('orgName', 'orgName', { prefix: eventType + '_', debug: true });
+  FieldRestoreUtility.restoreField('mailingAddress', 'mailingAddress', { prefix: eventType + '_', debug: true });
+  
+  // Managers 1-3 (same pattern as TN)
+  for (let i = 1; i <= 3; i++) {
+    FieldRestoreUtility.restoreField(
+      `manager${i}Name`,
+      `manager${i}Name`,
+      { prefix: eventType + '_', debug: true }
+    );
+    
+    FieldRestoreUtility.restoreField(
+      `manager${i}Email`,
+      `manager${i}Email`,
+      { prefix: eventType + '_', debug: true }
+    );
+    
+    // Phone (extract local)
+    const phone = sessionStorage.getItem(`${eventType}_manager${i}Phone`);
+    if (phone) {
+      const local = phone.startsWith('+852') ? phone.substring(4) : phone;
+      const field = document.getElementById(`manager${i}Phone`);
+      if (field) {
+        field.value = local;
+        console.log(`[Restore] ✓ manager${i}Phone: "${local}"`);
+      }
+    }
+  }
+  
+  setTimeout(() => {
+    if (window.FieldRestoreUtility) {
+      FieldRestoreUtility.debugDOM('wuScWizardMount');
+    }
+  }, 500);
 }
 
 /**
  * Set up email and phone validation for Step 2
+ * Uses unified error system for real-time validation
  */
 function setupStep2Validation() {
-  // Set up validation for all email fields
-  setupEmailValidation('manager1Email');
-  setupEmailValidation('manager2Email');
-  setupEmailValidation('manager3Email');
+  if (!window.errorSystem) {
+    // Fallback to old validation methods if errorSystem not available
+    setupEmailValidation('manager1Email');
+    setupEmailValidation('manager2Email');
+    setupEmailValidation('manager3Email');
+    setupPhoneValidation('manager1Phone');
+    setupPhoneValidation('manager2Phone');
+    setupPhoneValidation('manager3Phone');
+    Logger.debug('🎯 setupStep2Validation: Using legacy validation methods');
+    return;
+  }
   
-  // Set up validation for all phone fields
-  setupPhoneValidation('manager1Phone');
-  setupPhoneValidation('manager2Phone');
-  setupPhoneValidation('manager3Phone');
+  // Set up real-time validation using error system for email fields
+  ['manager1Email', 'manager2Email', 'manager3Email'].forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    
+    // Validate on blur
+    field.addEventListener('blur', () => {
+      if (field.value.trim()) {
+        if (!isValidEmail(field.value.trim())) {
+          window.errorSystem.showFieldError(fieldId, 'invalidEmail', {
+            scrollTo: false,
+            focus: false
+          });
+        } else {
+          window.errorSystem.clearFieldError(fieldId);
+        }
+      }
+    });
+    
+    // Clear error on input
+    field.addEventListener('input', () => {
+      window.errorSystem.clearFieldError(fieldId);
+    });
+  });
   
-	Logger.debug('🎯 setupStep2Validation: Email and phone validation configured');
+  // Set up real-time validation using error system for phone fields
+  ['manager1Phone', 'manager2Phone', 'manager3Phone'].forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    
+    // Enforce digits only on input
+    field.addEventListener('input', (e) => {
+      const cursorPosition = e.target.selectionStart;
+      const oldValue = e.target.value;
+      const newValue = oldValue.replace(/\D/g, '').substring(0, 8);
+      
+      if (oldValue !== newValue) {
+        e.target.value = newValue;
+        // Restore cursor position
+        e.target.setSelectionRange(cursorPosition, cursorPosition);
+      }
+      
+      // Clear error on input
+      window.errorSystem.clearFieldError(fieldId);
+    });
+    
+    // Validate on blur
+    field.addEventListener('blur', () => {
+      if (field.value.trim()) {
+        if (!isValidHKPhone(field.value.trim())) {
+          window.errorSystem.showFieldError(fieldId, 'invalidPhone', {
+            scrollTo: false,
+            focus: false
+          });
+        } else {
+          window.errorSystem.clearFieldError(fieldId);
+        }
+      }
+    });
+  });
+  
+  Logger.debug('🎯 setupStep2Validation: Email and phone validation configured with error system');
 }
 
 /**
@@ -1234,6 +1652,7 @@ function renderManagerFields() {
       <div class="form-group">
         <label for="manager1Name" data-i18n="nameLabel">${t('nameLabel')}</label>
         <input type="text" id="manager1Name" name="manager1Name" required placeholder="${t('enterFullName')}" data-i18n-placeholder="enterFullName" />
+        <div class="field-error-message" id="error-manager1Name"></div>
       </div>
       <div class="form-group">
         <label for="manager1Phone" data-i18n="phoneLabel">${t('phoneLabel')}</label>
@@ -1243,12 +1662,12 @@ function renderManagerFields() {
                  placeholder="${t('eightDigitNumber')}" data-i18n-placeholder="eightDigitNumber" maxlength="8" inputmode="numeric"
                  pattern="[0-9]{8}" />
         </div>
-        <div class="field-error" id="manager1PhoneError"></div>
+        <div class="field-error-message" id="error-manager1Phone"></div>
       </div>
       <div class="form-group">
         <label for="manager1Email" data-i18n="emailLabel">${t('emailLabel')}</label>
         <input type="email" id="manager1Email" name="manager1Email" required placeholder="${t('enterEmailAddress')}" data-i18n-placeholder="enterEmailAddress" />
-        <div class="field-error" id="manager1EmailError"></div>
+        <div class="field-error-message" id="error-manager1Email"></div>
       </div>
     </div>
 
@@ -1257,6 +1676,7 @@ function renderManagerFields() {
       <div class="form-group">
         <label for="manager2Name" data-i18n="nameLabel">${t('nameLabel')}</label>
         <input type="text" id="manager2Name" name="manager2Name" required placeholder="${t('enterFullName')}" data-i18n-placeholder="enterFullName" />
+        <div class="field-error-message" id="error-manager2Name"></div>
       </div>
       <div class="form-group">
         <label for="manager2Phone" data-i18n="phoneLabel">${t('phoneLabel')}</label>
@@ -1266,12 +1686,12 @@ function renderManagerFields() {
                  placeholder="${t('eightDigitNumber')}" data-i18n-placeholder="eightDigitNumber" maxlength="8" inputmode="numeric"
                  pattern="[0-9]{8}" />
         </div>
-        <div class="field-error" id="manager2PhoneError"></div>
+        <div class="field-error-message" id="error-manager2Phone"></div>
       </div>
       <div class="form-group">
         <label for="manager2Email" data-i18n="emailLabel">${t('emailLabel')}</label>
         <input type="email" id="manager2Email" name="manager2Email" required placeholder="${t('enterEmailAddress')}" data-i18n-placeholder="enterEmailAddress" />
-        <div class="field-error" id="manager2EmailError"></div>
+        <div class="field-error-message" id="error-manager2Email"></div>
       </div>
     </div>
 
@@ -1280,6 +1700,7 @@ function renderManagerFields() {
       <div class="form-group">
         <label for="manager3Name" data-i18n="nameLabelOptional">${t('nameLabelOptional')}</label>
         <input type="text" id="manager3Name" name="manager3Name" placeholder="${t('enterFullName')}" data-i18n-placeholder="enterFullName" />
+        <div class="field-error-message" id="error-manager3Name"></div>
       </div>
       <div class="form-group">
         <label for="manager3Phone" data-i18n="phoneLabelOptional">${t('phoneLabelOptional')}</label>
@@ -1289,12 +1710,12 @@ function renderManagerFields() {
                  placeholder="${t('eightDigitNumber')}" data-i18n-placeholder="eightDigitNumber" maxlength="8" inputmode="numeric"
                  pattern="[0-9]{8}" />
         </div>
-        <div class="field-error" id="manager3PhoneError"></div>
+        <div class="field-error-message" id="error-manager3Phone"></div>
       </div>
       <div class="form-group">
         <label for="manager3Email" data-i18n="emailLabelOptional">${t('emailLabelOptional')}</label>
         <input type="email" id="manager3Email" name="manager3Email" placeholder="${t('enterEmailAddress')}" data-i18n-placeholder="enterEmailAddress" />
-        <div class="field-error" id="manager3EmailError"></div>
+        <div class="field-error-message" id="error-manager3Email"></div>
       </div>
     </div>
   `;
@@ -1306,8 +1727,82 @@ function renderManagerFields() {
 function initStep3() {
 	Logger.debug('🎯 initStep3: Initializing race day step');
   
-  // This will be similar to TN Step 3
-  // Load race day items and pricing
+  // Form fields are already in the HTML template (wu-sc-step-3)
+  // Just restore the saved values from sessionStorage (legacy)
+  setTimeout(() => {
+    restoreRaceDayData();
+  }, 100); // Wait for DOM to update
+  
+  // Debug what we have
+  console.log(`\n=== ${eventType.toUpperCase()} STEP 3: RESTORE ===`);
+  if (window.FieldRestoreUtility) {
+    FieldRestoreUtility.debugStorage(eventType + '_');
+  }
+  
+  // Restore with FieldRestoreUtility
+  setTimeout(() => {
+    restoreWUSCStep3();
+  }, 250);
+}
+
+/**
+ * Restore race day data from sessionStorage
+ */
+function restoreRaceDayData() {
+	Logger.debug('🎯 restoreRaceDayData: Starting restoration');
+  
+  const fields = [
+    'marqueeQty',
+    'steerWithQty', 
+    'steerWithoutQty',
+    'junkBoatNo',
+    'junkBoatQty',
+    'speedBoatNo',
+    'speedboatQty'
+  ];
+  
+  fields.forEach(fieldId => {
+    const saved = sessionStorage.getItem(`${eventType}_${fieldId}`);
+    const field = document.getElementById(fieldId);
+    
+    if (field && saved !== null && saved !== '') {
+      field.value = saved;
+	Logger.debug(`🎯 restoreRaceDayData: Restored ${fieldId}:`, saved);
+    }
+  });
+  
+	Logger.debug('🎯 restoreRaceDayData: Completed restoration');
+}
+
+/**
+ * Restore WU/SC Step 3 race day data using FieldRestoreUtility
+ */
+function restoreWUSCStep3() {
+  if (!window.FieldRestoreUtility) {
+    Logger.warn(`🎯 restoreWUSCStep3: FieldRestoreUtility not available, using legacy restoreRaceDayData`);
+    return;
+  }
+  
+  console.log(`[${eventType.toUpperCase()} Step 3] Restoring race day...`);
+  
+  const fields = [
+    'marqueeQty', 'steerWithQty', 'steerWithoutQty',
+    'junkBoatNo', 'junkBoatQty', 'speedBoatNo', 'speedboatQty'
+  ];
+  
+  fields.forEach(fieldId => {
+    FieldRestoreUtility.restoreField(
+      fieldId,
+      fieldId,
+      { prefix: eventType + '_', debug: true }
+    );
+  });
+  
+  setTimeout(() => {
+    if (window.FieldRestoreUtility) {
+      FieldRestoreUtility.debugDOM('wuScWizardMount');
+    }
+  }, 500);
 }
 
 /**
@@ -1402,7 +1897,7 @@ function populateTeamsSummary() {
     }
 
     // XSS FIX: Escape all values before inserting into HTML
-    const safeTeamName = SafeDOM.escapeHtml(teamName);
+    const safeTeamName = SafeDOM.escapeHtml(teamNameEn);
     const safeBoatType = SafeDOM.escapeHtml(localizedBoatType);
     const safeDivision = SafeDOM.escapeHtml(localizedDivision);
 
@@ -1614,10 +2109,26 @@ function validateCurrentStep() {
  * Validate Step 1
  */
 function validateStep1() {
+  // Clear any previous errors
+  if (window.errorSystem) {
+    window.errorSystem.clearFormErrors();
+  }
+  
   const teamCount = document.getElementById('teamCount');
   const t1 = (key) => window.i18n?.t?.(key) || key;
+  
   if (!teamCount || !teamCount.value) {
-    showError(t1('pleaseSelectNumberOfTeams'));
+    if (window.errorSystem) {
+      window.errorSystem.showFormErrors([
+        { field: 'teamCount', messageKey: 'pleaseSelectNumberOfTeams' }
+      ], {
+        containerId: 'categoryForm',
+        scrollTo: true
+      });
+    } else {
+      console.error('ErrorSystem not available: Please select number of teams');
+      alert(window.i18n?.t?.('pleaseSelectNumberOfTeams') || 'Please select number of teams');
+    }
     return false;
   }
   
@@ -1626,6 +2137,8 @@ function validateStep1() {
   // Save team count
   sessionStorage.setItem(`${eventType}_team_count`, count);
   
+  const errors = [];
+  
   for (let i = 1; i <= count; i++) {
     const teamNameEn = document.getElementById(`teamNameEn${i}`);
     const teamNameTc = document.getElementById(`teamNameTc${i}`);
@@ -1633,25 +2146,60 @@ function validateStep1() {
     const division = document.querySelector(`input[name="division${i}"]:checked`);
     
     if (!teamNameEn || !teamNameEn.value.trim()) {
-      showError(`Please enter team name (English) for Team ${i}`);
-      return false;
+      errors.push({
+        field: `teamNameEn${i}`,
+        messageKey: 'pleaseEnterTeamName',
+        params: { num: i }
+      });
     }
     
     if (!boatType) {
-      showError(`Please select Division for Team ${i}`);
-      return false;
+      errors.push({
+        field: `boatType${i}`,
+        messageKey: 'pleaseSelectDivision',
+        params: { num: i }
+      });
     }
     
     if (!division) {
-      showError(`Please select Entry Group for Team ${i}`);
-      return false;
+      errors.push({
+        field: `division${i}`,
+        messageKey: 'pleaseSelectEntryGroup',
+        params: { num: i }
+      });
     }
     
     // Save team data to sessionStorage
-    sessionStorage.setItem(`${eventType}_team${i}_name_en`, teamNameEn.value.trim());
-    sessionStorage.setItem(`${eventType}_team${i}_name_tc`, teamNameTc?.value?.trim() || '');
-    sessionStorage.setItem(`${eventType}_team${i}_boatType`, boatType.value);
-    sessionStorage.setItem(`${eventType}_team${i}_division`, division.value);
+    if (teamNameEn?.value?.trim()) {
+      sessionStorage.setItem(`${eventType}_team${i}_name_en`, teamNameEn.value.trim());
+    }
+    if (teamNameTc?.value?.trim()) {
+      sessionStorage.setItem(`${eventType}_team${i}_name_tc`, teamNameTc.value.trim());
+    }
+    if (boatType) {
+      sessionStorage.setItem(`${eventType}_team${i}_boatType`, boatType.value);
+    }
+    if (division) {
+      sessionStorage.setItem(`${eventType}_team${i}_division`, division.value);
+    }
+  }
+  
+  if (errors.length > 0) {
+    if (window.errorSystem) {
+      window.errorSystem.showFormErrors(errors, {
+        containerId: 'categoryForm',
+        scrollTo: true
+      });
+    } else {
+      // Fallback: errorSystem not available
+      const firstError = errors[0];
+      const message = window.i18n && typeof window.i18n.t === 'function'
+        ? window.i18n.t(firstError.messageKey, firstError.params || {})
+        : firstError.messageKey;
+      console.error('ErrorSystem not available:', message);
+      alert(message);
+    }
+    return false;
   }
   
   return true;
@@ -1661,142 +2209,133 @@ function validateStep1() {
  * Validate Step 2
  */
 function validateStep2() {
-  const t2 = (key) => window.i18n?.t?.(key) || key;
+  // Clear any previous errors
+  if (window.errorSystem) {
+    window.errorSystem.clearFormErrors();
+  }
+  
+  const errors = [];
+  const t = (key, params) => window.i18n?.t?.(key, params) || key;
+  
+  // Validate organization fields
   const orgName = document.getElementById('orgName');
   if (!orgName || !orgName.value.trim()) {
-    showError(t2('pleaseEnterOrgName'));
-    return false;
+    errors.push({ field: 'orgName', messageKey: 'organizationRequired' });
   }
   
   const mailingAddress = document.getElementById('mailingAddress');
   if (!mailingAddress || !mailingAddress.value.trim()) {
-    showError(t2('pleaseEnterMailingAddress'));
-    return false;
+    errors.push({ field: 'mailingAddress', messageKey: 'addressRequired' });
   }
-  
-  // Helper for translations
-  const t = (key, params) => window.i18n?.t?.(key, params) || key;
-  const invalidPhoneMsg = t('invalidPhoneError');
-  const invalidEmailMsg = t('invalidEmailError');
 
   // Validate Manager 1 (Required)
   const manager1Name = document.getElementById('manager1Name');
   const manager1Phone = document.getElementById('manager1Phone');
   const manager1Email = document.getElementById('manager1Email');
-  const manager1PhoneError = document.getElementById('manager1PhoneError');
-  const manager1EmailError = document.getElementById('manager1EmailError');
   
   if (!manager1Name || !manager1Name.value.trim()) {
-    showError(t('pleaseEnterManagerName', { num: 1 }));
-    return false;
+    errors.push({ field: 'manager1Name', messageKey: 'managerNameRequired' });
   }
   
   if (!manager1Phone || !manager1Phone.value.trim()) {
-    showError(t('pleaseEnterManagerPhone', { num: 1 }));
-    return false;
+    errors.push({ field: 'manager1Phone', messageKey: 'managerPhoneRequired' });
   } else if (!isValidHKPhone(manager1Phone.value.trim())) {
-    showError(t('managerPhoneInvalid', { num: 1 }));
-    if (manager1PhoneError) {
-      manager1PhoneError.textContent = invalidPhoneMsg;
-      manager1PhoneError.style.display = 'block';
-    }
-    return false;
+    errors.push({ field: 'manager1Phone', messageKey: 'invalidPhone' });
   }
   
   if (!manager1Email || !manager1Email.value.trim()) {
-    showError(t('pleaseEnterManagerEmail', { num: 1 }));
-    return false;
+    errors.push({ field: 'manager1Email', messageKey: 'managerEmailRequired' });
   } else if (!isValidEmail(manager1Email.value.trim())) {
-    showError(t('managerEmailInvalid', { num: 1 }));
-    if (manager1EmailError) {
-      manager1EmailError.textContent = invalidEmailMsg;
-      manager1EmailError.style.display = 'block';
-    }
-    return false;
+    errors.push({ field: 'manager1Email', messageKey: 'invalidEmail' });
   }
   
   // Validate Manager 2 (Required)
   const manager2Name = document.getElementById('manager2Name');
   const manager2Phone = document.getElementById('manager2Phone');
   const manager2Email = document.getElementById('manager2Email');
-  const manager2PhoneError = document.getElementById('manager2PhoneError');
-  const manager2EmailError = document.getElementById('manager2EmailError');
   
   if (!manager2Name || !manager2Name.value.trim()) {
-    showError(t('pleaseEnterManagerName', { num: 2 }));
-    return false;
+    errors.push({ field: 'manager2Name', messageKey: 'managerNameRequired' });
   }
   
   if (!manager2Phone || !manager2Phone.value.trim()) {
-    showError(t('pleaseEnterManagerPhone', { num: 2 }));
-    return false;
+    errors.push({ field: 'manager2Phone', messageKey: 'managerPhoneRequired' });
   } else if (!isValidHKPhone(manager2Phone.value.trim())) {
-    showError(t('managerPhoneInvalid', { num: 2 }));
-    if (manager2PhoneError) {
-      manager2PhoneError.textContent = invalidPhoneMsg;
-      manager2PhoneError.style.display = 'block';
-    }
-    return false;
+    errors.push({ field: 'manager2Phone', messageKey: 'invalidPhone' });
   }
   
   if (!manager2Email || !manager2Email.value.trim()) {
-    showError(t('pleaseEnterManagerEmail', { num: 2 }));
-    return false;
+    errors.push({ field: 'manager2Email', messageKey: 'managerEmailRequired' });
   } else if (!isValidEmail(manager2Email.value.trim())) {
-    showError(t('managerEmailInvalid', { num: 2 }));
-    if (manager2EmailError) {
-      manager2EmailError.textContent = invalidEmailMsg;
-      manager2EmailError.style.display = 'block';
-    }
-    return false;
+    errors.push({ field: 'manager2Email', messageKey: 'invalidEmail' });
   }
   
   // Validate Manager 3 (Optional, but if provided must be valid)
   const manager3Name = document.getElementById('manager3Name');
   const manager3Phone = document.getElementById('manager3Phone');
   const manager3Email = document.getElementById('manager3Email');
-  const manager3PhoneError = document.getElementById('manager3PhoneError');
-  const manager3EmailError = document.getElementById('manager3EmailError');
   
   if (manager3Name?.value?.trim()) {
     if (!manager3Phone?.value?.trim()) {
-      showError(t('pleaseEnterManagerPhone', { num: 3 }));
-      return false;
+      errors.push({ field: 'manager3Phone', messageKey: 'managerPhoneRequired' });
     } else if (!isValidHKPhone(manager3Phone.value.trim())) {
-      showError(t('managerPhoneInvalid', { num: 3 }));
-      if (manager3PhoneError) {
-        manager3PhoneError.textContent = invalidPhoneMsg;
-        manager3PhoneError.style.display = 'block';
-      }
-      return false;
+      errors.push({ field: 'manager3Phone', messageKey: 'invalidPhone' });
     }
     
     if (!manager3Email?.value?.trim()) {
-      showError(t('pleaseEnterManagerEmail', { num: 3 }));
-      return false;
+      errors.push({ field: 'manager3Email', messageKey: 'managerEmailRequired' });
     } else if (!isValidEmail(manager3Email.value.trim())) {
-      showError(t('managerEmailInvalid', { num: 3 }));
-      if (manager3EmailError) {
-        manager3EmailError.textContent = invalidEmailMsg;
-        manager3EmailError.style.display = 'block';
-      }
-      return false;
+      errors.push({ field: 'manager3Email', messageKey: 'invalidEmail' });
     }
   } else if (manager3Phone?.value?.trim() || manager3Email?.value?.trim()) {
     // If contact info provided but no name
-    showError(t('managerPhoneProvidedNoName', { num: 3 }));
+    errors.push({ field: 'manager3Name', messageKey: 'managerNameRequired' });
+  }
+  
+  // Display errors if any found
+  if (errors.length > 0) {
+    if (window.errorSystem) {
+      window.errorSystem.showFormErrors(errors, {
+        containerId: 'teamInfoForm',
+        scrollTo: true
+      });
+    } else {
+      // Fallback: errorSystem not available
+      const firstError = errors[0];
+      const message = window.i18n && typeof window.i18n.t === 'function'
+        ? window.i18n.t(firstError.messageKey)
+        : firstError.messageKey;
+      console.error('ErrorSystem not available:', message);
+      alert(message);
+    }
     return false;
   }
   
   // Save Step 2 data to sessionStorage with normalized phone numbers
-  sessionStorage.setItem(`${eventType}_orgName`, orgName.value.trim());
-  sessionStorage.setItem(`${eventType}_mailingAddress`, mailingAddress.value.trim());
-  sessionStorage.setItem(`${eventType}_manager1Name`, manager1Name.value.trim());
-  sessionStorage.setItem(`${eventType}_manager1Phone`, normalizeHKPhone(manager1Phone.value));
-  sessionStorage.setItem(`${eventType}_manager1Email`, manager1Email.value.trim());
-  sessionStorage.setItem(`${eventType}_manager2Name`, manager2Name.value.trim());
-  sessionStorage.setItem(`${eventType}_manager2Phone`, normalizeHKPhone(manager2Phone.value));
-  sessionStorage.setItem(`${eventType}_manager2Email`, manager2Email.value.trim());
+  if (orgName?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_orgName`, orgName.value.trim());
+  }
+  if (mailingAddress?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_mailingAddress`, mailingAddress.value.trim());
+  }
+  if (manager1Name?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager1Name`, manager1Name.value.trim());
+  }
+  if (manager1Phone?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager1Phone`, normalizeHKPhone(manager1Phone.value));
+  }
+  if (manager1Email?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager1Email`, manager1Email.value.trim());
+  }
+  if (manager2Name?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager2Name`, manager2Name.value.trim());
+  }
+  if (manager2Phone?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager2Phone`, normalizeHKPhone(manager2Phone.value));
+  }
+  if (manager2Email?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager2Email`, manager2Email.value.trim());
+  }
   
   // Save optional Manager 3
   if (manager3Name?.value?.trim()) {
@@ -1842,15 +2381,12 @@ function validateStep3() {
  */
 function validateStep4() { return true; }
 
-/**
- * Show error message
- */
+// Legacy showError() function removed - now using unified error system
+// Replaced by errorSystem.showFormErrors() and errorSystem.showSystemError()
+// Fallback: Use alert() if errorSystem not available
 function showError(message) {
-  const msgEl = document.getElementById('formMsg');
-  if (msgEl) {
-    msgEl.textContent = message;
-    msgEl.className = 'msg error';
-  }
+  console.error('Error (errorSystem not available):', message);
+  alert(message || 'An error occurred');
 }
 
 /**
@@ -1883,20 +2419,72 @@ async function submitWUSCForm() {
     
     if (result.ok) {
       Logger.debug('✅ Submission successful:', result.data);
-      
+      console.log('✅ Submission successful');
+
+      // Clear draft from localStorage on successful submission
+      if (window.AutoSave) {
+        const eventRef = getWUSCEventShortRef();
+        AutoSave.clearDraft(eventRef);
+        AutoSave.stopAutoSave();
+        console.log('💾 Auto-save: Draft cleared after successful submission');
+      }
+
       // Save receipt and show confirmation
       saveReceipt(clientTxId, formData);
       showConfirmation(result.data);
-      
+
       // Clear sessionStorage
       clearSessionData();
     } else {
       Logger.error('❌ Submission error:', result.error);
-      throw new Error(result.userMessage || result.error || 'Submission failed');
+      
+      // Handle different error types
+      const status = result.status;
+      if (window.errorSystem) {
+        if (status === 429) {
+          window.errorSystem.showSystemError('rateLimitExceeded', {
+            persistent: true,
+            dismissible: true
+          });
+        } else if (status >= 500) {
+          window.errorSystem.showSystemError('serverErrorDetailed', {
+            dismissible: true
+          });
+        } else if (status === 409) {
+          window.errorSystem.showSystemError('duplicateRegistration', {
+            dismissible: true
+          });
+        } else {
+          window.errorSystem.showSystemError('serverErrorDetailed', {
+            dismissible: true
+          });
+        }
+      } else {
+        throw new Error(result.userMessage || result.error || 'Submission failed');
+      }
     }
   } catch (error) {
     Logger.error('❌ Submission error:', error);
-    showError(error.message || 'Submission failed. Please try again.');
+    
+    // Check if it's a network error
+    if (window.errorSystem) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        window.errorSystem.showSystemError('networkErrorDetailed', {
+          dismissible: true
+        });
+      } else if (error.message && error.message.includes('timeout')) {
+        window.errorSystem.showSystemError('timeoutErrorDetailed', {
+          dismissible: true
+        });
+      } else {
+        window.errorSystem.showSystemError('networkErrorDetailed', {
+          dismissible: true
+        });
+      }
+    } else {
+      console.error('ErrorSystem not available:', error.message || 'Submission failed');
+      alert(error.message || 'Submission failed. Please try again.');
+    }
   }
 }
 

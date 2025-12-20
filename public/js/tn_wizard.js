@@ -112,6 +112,13 @@ let tnScope = null;
 let wizardMount = null;
 let stepper = null;
 
+/**
+ * Get event short ref for auto-save
+ */
+function getTNEventShortRef() {
+  return getEventShortRef() || window.__CONFIG?.event?.event_short_ref || window.__CONFIG?.event?.short_ref || 'TN2025';
+}
+
 // Practice-specific state
 let practiceSlots = [];
 let practiceConfig = null;
@@ -137,31 +144,107 @@ function checkAndCleanPreviewData() {
  * Initialize TN Wizard
  * Sets up the multi-step wizard with legacy templates
  */
+/**
+ * Migrate old team name storage keys to new format
+ */
+function migrateOldTeamNameKeys() {
+  console.log('🔄 Migrating old team name keys...');
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  
+  for (let i = 1; i <= teamCount; i++) {
+    const oldKey = `tn_team_name_${i}`;
+    const newKey = `tn_team_name_en_${i}`;
+    
+    // If old key exists but new key doesn't, migrate
+    const oldValue = sessionStorage.getItem(oldKey);
+    const newValue = sessionStorage.getItem(newKey);
+    
+    if (oldValue && !newValue) {
+      console.log(`  Migrating ${oldKey} -> ${newKey}: "${oldValue}"`);
+      sessionStorage.setItem(newKey, oldValue);
+    }
+    
+    // Remove old key
+    if (oldValue) {
+      sessionStorage.removeItem(oldKey);
+    }
+  }
+  
+  console.log('🔄 Migration complete');
+}
+
 export function initTNWizard() {
+  console.log('🎯 Initializing TN Wizard with auto-save');
 	Logger.debug('initTNWizard: Starting TN wizard initialization');
+  
   tnScope = document.getElementById('tnScope');
   wizardMount = document.getElementById('wizardMount');
   stepper = document.getElementById('stepper');
-  
+
 	Logger.debug('initTNWizard: Containers found:', { tnScope: !!tnScope, wizardMount: !!wizardMount, stepper: !!stepper });
-  
+
   if (!tnScope || !wizardMount) {
 	Logger.error('TN wizard containers not found');
     return;
   }
-  
+
+  // Migrate old team name keys to new format
+  migrateOldTeamNameKeys();
+
   // Check if we're starting fresh or continuing with existing data
   checkAndCleanPreviewData();
-  
+
   // Initialize debug functions globally
   setupDebugFunctions();
-  
+
   // Initialize step navigation
   initStepNavigation();
   
-  // Load step 0 (Race Info) first
-	Logger.debug('initTNWizard: Loading step 0 (Race Info)');
-  loadStep(0);
+  // Auto-save integration
+  const eventRef = getTNEventShortRef();
+  
+  // Try to restore from localStorage FIRST (before loading step 0)
+  if (window.AutoSave) {
+    const restoredDraft = AutoSave.restoreDraft(eventRef);
+    
+    if (restoredDraft && restoredDraft.step > 0) {
+      // User accepted restoration - load their last step
+      console.log('💾 Loading from restored draft, step:', restoredDraft.step);
+      loadStep(restoredDraft.step);
+    } else {
+      // No draft or user declined - start fresh at step 0
+      console.log('🎯 Starting fresh from step 0');
+      loadStep(0);
+    }
+    
+    // Start auto-save timer
+    AutoSave.startAutoSave(eventRef, () => currentStep);
+    
+    // Mark dirty on any input change within TN scope
+    document.addEventListener('input', (e) => {
+      if (e.target.closest('#tnScope') && e.target.matches('input, select, textarea')) {
+        AutoSave.markDirty();
+      }
+    });
+    
+    document.addEventListener('change', (e) => {
+      if (e.target.closest('#tnScope') && e.target.matches('input[type="radio"], input[type="checkbox"]')) {
+        AutoSave.markDirty();
+      }
+    });
+    
+    // Warn before leaving page if dirty
+    window.addEventListener('beforeunload', (e) => {
+      if (AutoSave.isDirty && currentStep > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+  } else {
+    // AutoSave not available, start normally
+    console.log('⚠️ AutoSave not available, starting normally');
+    loadStep(0);
+  }
   
   // Set up deep linking
   initDeepLinking();
@@ -418,8 +501,12 @@ function initDeepLinking() {
  * Clear data for a specific step and all steps after it
  */
 function clearStepDataFromHere(fromStep) {
-	Logger.debug(`🎯 Clearing data from step ${fromStep} onwards`);
+  console.log('🚫 clearStepDataFromHere called with fromStep:', fromStep);
+  console.log('🚫 This DELETES data! Disabled for back navigation - we want to restore data, not clear it!');
+  return; // ← DISABLED: Don't clear data when going back - we want to restore it!
   
+	Logger.debug(`🎯 Clearing data from step ${fromStep} onwards`);
+
   // Step 2: Team info, org, managers
   if (fromStep <= 2) {
     const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
@@ -441,12 +528,12 @@ function clearStepDataFromHere(fromStep) {
     sessionStorage.removeItem('tn_manager3_phone');
     sessionStorage.removeItem('tn_manager3_email');
   }
-  
+
   // Step 3: Race day
   if (fromStep <= 3) {
     sessionStorage.removeItem('tn_race_day');
   }
-  
+
   // Step 4: Practice data
   if (fromStep <= 4) {
     const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
@@ -456,9 +543,9 @@ function clearStepDataFromHere(fromStep) {
       sessionStorage.removeItem(`tn_slot_ranks_${teamKey}`);
     }
   }
-  
+
   // Step 5: Summary (no specific data to clear)
-  
+
 	Logger.debug(`✅ Cleared data from step ${fromStep} onwards`);
 }
 
@@ -837,6 +924,15 @@ function initStep0() {
  * Initialize Step 1 - Category Selection
  */
 async function initStep1() {
+  console.log('\n'.repeat(3));
+  console.log('═══════════════════════════════════════');
+  console.log('TN STEP 1: DEEP DIAGNOSTIC');
+  console.log('═══════════════════════════════════════');
+  console.log('Time:', new Date().toISOString());
+  
+  // CHECKPOINT 1: Check if we're even loading Step 1
+  console.log('\n[CHECKPOINT 1] initStep1() called');
+  
 	Logger.debug('🎯 initStep1: Starting team count selection');
   
   // Create team count selection UI (will replace template content)
@@ -847,6 +943,151 @@ async function initStep1() {
   
   // Restore previously selected team count if it exists (await to ensure fields are generated)
   await restoreTeamCountSelection();
+  
+  // CHECKPOINT 2: After step content loads
+  setTimeout(() => {
+    console.log('\n[CHECKPOINT 2] Step content loaded (after existing code)');
+    console.log('wizardMount exists:', !!document.getElementById('wizardMount'));
+    console.log('wizardMount HTML length:', document.getElementById('wizardMount')?.innerHTML?.length || 0);
+    
+    // CHECKPOINT 3: Check sessionStorage
+    console.log('\n[CHECKPOINT 3] SessionStorage check:');
+    if (window.FieldRestoreUtility) {
+      FieldRestoreUtility.debugStorage('tn_');
+    } else {
+      console.log('  ⚠️  FieldRestoreUtility not available');
+      // Manual dump
+      const keys = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key.startsWith('tn_')) {
+          keys.push({ key, value: sessionStorage.getItem(key) });
+        }
+      }
+      keys.sort((a, b) => a.key.localeCompare(b.key));
+      keys.forEach(({ key, value }) => {
+        console.log(`  ${key}: "${value}"`);
+      });
+    }
+    
+    // CHECKPOINT 4: Check if team count field exists
+    const teamCountSelect = document.getElementById('teamCount');
+    console.log('\n[CHECKPOINT 4] Team count field:');
+    console.log('  Field exists:', !!teamCountSelect);
+    if (teamCountSelect) {
+      console.log('  Field value:', teamCountSelect.value);
+      console.log('  Field options:', Array.from(teamCountSelect.options).map(o => o.value));
+    }
+    
+    // CHECKPOINT 5: Try to restore team count
+    const savedCount = sessionStorage.getItem('tn_team_count');
+    console.log('\n[CHECKPOINT 5] Attempting team count restoration:');
+    console.log('  Saved count:', savedCount);
+    
+    if (savedCount && teamCountSelect) {
+      console.log('  ✓ Both exist, setting value...');
+      teamCountSelect.value = savedCount;
+      console.log('  Field value after set:', teamCountSelect.value);
+      
+      // Trigger change
+      console.log('  Triggering change event...');
+      const changeEvent = new Event('change', { bubbles: true });
+      teamCountSelect.dispatchEvent(changeEvent);
+      
+      // CHECKPOINT 6: Check if team fields rendered
+      setTimeout(() => {
+        console.log('\n[CHECKPOINT 6] After change event (300ms delay):');
+        
+        const teamCount = parseInt(savedCount, 10);
+        console.log(`  Looking for ${teamCount} team fields...`);
+        
+        for (let i = 1; i <= teamCount; i++) {
+          const nameField = document.getElementById(`teamNameEn${i}`);
+          const categoryField = document.getElementById(`teamCategory${i}`);
+          
+          console.log(`\n  Team ${i}:`);
+          console.log(`    teamNameEn${i} exists:`, !!nameField);
+          console.log(`    teamCategory${i} exists:`, !!categoryField);
+          
+          if (nameField) {
+            console.log(`    teamNameEn${i} value:`, nameField.value);
+            console.log(`    teamNameEn${i} type:`, nameField.type);
+            console.log(`    teamNameEn${i} tagName:`, nameField.tagName);
+          }
+          
+          // Try to restore
+          const savedName = sessionStorage.getItem(`tn_team_name_en_${i}`);
+          console.log(`    Saved name: "${savedName}"`);
+          
+          if (nameField && savedName) {
+            console.log(`    Setting name...`);
+            const beforeValue = nameField.value;
+            nameField.value = savedName;
+            console.log(`    Name field value before set: "${beforeValue}"`);
+            console.log(`    Name field value after set: "${nameField.value}"`);
+            
+            // Force update
+            nameField.dispatchEvent(new Event('input', { bubbles: true }));
+            console.log(`    After input event: "${nameField.value}"`);
+          }
+        }
+        
+        // CHECKPOINT 7: Full DOM dump
+        console.log('\n[CHECKPOINT 7] Full DOM state:');
+        if (window.FieldRestoreUtility) {
+          FieldRestoreUtility.debugDOM('wizardMount');
+        } else {
+          console.log('  ⚠️  FieldRestoreUtility not available for DOM dump');
+          const container = document.getElementById('wizardMount');
+          if (container) {
+            const fields = container.querySelectorAll('input, select, textarea');
+            console.log(`  Found ${fields.length} fields:`);
+            fields.forEach(field => {
+              const info = [];
+              if (field.id) info.push(`id="${field.id}"`);
+              if (field.name) info.push(`name="${field.name}"`);
+              if (field.type) info.push(`type="${field.type}"`);
+              if (field.value) info.push(`value="${field.value}"`);
+              console.log(`  - ${field.tagName} [${info.join(', ')}]`);
+            });
+          }
+        }
+        
+        console.log('\n═══════════════════════════════════════');
+        console.log('END DIAGNOSTIC');
+        console.log('═══════════════════════════════════════\n');
+        
+      }, 300);
+    } else {
+      console.log('  ✗ Missing saved count or field');
+      if (!savedCount) console.log('    → No saved count in sessionStorage');
+      if (!teamCountSelect) console.log('    → teamCount field not in DOM');
+      
+      console.log('\n═══════════════════════════════════════');
+      console.log('END DIAGNOSTIC (EARLY EXIT)');
+      console.log('═══════════════════════════════════════\n');
+    }
+    
+  }, 100);
+  
+  // Original restoration code (still runs in parallel)
+  // Debug what we have
+  console.log('\n=== TN STEP 1: RESTORE ===');
+  if (window.FieldRestoreUtility) {
+    FieldRestoreUtility.debugStorage('tn_');
+  }
+  
+  // Restore team fields after they're generated (wait a bit for DOM to settle)
+  const savedCount = sessionStorage.getItem('tn_team_count');
+  if (savedCount) {
+    const teamCount = parseInt(savedCount, 10);
+    if (teamCount > 0) {
+      // Wait for team fields to render and any async operations to complete
+      setTimeout(() => {
+        restoreTNStep1Teams(teamCount);
+      }, 400);
+    }
+  }
 }
 
 /**
@@ -1174,32 +1415,8 @@ function checkForDuplicateNames() {
   }
 }
 
-/**
- * Clear field highlighting
- */
-function clearFieldHighlighting() {
-  const highlightedFields = document.querySelectorAll('#tnScope .field-error');
-  highlightedFields.forEach(field => {
-    field.classList.remove('field-error');
-  });
-  
-  // Also clear duplicate warning
-  const msgEl = document.getElementById('formMsg');
-  if (msgEl && msgEl.textContent.includes('Duplicate team names')) {
-    msgEl.style.display = 'none';
-    msgEl.textContent = '';
-  }
-}
-
-/**
- * Highlight a field with error styling
- */
-function highlightField(field) {
-  if (field) {
-    field.classList.add('field-error');
-    field.focus();
-  }
-}
+// Legacy error functions removed - now using unified error system
+// highlightField() and clearFieldHighlighting() replaced by errorSystem.showFieldError() and errorSystem.clearFormErrors()
 
 /**
  * Generate team fields based on team count
@@ -1348,13 +1565,38 @@ async function generateTeamFields(teamCount) {
   setupCategoryChangeHandlers(teamCount);
   
 	Logger.debug('🎯 generateTeamFields: Created', teamCount, 'team input fields');
-  
+
   // IMPORTANT: After generating fields, restore any saved data
   // This ensures user input is preserved when fields are regenerated
   const savedTeamCount = sessionStorage.getItem('tn_team_count');
   if (savedTeamCount && parseInt(savedTeamCount, 10) === teamCount) {
-    Logger.debug('🎯 generateTeamFields: Restoring saved field values after generation');
+	Logger.debug('🎯 generateTeamFields: Restoring saved field values after generation');
     loadTeamData();
+  }
+  
+  // Set up team name change handlers to update Step 4 selector
+  setupTeamNameChangeHandlers(teamCount);
+}
+
+/**
+ * Set up handlers to update team selector in Step 4 when team names change in Step 1
+ */
+function setupTeamNameChangeHandlers(teamCount) {
+  for (let i = 1; i <= teamCount; i++) {
+    const nameField = document.getElementById(`teamNameEn${i}`);
+    if (nameField) {
+      // Update sessionStorage and refresh team selector when name changes
+      nameField.addEventListener('blur', (e) => {
+        const newName = e.target.value.trim();
+        if (newName) {
+          sessionStorage.setItem(`tn_team_name_en_${i}`, newName);
+          // If we're on Step 4, update the team selector
+          if (currentStep === 4) {
+            populateTeamSelector();
+          }
+        }
+      });
+    }
   }
 }
 
@@ -1562,8 +1804,19 @@ async function initStep2() {
   // Create organization and team manager form
   createOrganizationForm();
   
-  // Load saved data if available
+  // Load saved data if available (legacy function)
   loadOrganizationData();
+  
+  // Debug what we have
+  console.log('\n=== TN STEP 2: RESTORE ===');
+  if (window.FieldRestoreUtility) {
+    FieldRestoreUtility.debugStorage('tn_');
+  }
+  
+  // WAIT for DOM to be ready, then restore with FieldRestoreUtility
+  setTimeout(() => {
+    restoreTNStep2();
+  }, 250);
 }
 
 /**
@@ -1587,12 +1840,14 @@ function createOrganizationForm() {
           <label for="orgName" data-i18n="organizationGroupNameShort">${t('organizationGroupNameShort')}</label>
           <input type="text" id="orgName" name="orgName" required 
                  placeholder="${t('enterOrgName')}" data-i18n-placeholder="enterOrgName" />
+          <div class="field-error-message" id="error-orgName"></div>
         </div>
         
         <div class="form-group">
           <label for="orgAddress" data-i18n="addressLabel">${t('addressLabel')}</label>
           <textarea id="orgAddress" name="orgAddress" required rows="3"
                     placeholder="${t('enterCompleteAddress')}" data-i18n-placeholder="enterCompleteAddress"></textarea>
+          <div class="field-error-message" id="error-orgAddress"></div>
         </div>
       </div>
       
@@ -1604,6 +1859,7 @@ function createOrganizationForm() {
             <label for="manager1Name" data-i18n="nameLabel">${t('nameLabel')}</label>
             <input type="text" id="manager1Name" name="manager1Name" required 
                    placeholder="${t('enterFullName')}" data-i18n-placeholder="enterFullName" />
+            <div class="field-error-message" id="error-manager1Name"></div>
           </div>
           <div class="form-group">
             <label for="manager1Phone" data-i18n="phoneLabel">${t('phoneLabel')}</label>
@@ -1613,13 +1869,13 @@ function createOrganizationForm() {
                      placeholder="${t('eightDigitNumber')}" data-i18n-placeholder="eightDigitNumber" maxlength="8" inputmode="numeric" 
                      pattern="[0-9]{8}" />
             </div>
-            <div class="field-error" id="manager1PhoneError"></div>
+            <div class="field-error-message" id="error-manager1Phone"></div>
           </div>
           <div class="form-group">
             <label for="manager1Email" data-i18n="emailLabel">${t('emailLabel')}</label>
             <input type="email" id="manager1Email" name="manager1Email" required 
                    placeholder="${t('enterEmailAddress')}" data-i18n-placeholder="enterEmailAddress" />
-            <div class="field-error" id="manager1EmailError"></div>
+            <div class="field-error-message" id="error-manager1Email"></div>
           </div>
         </div>
       </div>
@@ -1632,6 +1888,7 @@ function createOrganizationForm() {
             <label for="manager2Name" data-i18n="nameLabel">${t('nameLabel')}</label>
             <input type="text" id="manager2Name" name="manager2Name" required 
                    placeholder="${t('enterFullName')}" data-i18n-placeholder="enterFullName" />
+            <div class="field-error-message" id="error-manager2Name"></div>
           </div>
           <div class="form-group">
             <label for="manager2Phone" data-i18n="phoneLabel">${t('phoneLabel')}</label>
@@ -1641,13 +1898,13 @@ function createOrganizationForm() {
                      placeholder="${t('eightDigitNumber')}" data-i18n-placeholder="eightDigitNumber" maxlength="8" inputmode="numeric" 
                      pattern="[0-9]{8}" />
             </div>
-            <div class="field-error" id="manager2PhoneError"></div>
+            <div class="field-error-message" id="error-manager2Phone"></div>
           </div>
           <div class="form-group">
             <label for="manager2Email" data-i18n="emailLabel">${t('emailLabel')}</label>
             <input type="email" id="manager2Email" name="manager2Email" required 
                    placeholder="${t('enterEmailAddress')}" data-i18n-placeholder="enterEmailAddress" />
-            <div class="field-error" id="manager2EmailError"></div>
+            <div class="field-error-message" id="error-manager2Email"></div>
           </div>
         </div>
       </div>
@@ -1660,6 +1917,7 @@ function createOrganizationForm() {
             <label for="manager3Name" data-i18n="nameLabelOptional">${t('nameLabelOptional')}</label>
             <input type="text" id="manager3Name" name="manager3Name" 
                    placeholder="${t('enterFullName')}" data-i18n-placeholder="enterFullName" />
+            <div class="field-error-message" id="error-manager3Name"></div>
           </div>
           <div class="form-group">
             <label for="manager3Phone" data-i18n="phoneLabelOptional">${t('phoneLabelOptional')}</label>
@@ -1669,13 +1927,13 @@ function createOrganizationForm() {
                      placeholder="${t('eightDigitNumber')}" data-i18n-placeholder="eightDigitNumber" maxlength="8" inputmode="numeric" 
                      pattern="[0-9]{8}" />
             </div>
-            <div class="field-error" id="manager3PhoneError"></div>
+            <div class="field-error-message" id="error-manager3Phone"></div>
           </div>
           <div class="form-group">
             <label for="manager3Email" data-i18n="emailLabelOptional">${t('emailLabelOptional')}</label>
             <input type="email" id="manager3Email" name="manager3Email" 
                    placeholder="${t('enterEmailAddress')}" data-i18n-placeholder="enterEmailAddress" />
-            <div class="field-error" id="manager3EmailError"></div>
+            <div class="field-error-message" id="error-manager3Email"></div>
           </div>
         </div>
       </div>
@@ -1703,19 +1961,83 @@ function createOrganizationForm() {
 
 /**
  * Set up email and phone validation for Step 2
+ * Uses unified error system for real-time validation
  */
 function setupStep2Validation() {
-  // Set up validation for all email fields
-  setupEmailValidation('manager1Email');
-  setupEmailValidation('manager2Email');
-  setupEmailValidation('manager3Email');
+  if (!window.errorSystem) {
+    // Fallback to old validation methods if errorSystem not available
+    setupEmailValidation('manager1Email');
+    setupEmailValidation('manager2Email');
+    setupEmailValidation('manager3Email');
+    setupPhoneValidation('manager1Phone');
+    setupPhoneValidation('manager2Phone');
+    setupPhoneValidation('manager3Phone');
+    Logger.debug('🎯 setupStep2Validation: Using legacy validation methods');
+    return;
+  }
   
-  // Set up validation for all phone fields
-  setupPhoneValidation('manager1Phone');
-  setupPhoneValidation('manager2Phone');
-  setupPhoneValidation('manager3Phone');
+  // Set up real-time validation using error system for email fields
+  ['manager1Email', 'manager2Email', 'manager3Email'].forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    
+    // Validate on blur
+    field.addEventListener('blur', () => {
+      if (field.value.trim()) {
+        if (!isValidEmail(field.value.trim())) {
+          window.errorSystem.showFieldError(fieldId, 'invalidEmail', {
+            scrollTo: false,
+            focus: false
+          });
+        } else {
+          window.errorSystem.clearFieldError(fieldId);
+        }
+      }
+    });
+    
+    // Clear error on input
+    field.addEventListener('input', () => {
+      window.errorSystem.clearFieldError(fieldId);
+    });
+  });
   
-	Logger.debug('🎯 setupStep2Validation: Email and phone validation configured');
+  // Set up real-time validation using error system for phone fields
+  ['manager1Phone', 'manager2Phone', 'manager3Phone'].forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    
+    // Enforce digits only on input
+    field.addEventListener('input', (e) => {
+      const cursorPosition = e.target.selectionStart;
+      const oldValue = e.target.value;
+      const newValue = oldValue.replace(/\D/g, '').substring(0, 8);
+      
+      if (oldValue !== newValue) {
+        e.target.value = newValue;
+        // Restore cursor position
+        e.target.setSelectionRange(cursorPosition, cursorPosition);
+      }
+      
+      // Clear error on input
+      window.errorSystem.clearFieldError(fieldId);
+    });
+    
+    // Validate on blur
+    field.addEventListener('blur', () => {
+      if (field.value.trim()) {
+        if (!isValidHKPhone(field.value.trim())) {
+          window.errorSystem.showFieldError(fieldId, 'invalidPhone', {
+            scrollTo: false,
+            focus: false
+          });
+        } else {
+          window.errorSystem.clearFieldError(fieldId);
+        }
+      }
+    });
+  });
+  
+  Logger.debug('🎯 setupStep2Validation: Email and phone validation configured with error system');
 }
 
 /**
@@ -1727,7 +2049,8 @@ function setupStep2Navigation() {
   if (backBtn) {
     backBtn.addEventListener('click', () => {
 	Logger.debug('🎯 initStep2: Back button clicked, going to step 1');
-      clearStepDataFromHere(1); // Clear step 1 and all after
+      // DON'T clear data when going back - we want to restore it!
+      // clearStepDataFromHere(1); // ← COMMENTED OUT
       loadStep(1);
     });
   }
@@ -1809,7 +2132,7 @@ function loadOrganizationData() {
   const manager3Name = sessionStorage.getItem('tn_manager3_name');
   const manager3Phone = sessionStorage.getItem('tn_manager3_phone');
   const manager3Email = sessionStorage.getItem('tn_manager3_email');
-  
+
   if (manager3Name) {
     const el = document.getElementById('manager3Name');
     if (el) el.value = manager3Name;
@@ -1826,35 +2149,137 @@ function loadOrganizationData() {
 }
 
 /**
+ * Restore TN Step 2 organization and manager fields using FieldRestoreUtility
+ */
+function restoreTNStep2() {
+  if (!window.FieldRestoreUtility) {
+    Logger.warn('🎯 restoreTNStep2: FieldRestoreUtility not available, using legacy loadOrganizationData');
+    return;
+  }
+  
+  console.log('[TN Step 2] Restoring organization & managers...');
+  
+  // Organization
+  FieldRestoreUtility.restoreField('orgName', 'org_name', { prefix: 'tn_', debug: true });
+  FieldRestoreUtility.restoreField('orgAddress', 'org_address', { prefix: 'tn_', debug: true });
+  
+  // Manager 1
+  FieldRestoreUtility.restoreField('manager1Name', 'manager1_name', { prefix: 'tn_', debug: true });
+  FieldRestoreUtility.restoreField('manager1Email', 'manager1_email', { prefix: 'tn_', debug: true });
+  
+  // Manager 1 phone (extract local)
+  const phone1 = sessionStorage.getItem('tn_manager1_phone');
+  if (phone1) {
+    const local = phone1.startsWith('+852') ? phone1.substring(4) : phone1;
+    const field = document.getElementById('manager1Phone');
+    if (field) {
+      field.value = local;
+      console.log('[Restore] ✓ manager1Phone: "' + local + '"');
+    }
+  }
+  
+  // Manager 2 (same pattern)
+  FieldRestoreUtility.restoreField('manager2Name', 'manager2_name', { prefix: 'tn_', debug: true });
+  FieldRestoreUtility.restoreField('manager2Email', 'manager2_email', { prefix: 'tn_', debug: true });
+  
+  const phone2 = sessionStorage.getItem('tn_manager2_phone');
+  if (phone2) {
+    const local = phone2.startsWith('+852') ? phone2.substring(4) : phone2;
+    const field = document.getElementById('manager2Phone');
+    if (field) {
+      field.value = local;
+      console.log('[Restore] ✓ manager2Phone: "' + local + '"');
+    }
+  }
+  
+  // Manager 3 (optional, same pattern)
+  FieldRestoreUtility.restoreField('manager3Name', 'manager3_name', { prefix: 'tn_', debug: true });
+  FieldRestoreUtility.restoreField('manager3Email', 'manager3_email', { prefix: 'tn_', debug: true });
+  
+  const phone3 = sessionStorage.getItem('tn_manager3_phone');
+  if (phone3) {
+    const local = phone3.startsWith('+852') ? phone3.substring(4) : phone3;
+    const field = document.getElementById('manager3Phone');
+    if (field) {
+      field.value = local;
+      console.log('[Restore] ✓ manager3Phone: "' + local + '"');
+    }
+  }
+  
+  console.log('[TN Step 2] ✓ Restoration complete');
+  setTimeout(() => {
+    if (window.FieldRestoreUtility) {
+      FieldRestoreUtility.debugDOM('wizardMount');
+    }
+  }, 500);
+}
+
+/**
  * Load saved team data from sessionStorage
  */
 function loadTeamData() {
-  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10);
-  if (!teamCount) return;
+  console.log('🔍 loadTeamData: Checking what storage keys exist...');
+  
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  console.log('🔍 loadTeamData: Team count:', teamCount);
+  
+  if (!teamCount) {
+    console.log('🔍 loadTeamData: No team count, exiting');
+    return;
+  }
   
 	Logger.debug('🎯 loadTeamData: Loading data for', teamCount, 'teams');
   
   for (let i = 1; i <= teamCount; i++) {
+    // Check EXACT storage keys it's looking for
+    console.log(`\n🔍 Team ${i} - Looking for:`);
     const teamNameEn = sessionStorage.getItem(`tn_team_name_en_${i}`);
     const teamNameTc = sessionStorage.getItem(`tn_team_name_tc_${i}`);
     const teamCategory = sessionStorage.getItem(`tn_team_category_${i}`);
     const teamOption = sessionStorage.getItem(`tn_team_option_${i}`);
-
+    
+    console.log(`  tn_team_name_en_${i}: "${teamNameEn}"`);
+    console.log(`  tn_team_name_tc_${i}: "${teamNameTc}"`);
+    console.log(`  tn_team_category_${i}: "${teamCategory}"`);
+    console.log(`  tn_team_option_${i}: "${teamOption}"`);
+    
+    // Check if fields exist
+    const nameField = document.getElementById(`teamNameEn${i}`);
+    const categoryField = document.getElementById(`teamCategory${i}`);
+    console.log(`  teamNameEn${i} exists:`, !!nameField);
+    console.log(`  teamCategory${i} exists:`, !!categoryField);
+    
+    // Try to restore
     if (teamNameEn) {
       const nameEnEl = document.getElementById(`teamNameEn${i}`);
-      if (nameEnEl) nameEnEl.value = teamNameEn;
+      if (nameEnEl) {
+        console.log(`  ✓ Restoring name: "${teamNameEn}"`);
+        const beforeValue = nameEnEl.value;
+        nameEnEl.value = teamNameEn;
+        console.log(`    Before: "${beforeValue}", After: "${nameEnEl.value}"`);
+      } else {
+        console.log(`  ✗ Field teamNameEn${i} not found in DOM`);
+      }
     }
+    
     if (teamNameTc) {
       const nameTcEl = document.getElementById(`teamNameTc${i}`);
-      if (nameTcEl) nameTcEl.value = teamNameTc;
+      if (nameTcEl) {
+        nameTcEl.value = teamNameTc;
+        console.log(`  ✓ Restored TC name: "${teamNameTc}"`);
+      }
     }
     
     if (teamCategory) {
       const categoryEl = document.getElementById(`teamCategory${i}`);
       if (categoryEl) {
+        console.log(`  ✓ Restoring category: "${teamCategory}"`);
         categoryEl.value = teamCategory;
         // Trigger change event to populate entry options
         categoryEl.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`    Category change event triggered`);
+      } else {
+        console.log(`  ✗ Field teamCategory${i} not found in DOM`);
       }
     }
     
@@ -1863,9 +2288,11 @@ function loadTeamData() {
     if (teamOption && teamCategory) {
       setTimeout(() => {
         const optionRadios = document.querySelectorAll(`input[name="teamOption${i}"]`);
+        console.log(`  Looking for teamOption${i} with value "${teamOption}", found ${optionRadios.length} radios`);
         optionRadios.forEach(radio => {
           if (radio.value === teamOption) {
             radio.checked = true;
+            console.log(`  ✓ Restored option: "${teamOption}"`);
             // Trigger click on the package box to update styling
             const packageOption = radio.closest('.package-option');
             if (packageOption) {
@@ -1879,6 +2306,75 @@ function loadTeamData() {
       }, 100);
     }
   }
+  
+  console.log('🔍 loadTeamData: Completed restoration attempt\n');
+}
+
+/**
+ * Restore TN Step 1 team fields using FieldRestoreUtility
+ */
+function restoreTNStep1Teams(teamCount) {
+  if (!window.FieldRestoreUtility) {
+    Logger.warn('🎯 restoreTNStep1Teams: FieldRestoreUtility not available, falling back to loadTeamData');
+    loadTeamData();
+    return;
+  }
+  
+  console.log(`[TN Step 1] Restoring ${teamCount} teams...`);
+  
+  for (let i = 1; i <= teamCount; i++) {
+    // Team name EN
+    FieldRestoreUtility.restoreField(
+      `teamNameEn${i}`,
+      `team_name_en_${i}`,
+      { prefix: 'tn_', debug: true }
+    );
+    
+    // Team name TC
+    FieldRestoreUtility.restoreField(
+      `teamNameTc${i}`,
+      `team_name_tc_${i}`,
+      { prefix: 'tn_', debug: true }
+    );
+    
+    // Team category (triggers option display)
+    const categoryRestored = FieldRestoreUtility.restoreWithCascade(
+      `teamCategory${i}`,
+      `team_category_${i}`,
+      { prefix: 'tn_', debug: true, triggerChange: true, waitForDependent: 150 }
+    );
+    
+    // Team option (WAIT for options to render)
+    if (categoryRestored) {
+      setTimeout(() => {
+        const teamOption = sessionStorage.getItem(`tn_team_option_${i}`);
+        if (teamOption) {
+          const optionRadios = document.querySelectorAll(`input[name="teamOption${i}"]`);
+          optionRadios.forEach(radio => {
+            if (radio.value === teamOption) {
+              radio.checked = true;
+              console.log(`[Restore] ✓ teamOption${i}: "${teamOption}"`);
+              // Trigger click on the package box to update styling
+              const packageOption = radio.closest('.package-option');
+              if (packageOption) {
+                const packageBox = packageOption.querySelector('.package-box');
+                if (packageBox) {
+                  packageBox.click();
+                }
+              }
+            }
+          });
+        }
+      }, 150);
+    }
+  }
+  
+  console.log('[TN Step 1] ✓ Restoration complete');
+  setTimeout(() => {
+    if (window.FieldRestoreUtility) {
+      FieldRestoreUtility.debugDOM('wizardMount');
+    }
+  }, 500);
 }
 
 /**
@@ -1924,8 +2420,38 @@ async function initStep3() {
   // Create race day form with database items
   await createRaceDayForm();
   
-  // Load saved data if available
+  // Diagnostic: Check if all expected fields exist
+  console.log('\n🎯 initStep3: Checking Step 3 fields:');
+  const expectedFields = [
+    'marqueeQty',
+    'steerWithQty', 
+    'steerWithoutQty',
+    'junkBoatNo',      // ← Boat license number
+    'junkBoatQty',     // ← Boat quantity
+    'speedBoatNo',     // ← Boat license number
+    'speedboatQty'     // ← Boat quantity
+  ];
+  
+  expectedFields.forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    console.log(`  ${fieldId}:`, field ? '✓ EXISTS' : '❌ MISSING');
+    if (field) {
+      console.log(`    Type: ${field.type}, Value: "${field.value}"`);
+    }
+  });
+  
+  // Load saved data if available (legacy function)
   loadRaceDayData();
+  
+  // Debug what we have
+  console.log('\n=== TN STEP 3: RESTORE ===');
+  if (window.FieldRestoreUtility) {
+    FieldRestoreUtility.debugStorage('tn_');
+  }
+  
+  setTimeout(() => {
+    restoreTNStep3();
+  }, 250);
 }
 
 /**
@@ -1952,6 +2478,12 @@ async function createRaceDayForm() {
     
 	Logger.debug('🎯 createRaceDayForm: Loaded', raceDayItems?.length || 0, 'race day items');
     
+    // Log all item codes for debugging
+    console.log('🎯 createRaceDayForm: Item codes from database:');
+    raceDayItems?.forEach(item => {
+      console.log(`  - item_code: "${item.item_code}", title_en: "${item.title_en}"`);
+    });
+    
     // Group items by category for better organization
     const groupedItems = groupRaceDayItems(raceDayItems || []);
     
@@ -1969,6 +2501,35 @@ async function createRaceDayForm() {
             ${items.map(item => {
               // Use localized race day item title if db-localization is available
               const itemTitle = window.getRaceDayItemTitle ? window.getRaceDayItemTitle(item) : item.title_en;
+              
+              // Check if this item needs a boat number field
+              // Support multiple possible item_code formats:
+              // - 'junk_boat', 'rd_junk', 'junk' (for junk/pleasure boat)
+              // - 'speed_boat', 'rd_speedboat', 'speedboat' (for speed boat)
+              const itemCodeLower = (item.item_code || '').toLowerCase();
+              const titleLower = (item.title_en || '').toLowerCase();
+              
+              const isJunkBoat = itemCodeLower === 'junk_boat' || 
+                                 itemCodeLower === 'rd_junk' || 
+                                 itemCodeLower === 'junk' ||
+                                 itemCodeLower.includes('junk') ||
+                                 titleLower.includes('junk') ||
+                                 titleLower.includes('pleasure');
+              
+              const isSpeedBoat = itemCodeLower === 'speed_boat' || 
+                                  itemCodeLower === 'rd_speedboat' || 
+                                  itemCodeLower === 'speedboat' ||
+                                  itemCodeLower.includes('speed') ||
+                                  titleLower.includes('speed');
+              
+              const needsBoatNumber = isJunkBoat || isSpeedBoat;
+              const boatNoFieldId = isJunkBoat ? 'junkBoatNo' : 
+                                    isSpeedBoat ? 'speedBoatNo' : null;
+              
+              if (needsBoatNumber) {
+                console.log(`🎯 Adding boat number field for item: ${item.item_code} (${item.title_en}) -> ${boatNoFieldId}`);
+              }
+              
               return `
               <div class="item-row">
                 <div class="item-info">
@@ -1976,6 +2537,17 @@ async function createRaceDayForm() {
                   <span class="item-price"><span data-i18n="unitPrice">${t('unitPrice')}</span> ${t('hkDollar')}${item.listed_unit_price}</span>
                 </div>
                 <div class="item-controls">
+                  ${needsBoatNumber ? `
+                    <div class="boat-number-row" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                      <label for="${boatNoFieldId}" style="white-space: nowrap;" data-i18n="${isJunkBoat ? 'pleasureBoatNo' : 'speedBoatNo'}">
+                        ${isJunkBoat ? t('pleasureBoatNo') : t('speedBoatNo')}:
+                      </label>
+                      <input type="text" 
+                             id="${boatNoFieldId}" 
+                             name="${boatNoFieldId}" 
+                             style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" />
+                    </div>
+                  ` : ''}
                   <input type="number" 
                          id="${item.item_code}Qty" 
                          name="${item.item_code}Qty" 
@@ -1983,11 +2555,97 @@ async function createRaceDayForm() {
                          max="${item.max_qty || ''}"
                          value="0" 
                          class="qty-input" />
+                  <div class="field-error-message" id="error-${item.item_code}Qty"></div>
                 </div>
               </div>
             `;}).join('')}
           </div>
         `).join('')}
+        
+        <!-- Ensure boat number fields exist even if not in database items -->
+        ${(() => {
+          // Check if boat number fields were already added
+          const hasJunkBoat = raceDayItems?.some(item => {
+            const code = (item.item_code || '').toLowerCase();
+            const title = (item.title_en || '').toLowerCase();
+            return code.includes('junk') || code.includes('pleasure') || title.includes('junk') || title.includes('pleasure');
+          });
+          const hasSpeedBoat = raceDayItems?.some(item => {
+            const code = (item.item_code || '').toLowerCase();
+            const title = (item.title_en || '').toLowerCase();
+            return code.includes('speed') || title.includes('speed');
+          });
+          
+          let fallbackHTML = '';
+          
+          // Add junk boat fields if missing
+          if (!hasJunkBoat) {
+            console.log('🎯 Adding fallback junk boat fields (not found in database items)');
+            fallbackHTML += `
+              <div class="form-section">
+                <h3>${t('junkRegistration')}</h3>
+                <div class="item-row">
+                  <div class="item-info">
+                    <span class="item-title">${t('junkRegistration')}</span>
+                    <span class="item-price"><span data-i18n="unitPrice">${t('unitPrice')}</span> ${t('hkDollar')}2,500</span>
+                  </div>
+                  <div class="item-controls">
+                    <div class="boat-number-row" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                      <label for="junkBoatNo" style="white-space: nowrap;" data-i18n="pleasureBoatNo">
+                        ${t('pleasureBoatNo')}:
+                      </label>
+                      <input type="text" 
+                             id="junkBoatNo" 
+                             name="junkBoatNo" 
+                             style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" />
+                    </div>
+                    <input type="number" 
+                           id="junkBoatQty" 
+                           name="junkBoatQty" 
+                           min="0" 
+                           value="0" 
+                           class="qty-input" />
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+          
+          // Add speed boat fields if missing
+          if (!hasSpeedBoat) {
+            console.log('🎯 Adding fallback speed boat fields (not found in database items)');
+            fallbackHTML += `
+              <div class="form-section">
+                <h3>${t('speedBoatRegistration')}</h3>
+                <div class="item-row">
+                  <div class="item-info">
+                    <span class="item-title">${t('speedBoatRegistration')}</span>
+                    <span class="item-price"><span data-i18n="unitPrice">${t('unitPrice')}</span> ${t('hkDollar')}1,500</span>
+                  </div>
+                  <div class="item-controls">
+                    <div class="boat-number-row" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                      <label for="speedBoatNo" style="white-space: nowrap;" data-i18n="speedBoatNo">
+                        ${t('speedBoatNo')}:
+                      </label>
+                      <input type="text" 
+                             id="speedBoatNo" 
+                             name="speedBoatNo" 
+                             style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" />
+                    </div>
+                    <input type="number" 
+                           id="speedboatQty" 
+                           name="speedboatQty" 
+                           min="0" 
+                           value="0" 
+                           class="qty-input" />
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+          
+          return fallbackHTML;
+        })()}
         
         <!-- Form Actions -->
         <div class="form-actions">
@@ -2080,7 +2738,8 @@ function setupStep3Navigation() {
   if (backBtn) {
     backBtn.addEventListener('click', () => {
 	Logger.debug('🎯 initStep3: Back button clicked, going to step 2');
-      clearStepDataFromHere(2); // Clear step 2 and all after
+      // DON'T clear data when going back - we want to restore it!
+      // clearStepDataFromHere(2); // ← COMMENTED OUT
       loadStep(2);
     });
   }
@@ -2132,6 +2791,44 @@ function loadRaceDayData() {
 }
 
 /**
+ * Restore TN Step 3 race day data using FieldRestoreUtility
+ */
+function restoreTNStep3() {
+  console.log('[TN Step 3] Restoring race day data...');
+  
+  const savedData = sessionStorage.getItem('tn_race_day');
+  if (!savedData) {
+    console.log('[TN Step 3] No saved data');
+    return;
+  }
+  
+  try {
+    const data = JSON.parse(savedData);
+    console.log('[TN Step 3] Saved data:', data);
+    
+    Object.keys(data).forEach(fieldId => {
+      const field = document.getElementById(fieldId);
+      if (field) {
+        field.value = data[fieldId];
+        console.log(`[Restore] ✓ ${fieldId}: "${data[fieldId]}"`);
+      } else {
+        console.warn(`[Restore] ⚠️  Field not found: ${fieldId}`);
+      }
+    });
+    
+    console.log('[TN Step 3] ✓ Restoration complete');
+  } catch (error) {
+    console.error('[TN Step 3] Failed:', error);
+  }
+  
+  setTimeout(() => {
+    if (window.FieldRestoreUtility) {
+      FieldRestoreUtility.debugDOM('wizardMount');
+    }
+  }, 500);
+}
+
+/**
  * Initialize Step 4 - Practice Booking
  * This is the main practice functionality
  */
@@ -2179,6 +2876,62 @@ function initStep4() {
   
   const endTime = performance.now();
 	Logger.debug(`🎯 initStep4: Completed in ${(endTime - startTime).toFixed(2)}ms`);
+  
+  // Restore practice data after initialization
+  setTimeout(() => {
+    restorePracticeData();
+  }, 200); // Wait for calendar and selects to initialize
+}
+
+/**
+ * Restore practice data for all teams
+ */
+function restorePracticeData() {
+	Logger.debug('🎯 restorePracticeData: Starting restoration');
+  
+  // Get team count
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  if (teamCount < 1) {
+	Logger.debug('🎯 restorePracticeData: No teams found, skipping restoration');
+    return;
+  }
+  
+  // Restore last selected team in team selector (default to first team)
+  const teamSelect = document.getElementById('teamSelect');
+  if (!teamSelect) {
+	Logger.warn('🎯 restorePracticeData: Team selector not found');
+    return;
+  }
+  
+  // Get last selected team index (stored as index, not team key)
+  const lastSelectedIndex = sessionStorage.getItem('tn_practice_last_team_index');
+  const teamIndex = lastSelectedIndex !== null ? parseInt(lastSelectedIndex, 10) : 0;
+  
+  // Validate team index is within range
+  if (teamIndex >= 0 && teamIndex < teamCount) {
+    teamSelect.value = teamIndex.toString();
+	Logger.debug(`🎯 restorePracticeData: Restoring team index ${teamIndex} (Team ${teamIndex + 1})`);
+    
+    // Trigger team change to load practice data
+    const changeEvent = new Event('change', { bubbles: true });
+    teamSelect.dispatchEvent(changeEvent);
+  } else {
+	Logger.debug('🎯 restorePracticeData: Invalid team index, defaulting to Team 1');
+    // Default to Team 1 if invalid index
+    teamSelect.value = '0';
+    const changeEvent = new Event('change', { bubbles: true });
+    teamSelect.dispatchEvent(changeEvent);
+  }
+  
+	Logger.debug('🎯 restorePracticeData: Completed restoration');
+}
+
+/**
+ * Save currently selected team for restoration
+ */
+function saveSelectedTeam(teamIndex) {
+  sessionStorage.setItem('tn_practice_last_team_index', teamIndex.toString());
+	Logger.debug(`🎯 saveSelectedTeam: Saved team index ${teamIndex} (Team ${teamIndex + 1})`);
 }
 
 /**
@@ -3413,6 +4166,7 @@ function setupSlotDuplicatePrevention() {
 
 /**
  * Check for duplicate slot selections
+ * Returns array of error objects for unified error system
  */
 function checkForDuplicates() {
   const allSelects = [
@@ -3422,6 +4176,7 @@ function checkForDuplicates() {
   
   const selectedValues = new Map();
   const duplicates = new Set();
+  const errors = [];
   
   // Check for duplicates
   allSelects.forEach(selector => {
@@ -3438,10 +4193,10 @@ function checkForDuplicates() {
     }
   });
   
-  // Clear previous error messages
+  // Clear previous error messages (legacy method)
   clearSlotErrors();
   
-  // Show error for duplicates
+  // Create error objects for duplicates
   if (duplicates.size > 0) {
     duplicates.forEach(duplicateValue => {
       const duplicateSelects = Array.from(selectedValues.entries())
@@ -3449,13 +4204,24 @@ function checkForDuplicates() {
         .map(([, select]) => select);
       
       duplicateSelects.forEach(select => {
-        showSlotError(select, 'This slot is already selected');
+        // Use error system if available
+        if (window.errorSystem) {
+          errors.push({
+            field: select.id,
+            messageKey: 'duplicateSlotSelection'
+          });
+        } else {
+          // Fallback to legacy method
+          showSlotError(select, 'This slot is already selected');
+        }
       });
     });
   }
   
   // Refresh all selects to update disabled options
   refreshSlotSelects();
+  
+  return errors;
 }
 
 /**
@@ -3477,9 +4243,21 @@ function refreshSlotSelects() {
 
 /**
  * Show slot selection error
+ * Uses error system if available, otherwise falls back to legacy method
  */
 function showSlotError(select, message) {
-  // Remove existing error
+  if (!select) return;
+  
+  // Use error system if available
+  if (window.errorSystem && select.id) {
+    window.errorSystem.showFieldError(select.id, 'duplicateSlotSelection', {
+      scrollTo: false,
+      focus: false
+    });
+    return;
+  }
+  
+  // Legacy method: Remove existing error
   const existingError = select.parentNode.querySelector('.slot-error');
   if (existingError) {
     existingError.remove();
@@ -3502,8 +4280,26 @@ function showSlotError(select, message) {
 
 /**
  * Clear slot selection errors
+ * Uses error system if available, otherwise falls back to legacy method
  */
 function clearSlotErrors() {
+  // Use error system if available
+  if (window.errorSystem) {
+    const allSelects = [
+      ...TN_SELECTORS.practice.rank2h,
+      ...TN_SELECTORS.practice.rank1h
+    ];
+    
+    allSelects.forEach(selector => {
+      const select = document.querySelector(selector);
+      if (select && select.id) {
+        window.errorSystem.clearFieldError(select.id);
+      }
+    });
+    return;
+  }
+  
+  // Legacy method: Remove error elements
   const errors = document.querySelectorAll('.slot-error');
   errors.forEach(error => error.remove());
   
@@ -3525,40 +4321,71 @@ function clearSlotErrors() {
 /**
  * Initialize team selector for practice
  */
+/**
+ * Populate team selector with actual team names from sessionStorage
+ */
+function populateTeamSelector() {
+  const teamSelect = document.getElementById('teamSelect');
+  if (!teamSelect) return;
+  
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  
+  // Get translated strings
+  const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+  
+  // Clear existing options
+  teamSelect.innerHTML = '<option value="">-- Select Team --</option>';
+  
+  if (teamCount === 0) {
+    teamSelect.innerHTML = `<option disabled data-i18n="noTeams">${t('noTeams')}</option>`;
+    console.log('[Step 4] No teams found');
+    return;
+  }
+  
+  for (let i = 1; i <= teamCount; i++) {
+    const option = document.createElement('option');
+    // Use 0-based index for value (to match change handler expectations)
+    option.value = (i - 1).toString();
+    
+    // Get actual team name from sessionStorage using correct key
+    const savedName = sessionStorage.getItem(`tn_team_name_en_${i}`);
+    const teamName = savedName || `Team ${i}`;
+    
+    option.textContent = teamName;
+    teamSelect.appendChild(option);
+  }
+  
+  console.log(`[Step 4] Populated team selector with ${teamCount} teams`);
+}
+
 function initTeamSelector() {
   const teamSelect = document.getElementById('teamSelect');
   const teamNameFields = document.getElementById('teamNameFields');
   
   if (!teamSelect || !teamNameFields) return;
-  
-  // Load team names from sessionStorage
+
+  // Populate team selector with actual names
+  populateTeamSelector();
+
+  // Get team count and names for display
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
   const teamNames = [];
-  for (let i = 1; i <= 10; i++) { // Check up to 10 teams
-    const name = sessionStorage.getItem(`tn_team_name_${i}`);
-    if (name) {
-      teamNames.push(name);
-    }
+  for (let i = 1; i <= teamCount; i++) {
+    const name = sessionStorage.getItem(`tn_team_name_en_${i}`);
+    const teamName = name || `Team ${i}`;
+    teamNames.push(teamName);
   }
-  
+
   // Get translated strings
   const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
-  
+
   if (teamNames.length === 0) {
-    teamSelect.innerHTML = `<option disabled data-i18n="noTeams">${t('noTeams')}</option>`;
     teamNameFields.textContent = '';
   } else {
-    teamNames.forEach((name, index) => {
-      const option = document.createElement('option');
-      option.value = index;
-      // Use teamLabel translation with team number
-      const teamNum = index + 1;
-      option.textContent = `${t('teamLabel', { num: teamNum })}: ${name}`;
-      teamSelect.appendChild(option);
-    });
-    
+    // Set to first team (index 0)
     teamSelect.value = '0';
     teamNameFields.textContent = t('nowScheduling', { teamName: teamNames[0] });
-    
+
     // Initialize current team key
     setCurrentTeamKey('t1');
   }
@@ -3568,13 +4395,21 @@ function initTeamSelector() {
     const selectedIndex = parseInt(teamSelect.value, 10);
     const teamKey = `t${selectedIndex + 1}`;
     console.debug(`🎯 Team switch: idx=${selectedIndex} key=${teamKey}`);
+    
+    // Save selected team for restoration
+    saveSelectedTeam(selectedIndex);
+    
     setCurrentTeamKey(teamKey);
     updateCalendarForTeam(selectedIndex);
     updateSlotPreferencesForTeam(selectedIndex);
     updatePracticeSummary(); // Update the practice summary box when switching teams
     
     const tChange = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
-    const teamName = teamNames[selectedIndex] || tChange('teamLabel', { num: selectedIndex + 1 });
+    // Get updated team name from sessionStorage (in case it changed)
+    // Note: selectedIndex is 0-based, team numbers are 1-based
+    const teamNum = selectedIndex + 1;
+    const updatedName = sessionStorage.getItem(`tn_team_name_en_${teamNum}`) || `Team ${teamNum}`;
+    const teamName = updatedName || tChange('teamLabel', { num: teamNum });
     teamNameFields.textContent = tChange('nowScheduling', { teamName: teamName });
     
     // If switching to Team 2 or later, show copy option
@@ -3782,7 +4617,7 @@ function fillSingleTeamForSubmission() {
   const random = Math.floor(Math.random() * 10000);
   const uniqueTeamName = `Test Team ${timestamp}_${random}`;
   
-  sessionStorage.setItem('tn_team_name_1', uniqueTeamName);
+  sessionStorage.setItem('tn_team_name_en_1', uniqueTeamName);
   sessionStorage.setItem('tn_team_category_1', 'Mixed Open');
   sessionStorage.setItem('tn_team_option_1', 'opt1');
   
@@ -3871,15 +4706,15 @@ function fillMultipleTeamsForSubmission() {
   const uniqueTeamName2 = `Test Team ${timestamp}_${random}_2`;
   const uniqueTeamName3 = `Test Team ${timestamp}_${random}_3`;
   
-  sessionStorage.setItem('tn_team_name_1', uniqueTeamName1);
+  sessionStorage.setItem('tn_team_name_en_1', uniqueTeamName1);
   sessionStorage.setItem('tn_team_category_1', 'Mixed Open');
   sessionStorage.setItem('tn_team_option_1', 'opt1');
-  
-  sessionStorage.setItem('tn_team_name_2', uniqueTeamName2);
+
+  sessionStorage.setItem('tn_team_name_en_2', uniqueTeamName2);
   sessionStorage.setItem('tn_team_category_2', 'Mixed Open');
   sessionStorage.setItem('tn_team_option_2', 'opt1');
-  
-  sessionStorage.setItem('tn_team_name_3', uniqueTeamName3);
+
+  sessionStorage.setItem('tn_team_name_en_3', uniqueTeamName3);
   sessionStorage.setItem('tn_team_category_3', 'Mixed Open');
   sessionStorage.setItem('tn_team_option_3', 'opt2');
   
@@ -3975,9 +4810,9 @@ async function testQuickSubmit() {
     }
     
 	Logger.debug('📝 Team names generated:', {
-      team1: sessionStorage.getItem('tn_team_name_1'),
-      team2: sessionStorage.getItem('tn_team_name_2'),
-      team3: sessionStorage.getItem('tn_team_name_3')
+      team1: sessionStorage.getItem('tn_team_name_en_1'),
+      team2: sessionStorage.getItem('tn_team_name_en_2'),
+      team3: sessionStorage.getItem('tn_team_name_en_3')
     });
   } catch (error) {
 	Logger.error('❌ testQuickSubmit failed:', error);
@@ -4007,7 +4842,7 @@ async function testQuickSubmitSingle() {
 	Logger.debug('✅ testQuickSubmitSingle: Form filled! Navigate to the TN registration form to see it.');
     }
     
-	Logger.debug('📝 Team name generated:', sessionStorage.getItem('tn_team_name_1'));
+	Logger.debug('📝 Team name generated:', sessionStorage.getItem('tn_team_name_en_1'));
   } catch (error) {
 	Logger.error('❌ testQuickSubmitSingle failed:', error);
     throw error;
@@ -4402,7 +5237,8 @@ function setupStep4Navigation() {
   if (backBtn) {
     backBtn.addEventListener('click', () => {
 	Logger.debug('🎯 initStep4: Back button clicked, going to step 3');
-      clearStepDataFromHere(3); // Clear step 3 and all after
+      // DON'T clear data when going back - we want to restore it!
+      // clearStepDataFromHere(3); // ← COMMENTED OUT
       loadStep(3);
     });
   }
@@ -4565,6 +5401,10 @@ function saveCurrentTeamPracticeData() {
  * Validate practice requirements
  * Returns error message if validation fails, null if valid
  */
+/**
+ * Validate practice requirements
+ * Returns array of error objects for unified error system
+ */
 function validatePracticeRequired() {
   const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
   const errors = [];
@@ -4572,20 +5412,30 @@ function validatePracticeRequired() {
   for (let i = 0; i < teamCount; i++) {
     const teamNum = i + 1;
     const key = `t${teamNum}`;
-    const teamName = sessionStorage.getItem(`tn_team_name_${teamNum}`) || `Team ${teamNum}`;
+    // Use correct storage key: tn_team_name_en_${teamNum}
+    const teamNameEn = sessionStorage.getItem(`tn_team_name_en_${teamNum}`);
+    const teamNameTc = sessionStorage.getItem(`tn_team_name_tc_${teamNum}`);
+    const teamName = teamNameEn ? (teamNameTc ? `${teamNameEn} (${teamNameTc})` : teamNameEn) : `Team ${teamNum}`;
     
     const rows = readTeamRows(key) || [];
     const ranks = readTeamRanks(key) || [];
-    const teamErrors = [];
     
     // Check that team has at least one practice date
     if (rows.length === 0) {
-      teamErrors.push('Missing practice dates');
+      errors.push({
+        field: `practiceTeam${teamNum}`,
+        messageKey: 'practiceSelectionRequired',
+        params: { teamNum: teamNum, teamName: teamName }
+      });
     }
     
     // Check that team has at least one slot preference
     if (ranks.length === 0) {
-      teamErrors.push('Missing slot preferences');
+      errors.push({
+        field: `practiceTeam${teamNum}`,
+        messageKey: 'practiceTimeSlotRequired',
+        params: { teamNum: teamNum, teamName: teamName }
+      });
     }
     
     // Calculate total hours for this team
@@ -4596,36 +5446,46 @@ function validatePracticeRequired() {
     
     // Check minimum 12 hours requirement
     if (totalHours < 12) {
-      const tVal = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
-      teamErrors.push(tVal('practiceHoursMinimum', { hours: totalHours, min: 12 }));
+      errors.push({
+        field: `practiceTeam${teamNum}`,
+        messageKey: 'practiceHoursMinimum',
+        params: { 
+          teamNum: teamNum, 
+          teamName: teamName,
+          hours: totalHours, 
+          min: 12 
+        }
+      });
     }
     
     // Validate each practice row has complete data
     for (let j = 0; j < rows.length; j++) {
       const r = rows[j];
       if (!r.pref_date) {
-        teamErrors.push(`Date ${j + 1}: Missing date selection`);
+        errors.push({
+          field: `practiceTeam${teamNum}`,
+          messageKey: 'practiceDateInvalid',
+          params: { teamNum: teamNum, teamName: teamName, dateIndex: j + 1 }
+        });
       }
       if (![1, 2].includes(Number(r.duration_hours))) {
-        teamErrors.push(`Date ${j + 1}: Duration must be 1h or 2h`);
+        errors.push({
+          field: `practiceTeam${teamNum}`,
+          messageKey: 'practiceDurationInvalid',
+          params: { teamNum: teamNum, teamName: teamName, dateIndex: j + 1 }
+        });
       }
       if (!['NONE', 'S', 'T', 'ST'].includes(r.helper)) {
-        teamErrors.push(`Date ${j + 1}: Helper selection required`);
+        errors.push({
+          field: `practiceTeam${teamNum}`,
+          messageKey: 'practiceHelperRequired',
+          params: { teamNum: teamNum, teamName: teamName, dateIndex: j + 1 }
+        });
       }
     }
-    
-    // If team has errors, add to main error list
-    if (teamErrors.length > 0) {
-      errors.push(`\n📌 ${teamName}:\n   • ${teamErrors.join('\n   • ')}`);
-    }
   }
   
-  // Return formatted error message if there are errors
-  if (errors.length > 0) {
-    return `Practice booking incomplete for the following teams:\n${errors.join('\n')}`;
-  }
-  
-  return null;
+  return errors;
 }
 
 /**
@@ -5096,9 +5956,11 @@ function loadTeamSummary() {
     const category = sessionStorage.getItem(`tn_team_category_${i}`);
     const option = sessionStorage.getItem(`tn_team_option_${i}`);
     
-    if (name) {
+    if (nameEn) {
+      // Build display name with TC if available
+      const displayName = nameTc ? `${nameEn} (${nameTc})` : nameEn;
       teams.push({
-        name: name,
+        name: displayName,
         category: category || '—',
         option: option || 'Standard'
       });
@@ -5277,8 +6139,13 @@ function loadPracticeSummary() {
   
   // Get practice data for each team
   for (let i = 1; i <= 10; i++) {
-    const teamName = sessionStorage.getItem(`tn_team_name_${i}`);
-    if (!teamName) continue;
+    // Use correct storage key: tn_team_name_en_${i}
+    const teamNameEn = sessionStorage.getItem(`tn_team_name_en_${i}`);
+    const teamNameTc = sessionStorage.getItem(`tn_team_name_tc_${i}`);
+    if (!teamNameEn) continue;
+    
+    // Build display name with TC if available
+    const teamName = teamNameTc ? `${teamNameEn} (${teamNameTc})` : teamNameEn;
     
     const teamKey = `t${i}`;
     const practiceRows = readTeamRows(teamKey) || [];
@@ -5351,7 +6218,8 @@ function setupStepNavigation() {
     backBtn.addEventListener('click', async () => {
       if (currentStep > 1) {
         const targetStep = currentStep - 1;
-        clearStepDataFromHere(targetStep); // Clear target step and all after
+        // DON'T clear data when going back - we want to restore it!
+        // clearStepDataFromHere(targetStep); // ← COMMENTED OUT
         await loadStep(targetStep);
       }
     });
@@ -5405,20 +6273,34 @@ function validateCurrentStep() {
  * Validate step 1 - Category
  */
 function validateStep1() {
+  // Clear any previous errors
+  if (window.errorSystem) {
+    window.errorSystem.clearFormErrors();
+  }
+  
   const teamCount = document.getElementById('teamCount');
   
+  // Validate team count selection
   if (!teamCount?.value || parseInt(teamCount.value, 10) < 1) {
-    showError('Please select number of teams');
-    teamCount?.focus();
+    if (window.errorSystem) {
+      window.errorSystem.showFormErrors([
+        { field: 'teamCount', messageKey: 'pleaseSelectNumberOfTeams' }
+      ], {
+        containerId: 'categoryForm',
+        scrollTo: true
+      });
+    } else {
+      // Fallback: errorSystem not available
+      console.error('ErrorSystem not available: Please select number of teams');
+      alert('Please select number of teams');
+      teamCount?.focus();
+    }
     return false;
   }
   
-  // Clear any previous field highlighting
-  clearFieldHighlighting();
-  
   // Validate team fields if they exist
   const teamCountValue = parseInt(teamCount.value, 10);
-  const missingFields = [];
+  const errors = [];
   const teamData = [];
   
   // First pass: collect all team data and check for missing fields
@@ -5426,42 +6308,48 @@ function validateStep1() {
     const teamNameEn = document.getElementById(`teamNameEn${i}`);
     const teamNameTc = document.getElementById(`teamNameTc${i}`);
     const teamCategory = document.getElementById(`teamCategory${i}`);
-    const teamOption = document.getElementById(`teamOption${i}`);
     
     if (!teamNameEn?.value?.trim()) {
-      missingFields.push(`Team ${i} name (English)`);
-      highlightField(teamNameEn);
+      errors.push({
+        field: `teamNameEn${i}`,
+        messageKey: 'pleaseEnterTeamName',
+        params: { num: i }
+      });
     }
     
     if (!teamCategory?.value) {
-      missingFields.push(`Team ${i} race category`);
-      highlightField(teamCategory);
+      errors.push({
+        field: `teamCategory${i}`,
+        messageKey: 'pleaseSelectCategory',
+        params: { num: i }
+      });
     }
     
     // Check for selected radio button in the team option group
     const teamOptionRadios = document.querySelectorAll(`input[name="teamOption${i}"]:checked`);
-	Logger.debug(`🎯 Validation: Team ${i} radio buttons found:`, teamOptionRadios.length);
+    Logger.debug(`🎯 Validation: Team ${i} radio buttons found:`, teamOptionRadios.length);
     if (teamOptionRadios.length > 0) {
-	Logger.debug(`🎯 Validation: Team ${i} selected value:`, teamOptionRadios[0].value);
+      Logger.debug(`🎯 Validation: Team ${i} selected value:`, teamOptionRadios[0].value);
     }
     
     if (teamOptionRadios.length === 0) {
-      missingFields.push(`Team ${i} entry option`);
-      // Highlight the package options container for this team
-      const teamOptionGroup = document.getElementById(`teamOptionGroup${i}`);
-      if (teamOptionGroup) {
-        highlightField(teamOptionGroup);
-      }
+      errors.push({
+        field: `teamOptionGroup${i}`,
+        messageKey: 'pleaseSelectEntryOption',
+        params: { num: i }
+      });
     }
     
     // Collect team data for duplicate checking
     if (teamNameEn?.value?.trim() && teamCategory?.value) {
+      // Get category display name from select option
+      const categoryDisplayName = teamCategory.options[teamCategory.selectedIndex]?.text || teamCategory.value;
+      
       teamData.push({
         index: i,
         name: teamNameEn.value.trim(),
         category: teamCategory.value,
-        nameElement: teamNameEn,
-        categoryElement: teamCategory
+        categoryDisplayName: categoryDisplayName
       });
     }
   }
@@ -5491,19 +6379,45 @@ function validateStep1() {
     // Find duplicates
     Object.keys(nameCounts).forEach(name => {
       if (nameCounts[name].length > 1) {
+        // Get category display name from first team in duplicate group
+        const categoryDisplayName = teamsInCategory[0]?.categoryDisplayName || category;
+        
+        // Add error for EACH duplicate field
         nameCounts[name].forEach(team => {
-          missingFields.push(`Team ${team.index} name (duplicate in ${category})`);
-          highlightField(team.nameElement);
+          errors.push({
+            field: `teamNameEn${team.index}`,
+            messageKey: 'duplicateTeamName',
+            params: { 
+              num: team.index,
+              category: categoryDisplayName
+            }
+          });
         });
       }
     });
   });
   
-  if (missingFields.length > 0) {
-    const message = missingFields.length === 1 
-      ? `Please complete: ${missingFields[0]}`
-      : `Please complete: ${missingFields.slice(0, -1).join(', ')} and ${missingFields[missingFields.length - 1]}`;
-    showError(message);
+  // Display errors if any found
+  if (errors.length > 0) {
+    if (window.errorSystem) {
+      window.errorSystem.showFormErrors(errors, {
+        containerId: 'categoryForm',
+        scrollTo: true
+      });
+    } else {
+      // Fallback: errorSystem not available
+      const missingFields = errors.map(err => {
+        const message = window.i18n && typeof window.i18n.t === 'function'
+          ? window.i18n.t(err.messageKey, err.params || {})
+          : err.messageKey;
+        return message;
+      });
+      const message = missingFields.length === 1 
+        ? `Please complete: ${missingFields[0]}`
+        : `Please complete: ${missingFields.slice(0, -1).join(', ')} and ${missingFields[missingFields.length - 1]}`;
+      console.error('ErrorSystem not available:', message);
+      alert(message);
+    }
     return false;
   }
   
@@ -5514,164 +6428,124 @@ function validateStep1() {
  * Validate step 2 - Team Info
  */
 function validateStep2() {
-  // Clear any previous field highlighting
-  clearFieldHighlighting();
+  // Clear any previous errors
+  if (window.errorSystem) {
+    window.errorSystem.clearFormErrors();
+  }
   
-  const missingFields = [];
+  const errors = [];
   
   // Validate organization information
   const orgName = document.getElementById('orgName');
   const orgAddress = document.getElementById('orgAddress');
   
   if (!orgName?.value?.trim()) {
-    missingFields.push('Organization name');
-    highlightField(orgName);
+    errors.push({ field: 'orgName', messageKey: 'organizationRequired' });
   }
   
   if (!orgAddress?.value?.trim()) {
-    missingFields.push('Organization address');
-    highlightField(orgAddress);
+    errors.push({ field: 'orgAddress', messageKey: 'addressRequired' });
   }
   
   // Validate Team Manager 1 (Required)
   const manager1Name = document.getElementById('manager1Name');
   const manager1Phone = document.getElementById('manager1Phone');
   const manager1Email = document.getElementById('manager1Email');
-  const manager1PhoneError = document.getElementById('manager1PhoneError');
-  const manager1EmailError = document.getElementById('manager1EmailError');
   
   if (!manager1Name?.value?.trim()) {
-    missingFields.push('Team Manager 1 name');
-    highlightField(manager1Name);
+    errors.push({ field: 'manager1Name', messageKey: 'managerNameRequired' });
   }
   
   if (!manager1Phone?.value?.trim()) {
-    missingFields.push('Team Manager 1 phone');
-    highlightField(manager1Phone);
+    errors.push({ field: 'manager1Phone', messageKey: 'managerPhoneRequired' });
   } else if (!isValidHKPhone(manager1Phone.value.trim())) {
-    missingFields.push('Team Manager 1 phone (must be 8 digits)');
-    highlightField(manager1Phone);
-    if (manager1PhoneError) {
-      manager1PhoneError.textContent = 'Please enter an 8-digit Hong Kong phone number.';
-      manager1PhoneError.style.display = 'block';
-    }
+    errors.push({ field: 'manager1Phone', messageKey: 'invalidPhone' });
   }
   
   if (!manager1Email?.value?.trim()) {
-    missingFields.push('Team Manager 1 email');
-    highlightField(manager1Email);
+    errors.push({ field: 'manager1Email', messageKey: 'managerEmailRequired' });
   } else if (!isValidEmail(manager1Email.value.trim())) {
-    missingFields.push('Team Manager 1 email (invalid format)');
-    highlightField(manager1Email);
-    if (manager1EmailError) {
-      manager1EmailError.textContent = 'Please enter a valid email address.';
-      manager1EmailError.style.display = 'block';
-    }
+    errors.push({ field: 'manager1Email', messageKey: 'invalidEmail' });
   }
   
   // Validate Team Manager 2 (Required)
   const manager2Name = document.getElementById('manager2Name');
   const manager2Phone = document.getElementById('manager2Phone');
   const manager2Email = document.getElementById('manager2Email');
-  const manager2PhoneError = document.getElementById('manager2PhoneError');
-  const manager2EmailError = document.getElementById('manager2EmailError');
   
   if (!manager2Name?.value?.trim()) {
-    missingFields.push('Team Manager 2 name');
-    highlightField(manager2Name);
+    errors.push({ field: 'manager2Name', messageKey: 'managerNameRequired' });
   }
   
   if (!manager2Phone?.value?.trim()) {
-    missingFields.push('Team Manager 2 phone');
-    highlightField(manager2Phone);
+    errors.push({ field: 'manager2Phone', messageKey: 'managerPhoneRequired' });
   } else if (!isValidHKPhone(manager2Phone.value.trim())) {
-    missingFields.push('Team Manager 2 phone (must be 8 digits)');
-    highlightField(manager2Phone);
-    if (manager2PhoneError) {
-      manager2PhoneError.textContent = 'Please enter an 8-digit Hong Kong phone number.';
-      manager2PhoneError.style.display = 'block';
-    }
+    errors.push({ field: 'manager2Phone', messageKey: 'invalidPhone' });
   }
   
   if (!manager2Email?.value?.trim()) {
-    missingFields.push('Team Manager 2 email');
-    highlightField(manager2Email);
+    errors.push({ field: 'manager2Email', messageKey: 'managerEmailRequired' });
   } else if (!isValidEmail(manager2Email.value.trim())) {
-    missingFields.push('Team Manager 2 email (invalid format)');
-    highlightField(manager2Email);
-    if (manager2EmailError) {
-      manager2EmailError.textContent = 'Please enter a valid email address.';
-      manager2EmailError.style.display = 'block';
-    }
+    errors.push({ field: 'manager2Email', messageKey: 'invalidEmail' });
   }
   
   // Validate Team Manager 3 (Optional, but if provided must be valid)
   const manager3Name = document.getElementById('manager3Name');
   const manager3Phone = document.getElementById('manager3Phone');
   const manager3Email = document.getElementById('manager3Email');
-  const manager3PhoneError = document.getElementById('manager3PhoneError');
-  const manager3EmailError = document.getElementById('manager3EmailError');
   
   // If Manager 3 name is provided, phone and email should also be provided
   if (manager3Name?.value?.trim()) {
     if (!manager3Phone?.value?.trim()) {
-      missingFields.push('Team Manager 3 phone (name provided)');
-      highlightField(manager3Phone);
+      errors.push({ field: 'manager3Phone', messageKey: 'managerPhoneRequired' });
     } else if (!isValidHKPhone(manager3Phone.value.trim())) {
-      missingFields.push('Team Manager 3 phone (must be 8 digits)');
-      highlightField(manager3Phone);
-      if (manager3PhoneError) {
-        manager3PhoneError.textContent = 'Please enter an 8-digit Hong Kong phone number.';
-        manager3PhoneError.style.display = 'block';
-      }
+      errors.push({ field: 'manager3Phone', messageKey: 'invalidPhone' });
     }
     
     if (!manager3Email?.value?.trim()) {
-      missingFields.push('Team Manager 3 email (name provided)');
-      highlightField(manager3Email);
+      errors.push({ field: 'manager3Email', messageKey: 'managerEmailRequired' });
     } else if (!isValidEmail(manager3Email.value.trim())) {
-      missingFields.push('Team Manager 3 email (invalid format)');
-      highlightField(manager3Email);
-      if (manager3EmailError) {
-        manager3EmailError.textContent = 'Please enter a valid email address.';
-        manager3EmailError.style.display = 'block';
-      }
+      errors.push({ field: 'manager3Email', messageKey: 'invalidEmail' });
     }
   } else if (manager3Phone?.value?.trim() || manager3Email?.value?.trim()) {
     // If phone or email is provided, name should also be provided
     if (!manager3Name?.value?.trim()) {
-      missingFields.push('Team Manager 3 name (contact info provided)');
-      highlightField(manager3Name);
+      errors.push({ field: 'manager3Name', messageKey: 'managerNameRequired' });
     }
     
     // Validate phone if provided
     if (manager3Phone?.value?.trim() && !isValidHKPhone(manager3Phone.value.trim())) {
-      missingFields.push('Team Manager 3 phone (must be 8 digits)');
-      highlightField(manager3Phone);
-      if (manager3PhoneError) {
-        manager3PhoneError.textContent = 'Please enter an 8-digit Hong Kong phone number.';
-        manager3PhoneError.style.display = 'block';
-      }
+      errors.push({ field: 'manager3Phone', messageKey: 'invalidPhone' });
     }
     
     // Validate email if provided
     if (manager3Email?.value?.trim() && !isValidEmail(manager3Email.value.trim())) {
-      missingFields.push('Team Manager 3 email (invalid format)');
-      highlightField(manager3Email);
-      if (manager3EmailError) {
-        manager3EmailError.textContent = 'Please enter a valid email address.';
-        manager3EmailError.style.display = 'block';
-      }
+      errors.push({ field: 'manager3Email', messageKey: 'invalidEmail' });
     }
   }
   
-  // Team Manager 3 is optional, no further validation needed
-  
-  if (missingFields.length > 0) {
-    const message = missingFields.length === 1 
-      ? `Please complete: ${missingFields[0]}`
-      : `Please complete: ${missingFields.slice(0, -1).join(', ')} and ${missingFields[missingFields.length - 1]}`;
-    showError(message);
+  // Display errors if any found
+  if (errors.length > 0) {
+    if (window.errorSystem) {
+      // Find the form container - use wizardMount as it contains the organization form
+      window.errorSystem.showFormErrors(errors, {
+        containerId: 'wizardMount',
+        scrollTo: true
+      });
+    } else {
+      // Fallback: errorSystem not available
+      const missingFields = errors.map(err => {
+        const message = window.i18n && typeof window.i18n.t === 'function'
+          ? window.i18n.t(err.messageKey)
+          : err.messageKey;
+        return message;
+      });
+      const message = missingFields.length === 1 
+        ? `Please complete: ${missingFields[0]}`
+        : `Please complete: ${missingFields.slice(0, -1).join(', ')} and ${missingFields[missingFields.length - 1]}`;
+      console.error('ErrorSystem not available:', message);
+      alert(message);
+    }
     return false;
   }
   
@@ -5682,8 +6556,10 @@ function validateStep2() {
  * Validate step 3 - Race Day
  */
 function validateStep3() {
-  // Clear any previous field highlighting
-  clearFieldHighlighting();
+  // Clear any previous errors
+  if (window.errorSystem) {
+    window.errorSystem.clearFormErrors();
+  }
   
   const errors = [];
   
@@ -5693,26 +6569,48 @@ function validateStep3() {
   qtyInputs.forEach(input => {
     const value = parseInt(input.value, 10) || 0;
     const min = parseInt(input.min, 10) || 0;
-    const max = parseInt(input.max, 10) || Infinity;
+    const max = input.max ? parseInt(input.max, 10) : null;
     
-    // Check minimum quantity
+    // Check minimum quantity (must be >= 0, but min attribute may be higher)
     if (value < min) {
-      errors.push(`${input.id} must be at least ${min}`);
-      highlightField(input);
+      errors.push({
+        field: input.id,
+        messageKey: 'quantityMustBePositive',
+        params: { min: min }
+      });
     }
     
-    // Check maximum quantity
-    if (value > max) {
-      errors.push(`${input.id} cannot exceed ${max}`);
-      highlightField(input);
+    // Check maximum quantity (if max is specified)
+    if (max !== null && value > max) {
+      errors.push({
+        field: input.id,
+        messageKey: 'quantityExceedsMax',
+        params: { max: max }
+      });
     }
   });
   
+  // Display errors if any found
   if (errors.length > 0) {
-    const message = errors.length === 1 
-      ? errors[0]
-      : `Please fix: ${errors.slice(0, -1).join(', ')} and ${errors[errors.length - 1]}`;
-    showError(message);
+    if (window.errorSystem) {
+      window.errorSystem.showFormErrors(errors, {
+        containerId: 'wizardMount',
+        scrollTo: true
+      });
+    } else {
+      // Fallback: errorSystem not available
+      const errorMessages = errors.map(err => {
+        const message = window.i18n && typeof window.i18n.t === 'function'
+          ? window.i18n.t(err.messageKey, err.params || {})
+          : err.messageKey;
+        return message;
+      });
+      const message = errorMessages.length === 1 
+        ? errorMessages[0]
+        : `Please fix: ${errorMessages.slice(0, -1).join(', ')} and ${errorMessages[errorMessages.length - 1]}`;
+      console.error('ErrorSystem not available:', message);
+      alert(message);
+    }
     return false;
   }
   
@@ -5723,19 +6621,49 @@ function validateStep3() {
  * Validate step 4 - Practice
  */
 function validateStep4() {
+  // Clear any previous errors
+  if (window.errorSystem) {
+    window.errorSystem.clearFormErrors();
+  }
+  
+  const errors = [];
+  
   // Check for duplicate slot selections
-  checkForDuplicates();
+  const duplicateErrors = checkForDuplicates();
+  if (duplicateErrors.length > 0) {
+    errors.push(...duplicateErrors);
+  }
   
   // Validate practice requirements
-  const practiceError = validatePracticeRequired();
-  if (practiceError) {
-	Logger.debug('🎯 validateStep4: Practice validation failed:', practiceError);
-    showError(practiceError);
+  const practiceErrors = validatePracticeRequired();
+  if (practiceErrors.length > 0) {
+    errors.push(...practiceErrors);
+  }
+  
+  // Display errors if any found
+  if (errors.length > 0) {
+    if (window.errorSystem) {
+      window.errorSystem.showFormErrors(errors, {
+        containerId: 'wizardMount',
+        scrollTo: true
+      });
+    } else {
+      // Fallback: errorSystem not available
+      const errorMessages = errors.map(err => {
+        const message = window.i18n && typeof window.i18n.t === 'function'
+          ? window.i18n.t(err.messageKey, err.params || {})
+          : err.messageKey;
+        return message;
+      });
+      const message = errorMessages.length === 1 
+        ? errorMessages[0]
+        : `Please fix: ${errorMessages.slice(0, -1).join(', ')} and ${errorMessages[errorMessages.length - 1]}`;
+      console.error('ErrorSystem not available:', message);
+      alert(message);
+    }
     return false;
   }
   
-  // Clear any previous errors
-  hideError();
   return true;
 }
 
@@ -5856,20 +6784,42 @@ function saveStep2Data() {
  * Save step 3 data
  */
 function saveStep3Data() {
-  const raceDayData = {};
+  console.log('🎯 saveStep3Data: Saving race day data');
   
+  const raceDayData = {};
+
   // Get all quantity inputs and save their values
   const qtyInputs = document.querySelectorAll('.qty-input');
-  
+
   qtyInputs.forEach(input => {
     const value = parseInt(input.value, 10) || 0;
     raceDayData[input.id] = value;
+    console.log(`  Saved ${input.id}: ${value}`);
   });
+
+  // TEXT fields for boat numbers
+  const junkBoatNo = document.getElementById('junkBoatNo');
+  const speedBoatNo = document.getElementById('speedBoatNo');
   
+  if (junkBoatNo) {
+    raceDayData.junkBoatNo = junkBoatNo.value || '';
+    console.log('  ✓ Saved junkBoatNo:', junkBoatNo.value || '(empty)');
+  } else {
+    console.warn('  ⚠️  junkBoatNo field not found in DOM');
+  }
+  
+  if (speedBoatNo) {
+    raceDayData.speedBoatNo = speedBoatNo.value || '';
+    console.log('  ✓ Saved speedBoatNo:', speedBoatNo.value || '(empty)');
+  } else {
+    console.warn('  ⚠️  speedBoatNo field not found in DOM');
+  }
+
   // Save to sessionStorage
   sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
-  
+
 	Logger.debug('🎯 saveStep3Data: Race day data saved:', raceDayData);
+  console.log('🎯 Race day data saved:', raceDayData);
 }
 
 /**
@@ -6168,7 +7118,14 @@ async function submitTNForm() {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Application';
       }
-      showError(errors.join(', '));
+      if (window.errorSystem) {
+        window.errorSystem.showSystemError('serverErrorDetailed', {
+          dismissible: true
+        });
+      } else {
+        console.error('ErrorSystem not available:', errors.join(', '));
+        alert(errors.join(', '));
+      }
       return;
     }
     
@@ -6196,7 +7153,14 @@ async function submitTNForm() {
           submitBtn.disabled = false;
           submitBtn.textContent = 'Submit Application';
         }
-        showError('Submission timed out. Please try again or contact support if the issue persists.');
+        if (window.errorSystem) {
+          window.errorSystem.showSystemError('timeoutErrorDetailed', {
+            dismissible: true
+          });
+        } else {
+          console.error('ErrorSystem not available: Submission timeout');
+          alert('Submission timed out. Please try again or contact support if the issue persists.');
+        }
         return;
       }
       
@@ -6229,20 +7193,84 @@ async function submitTNForm() {
       
       if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
         if (error.message.includes('uniq_teamname_per_div_season_norm')) {
-          showError('One or more team names already exist for this division and season. Please choose different team names.');
+          if (window.errorSystem) {
+            window.errorSystem.showSystemError('duplicateTeamName', {
+              dismissible: true
+            });
+          } else {
+            console.error('ErrorSystem not available: Duplicate team names');
+            alert('One or more team names already exist for this division and season. Please choose different team names.');
+          }
         } else if (error.message.includes('uniq_registration_client_tx')) {
-          showError('This registration has already been submitted. Please refresh the page to start a new registration.');
+          if (window.errorSystem) {
+            window.errorSystem.showSystemError('duplicateRegistration', {
+              dismissible: true
+            });
+          } else {
+            console.error('ErrorSystem not available: Duplicate registration');
+            alert('This registration has already been submitted. Please refresh the page to start a new registration.');
+          }
         } else {
-          showError('Duplicate data detected. Please check your team names and try again.');
+          if (window.errorSystem) {
+            window.errorSystem.showSystemError('duplicateRegistration', {
+              dismissible: true
+            });
+          } else {
+            console.error('ErrorSystem not available: Duplicate data');
+            alert('Duplicate data detected. Please check your team names and try again.');
+          }
         }
       } else if (error.message && error.message.includes('Practice date is not on an allowed weekday')) {
-        showError('One or more practice dates are not on allowed weekdays. Please select weekdays only.');
-      } else if (error.message && error.message.includes('Practice date is before allowed window')) {
-        showError('One or more practice dates are before the allowed practice window.');
-      } else if (error.message && error.message.includes('Practice date is after allowed window')) {
-        showError('One or more practice dates are after the allowed practice window.');
+        if (window.errorSystem) {
+          window.errorSystem.showSystemError('practiceDateWeekdayError', {
+            dismissible: true
+          });
+        } else {
+          console.error('ErrorSystem not available: Practice date weekday error');
+          alert('One or more practice dates are not on allowed weekdays. Please select weekdays only.');
+        }
+      } else if (error.message && (error.message.includes('Practice date is before allowed window') || 
+                                    error.message.includes('Practice date is after allowed window'))) {
+        if (window.errorSystem) {
+          window.errorSystem.showSystemError('practiceDateWindowError', {
+            dismissible: true
+          });
+        } else {
+          console.error('ErrorSystem not available: Practice date window error');
+          alert('One or more practice dates are outside the allowed practice window.');
+        }
       } else {
-        showError(`Submission failed: ${error.message || 'Unknown error'}`);
+        // Check for HTTP status codes
+        const status = error.status || error.context?.status;
+        if (status === 429) {
+          if (window.errorSystem) {
+            window.errorSystem.showSystemError('rateLimitExceeded', {
+              persistent: true,
+              dismissible: true
+            });
+          } else {
+            console.error('ErrorSystem not available: Rate limit exceeded');
+            alert('Too many attempts. Please wait a few minutes and try again.');
+          }
+        } else if (status >= 500) {
+          if (window.errorSystem) {
+            window.errorSystem.showSystemError('serverErrorDetailed', {
+              dismissible: true
+            });
+          } else {
+            console.error('ErrorSystem not available:', error.message || 'Unknown error');
+            alert(`Submission failed: ${error.message || 'Unknown error'}`);
+          }
+        } else {
+          if (window.errorSystem) {
+            window.errorSystem.showSystemError('serverErrorDetailed', {
+              dismissible: true
+            });
+          } else {
+            console.error('ErrorSystem not available:', error.message || 'Unknown error');
+            alert(`Submission failed: ${error.message || 'Unknown error'}`);
+          }
+        }
       }
       return;
     }
@@ -6250,6 +7278,14 @@ async function submitTNForm() {
     if (data) {
 	Logger.debug('✅ Form submission successful!', data);
       const { registration_ids, team_codes } = data;
+      
+      // Clear draft from localStorage on successful submission
+      if (window.AutoSave) {
+        const eventRef = getTNEventShortRef();
+        AutoSave.clearDraft(eventRef);
+        AutoSave.stopAutoSave();
+        console.log('💾 Auto-save: Draft cleared after successful submission');
+      }
       
       // Create receipt with the first registration_id (for compatibility)
       const receipt = saveReceipt({ 
@@ -6268,7 +7304,14 @@ async function submitTNForm() {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Application';
       }
-      showError('No response received from server. Please try again.');
+      if (window.errorSystem) {
+        window.errorSystem.showSystemError('serverErrorDetailed', {
+          dismissible: true
+        });
+      } else {
+        console.error('ErrorSystem not available: No response from server');
+        alert('No response received from server. Please try again.');
+      }
     }
     
   } catch (error) {
@@ -6278,7 +7321,26 @@ async function submitTNForm() {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Submit Application';
     }
-    showError('Submission failed. Please try again.');
+    // Check if it's a network error
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      if (window.errorSystem) {
+        window.errorSystem.showSystemError('networkErrorDetailed', {
+          dismissible: true
+        });
+      } else {
+        console.error('ErrorSystem not available: Submission failed');
+        alert('Submission failed. Please try again.');
+      }
+    } else {
+      if (window.errorSystem) {
+        window.errorSystem.showSystemError('networkErrorDetailed', {
+          dismissible: true
+        });
+      } else {
+        console.error('ErrorSystem not available: Submission failed');
+        alert('Submission failed. Please try again.');
+      }
+    }
   }
 }
 
@@ -6382,43 +7444,16 @@ function redirectToSuccessPage(receipt) {
 /**
  * Show error message
  */
+// Legacy showError() function removed - now using unified error system
+// Replaced by errorSystem.showFormErrors() and errorSystem.showSystemError()
+// Fallback: Use alert() if errorSystem not available
 function showError(message) {
-  const msgEl = document.getElementById('formMsg');
-  if (msgEl) {
-    msgEl.textContent = message;
-    msgEl.className = 'msg error';
-
-    msgEl.style.display = 'block';
-    msgEl.style.backgroundColor = '#fee';
-    msgEl.style.border = '2px solid #dc3545';
-    msgEl.style.color = '#721c24';
-    msgEl.style.padding = '1rem';
-    msgEl.style.margin = '1rem 0';
-    msgEl.style.borderRadius = '4px';
-    msgEl.style.whiteSpace = 'pre-wrap';
-    msgEl.style.fontWeight = 'bold';
-    
-    // Scroll to error message
-    msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    
-	Logger.error('Validation Error:', message);
-  } else {
-    // Fallback: alert if formMsg element doesn't exist
-	Logger.error('formMsg element not found, using alert');
-    alert(message);
-  }
+  console.error('Error (errorSystem not available):', message);
+  alert(message || 'An error occurred');
 }
 
-/**
- * Hide error message
- */
-function hideError() {
-  const msgEl = document.getElementById('formMsg');
-  if (msgEl) {
-    msgEl.style.display = 'none';
-    msgEl.textContent = '';
-  }
-}
+// Legacy hideError() function removed - now using unified error system
+// Replaced by errorSystem.clearFormErrors() and errorSystem.clearSystemError()
 
 // showConfirmation is imported from submit.js
 
@@ -6676,10 +7711,10 @@ if (window.__DEV__) {
     sessionStorage.setItem('tn_mailing_address', '123 Test Street, Test City');
     
     // Team data
-    sessionStorage.setItem('tn_team_name_1', 'Test Team 1');
+    sessionStorage.setItem('tn_team_name_en_1', 'Test Team 1');
     sessionStorage.setItem('tn_team_category_1', 'mixed_open');
     sessionStorage.setItem('tn_team_option_1', 'opt1');
-    sessionStorage.setItem('tn_team_name_2', 'Test Team 2');
+    sessionStorage.setItem('tn_team_name_en_2', 'Test Team 2');
     sessionStorage.setItem('tn_team_category_2', 'mixed_open');
     sessionStorage.setItem('tn_team_option_2', 'opt2');
     

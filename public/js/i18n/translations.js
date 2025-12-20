@@ -398,6 +398,58 @@ const translations = {
     unableToLoadRaceDayItems: "Unable to load race day items. Please try again later.",
 
     // ============================================
+    // ERROR SYSTEM MESSAGES (Phase 2)
+    // ============================================
+    
+    // General error messages
+    pleaseCorrectErrors: "⚠️ Please correct the following errors:",
+    dismissErrors: "Dismiss errors",
+    close: "Close",
+    closeError: "Close error",
+    closeErrorSummary: "Close error summary",
+    systemError: "System Error",
+    systemErrorTitle: "System Error",
+    formErrorsTitle: "Please correct the following errors:",
+    
+    // Field validation messages
+    fieldRequired: "This field is required",
+    invalidEmail: "Please enter a valid email address",
+    invalidPhone: "Please enter an 8-digit Hong Kong phone number",
+    duplicateTeamName: "Team name must be unique",
+    
+    // Specific field validation messages
+    teamNameRequired: "Team name is required",
+    categoryRequired: "Please select a race category",
+    entryOptionRequired: "Please select an entry option",
+    organizationRequired: "Organization name is required",
+    addressRequired: "Address is required",
+    managerNameRequired: "Manager name is required",
+    managerPhoneRequired: "Manager phone is required",
+    managerEmailRequired: "Manager email is required",
+    
+    // Quantity validation messages
+    quantityMustBePositive: "Quantity must be at least {min}",
+    quantityExceedsMax: "Quantity cannot exceed {max}",
+    
+    // Practice validation messages
+    practiceSelectionRequired: "Team {teamNum} ({teamName}): Please select at least one practice date",
+    practiceTimeSlotRequired: "Team {teamNum} ({teamName}): Please select at least one time slot preference",
+    practiceDateInvalid: "Team {teamNum} ({teamName}): Practice date {dateIndex} is missing or invalid",
+    practiceDurationInvalid: "Team {teamNum} ({teamName}): Practice date {dateIndex} duration must be 1h or 2h",
+    practiceHelperRequired: "Team {teamNum} ({teamName}): Practice date {dateIndex} helper selection required",
+    practiceHoursMinimum: "Team {teamNum} ({teamName}): Total practice hours ({hours}h) must be at least {min}h",
+    duplicateSlotSelection: "This time slot is already selected in another preference",
+    practiceDateWeekdayError: "One or more practice dates are not on allowed weekdays. Please select weekdays only.",
+    practiceDateWindowError: "One or more practice dates are outside the allowed practice window.",
+    
+    // Server error messages (enhanced)
+    serverErrorDetailed: "Unable to process your request. Please try again later.",
+    networkErrorDetailed: "Network connection error. Please check your connection and try again.",
+    rateLimitExceeded: "Too many attempts. Please wait a few minutes and try again.",
+    duplicateRegistration: "This registration already exists. Please contact support if you need assistance.",
+    timeoutErrorDetailed: "Request timeout. Please try again.",
+
+    // ============================================
     // MISC & COMMON WORDS
     // ============================================
     
@@ -795,6 +847,58 @@ const translations = {
     timeoutError: "請求逾時。請重試。",
     unableToLoadEvents: "無法載入賽事。請稍後再試。",
     unableToLoadRaceDayItems: "無法載入賽事日項目。請稍後再試。",
+
+    // ============================================
+    // ERROR SYSTEM MESSAGES (Phase 2)
+    // ============================================
+    
+    // General error messages
+    pleaseCorrectErrors: "⚠️ 請更正以下錯誤：",
+    dismissErrors: "關閉錯誤",
+    close: "關閉",
+    closeError: "關閉錯誤",
+    closeErrorSummary: "關閉錯誤摘要",
+    systemError: "系統錯誤",
+    systemErrorTitle: "系統錯誤",
+    formErrorsTitle: "請更正以下錯誤：",
+    
+    // Field validation messages
+    fieldRequired: "此欄位為必填",
+    invalidEmail: "請輸入有效的電郵地址",
+    invalidPhone: "請輸入8位數字的香港電話號碼",
+    duplicateTeamName: "隊伍名稱必須唯一",
+    
+    // Specific field validation messages
+    teamNameRequired: "隊伍名稱為必填",
+    categoryRequired: "請選擇比賽組別",
+    entryOptionRequired: "請選擇參賽選項",
+    organizationRequired: "機構名稱為必填",
+    addressRequired: "地址為必填",
+    managerNameRequired: "負責人姓名為必填",
+    managerPhoneRequired: "負責人電話為必填",
+    managerEmailRequired: "負責人電郵為必填",
+    
+    // Quantity validation messages
+    quantityMustBePositive: "數量必須至少為 {min}",
+    quantityExceedsMax: "數量不能超過 {max}",
+    
+    // Practice validation messages
+    practiceSelectionRequired: "第 {teamNum} 隊 ({teamName})：請選擇至少一個練習日期",
+    practiceTimeSlotRequired: "第 {teamNum} 隊 ({teamName})：請選擇至少一個時段偏好",
+    practiceDateInvalid: "第 {teamNum} 隊 ({teamName})：練習日期 {dateIndex} 缺失或無效",
+    practiceDurationInvalid: "第 {teamNum} 隊 ({teamName})：練習日期 {dateIndex} 的時長必須為 1 小時或 2 小時",
+    practiceHelperRequired: "第 {teamNum} 隊 ({teamName})：練習日期 {dateIndex} 需要選擇助手",
+    practiceHoursMinimum: "第 {teamNum} 隊 ({teamName})：總練習時數 ({hours} 小時) 必須至少為 {min} 小時",
+    duplicateSlotSelection: "此時段已在其他偏好中選擇",
+    practiceDateWeekdayError: "一個或多個練習日期不在允許的工作日。請僅選擇工作日。",
+    practiceDateWindowError: "一個或多個練習日期超出允許的練習時間範圍。",
+    
+    // Server error messages (enhanced)
+    serverErrorDetailed: "無法處理您的請求，請稍後再試。",
+    networkErrorDetailed: "網絡連接錯誤，請檢查您的連接並重試。",
+    rateLimitExceeded: "嘗試次數過多，請稍候幾分鐘後再試。",
+    duplicateRegistration: "此註冊已存在，如需協助請聯絡客戶服務。",
+    timeoutErrorDetailed: "請求超時，請重試。",
 
     // ============================================
     // MISC & COMMON WORDS

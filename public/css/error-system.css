@@ -1,0 +1,714 @@
+/**
+ * Unified Error System CSS
+ * Phase 2 Design Specification Implementation
+ * 
+ * Provides consistent error display patterns across all forms:
+ * - Field-level errors (inline validation)
+ * - Form-level error summaries
+ * - System-level error notifications
+ * 
+ * @version 2.0.0
+ * @date 2025-01-XX
+ */
+
+/* ========================================
+   FIELD-LEVEL ERRORS
+   ======================================== */
+
+/**
+ * Field-Level Error Styling
+ * Applied to form inputs, selects, and textareas when validation fails
+ * CRITICAL: These use !important to ensure fields remain visible
+ */
+input.field-error,
+select.field-error,
+textarea.field-error {
+  /* Red border - 2px solid */
+  border: 2px solid #dc3545 !important;
+  
+  /* Light red background */
+  background-color: #fff5f5 !important;
+  
+  /* Red box shadow - 2px blur with 20% opacity */
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2) !important;
+  
+  /* MUST remain visible - prevent any hiding rules */
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/**
+ * Focus State - Stronger Glow
+ * Enhanced visual feedback when user focuses on error field
+ */
+input.field-error:focus,
+select.field-error:focus,
+textarea.field-error:focus {
+  border-color: #dc3545 !important;
+  
+  /* Stronger red glow - 30% opacity */
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.3) !important;
+  
+  /* Remove default browser outline */
+  outline: none !important;
+}
+
+/**
+ * Radio Buttons and Checkboxes
+ * Use outline instead of border (border doesn't work well on these)
+ */
+input[type="radio"].field-error,
+input[type="checkbox"].field-error {
+  /* Use outline instead of border */
+  outline: 2px solid #dc3545 !important;
+  outline-offset: 2px;
+  
+  /* Light red background */
+  background-color: #fff5f5 !important;
+  
+  /* Inline-block for proper display */
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/**
+ * Radio/Checkbox Focus State
+ */
+input[type="radio"].field-error:focus,
+input[type="checkbox"].field-error:focus {
+  /* Stronger outline on focus */
+  outline: 3px solid #dc3545 !important;
+  outline-offset: 2px;
+}
+
+/**
+ * Container/Group Elements with Field Error
+ * For option groups, radio groups, etc.
+ */
+div.field-error[id*="OptionGroup"],
+div.field-error[role="group"],
+div.field-error[class*="group"] {
+  border: 2px solid #dc3545 !important;
+  background-color: #fff5f5 !important;
+  padding: 0.5rem !important;
+  border-radius: 4px !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* ========================================
+   FIELD ERROR MESSAGE
+   ======================================== */
+
+/**
+ * Field Error Message Container
+ * Displays inline error messages below form fields
+ * Automatically hidden when empty using :empty pseudo-class
+ */
+.field-error-message {
+  /* Red text color */
+  color: #dc3545;
+  
+  /* Small font size */
+  font-size: 0.875rem;
+  
+  /* Spacing above message */
+  margin-top: 0.25rem;
+  
+  /* Display block when has content */
+  display: block;
+  
+  /* Hide when empty */
+  display: none;
+}
+
+/**
+ * Show error message when it has content
+ * Uses :not(:empty) to show only when text exists
+ */
+.field-error-message:not(:empty) {
+  display: block;
+}
+
+/**
+ * Warning Icon Prefix
+ * Adds warning emoji before error message text
+ */
+.field-error-message:not(:empty)::before {
+  content: "⚠️ ";
+  margin-right: 0.25rem;
+}
+
+/**
+ * Alternative: Show class for explicit control
+ * Can be used instead of :empty detection
+ */
+.field-error-message.show {
+  display: block;
+}
+
+.field-error-message.show::before {
+  content: "⚠️ ";
+  margin-right: 0.25rem;
+}
+
+/* ========================================
+   FORM-LEVEL ERROR SUMMARY
+   ======================================== */
+
+/**
+ * Form Error Summary Container
+ * Displays at top of form with list of all errors
+ */
+.form-error-summary {
+  /* Light red background */
+  background-color: #f8d7da;
+  
+  /* Red left border - 4px solid */
+  border-left: 4px solid #dc3545;
+  
+  /* Border radius */
+  border-radius: 4px;
+  
+  /* Padding */
+  padding: 1rem;
+  
+  /* Margin bottom for spacing */
+  margin-bottom: 1.5rem;
+  
+  /* Slide down animation */
+  animation: slideDown 0.3s ease-out;
+  
+  /* Ensure visibility */
+  display: block;
+}
+
+/**
+ * Error Summary Header
+ * Flexbox layout for icon, title, and close button
+ */
+.error-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.error-summary-header h3 {
+  margin: 0;
+  color: #721c24;
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.error-summary-header h3::before {
+  content: "⚠️";
+  font-size: 1.25rem;
+}
+
+/**
+ * Error List
+ * Bulleted list of errors
+ */
+.error-list {
+  margin: 0;
+  padding-left: 1.5rem;
+  list-style-type: disc;
+  color: #721c24;
+}
+
+.error-list li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+/**
+ * Error List Links
+ * Clickable links that scroll to the problematic field
+ */
+.error-list a {
+  color: #721c24;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.error-list a:hover {
+  color: #dc3545;
+  text-decoration: underline;
+}
+
+.error-list a:focus {
+  outline: 2px solid #dc3545;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/**
+ * Error Close Button
+ * Dismiss button for error summary
+ */
+.error-close {
+  background: transparent;
+  border: none;
+  color: #721c24;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  line-height: 1;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  min-height: 2rem;
+}
+
+.error-close:hover {
+  background-color: rgba(114, 28, 36, 0.1);
+  color: #dc3545;
+}
+
+.error-close:focus {
+  outline: 2px solid #dc3545;
+  outline-offset: 2px;
+}
+
+.error-close:active {
+  background-color: rgba(114, 28, 36, 0.2);
+}
+
+/* ========================================
+   SYSTEM-LEVEL ERRORS
+   ======================================== */
+
+/**
+ * System Error Container
+ * Fixed position notification at top of viewport
+ */
+.system-error {
+  /* Fixed position at top */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  
+  /* Red background */
+  background-color: #dc3545;
+  
+  /* White text */
+  color: #ffffff;
+  
+  /* High z-index to appear above all content */
+  z-index: 9999;
+  
+  /* Flexbox for content layout */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  
+  /* Padding */
+  padding: 1rem 1.5rem;
+  
+  /* Box shadow for depth */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  
+  /* Slide down animation */
+  animation: slideDown 0.3s ease-out;
+}
+
+/**
+ * System Error Content
+ * Icon, message, and close button container
+ */
+.system-error-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.system-error-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.system-error-message {
+  flex: 1;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.system-error-close {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  line-height: 1;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  flex-shrink: 0;
+}
+
+.system-error-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.system-error-close:focus {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.system-error-close:active {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+/**
+ * Slide Down Animation
+ * Used for error containers appearing
+ */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/**
+ * Fade In Animation
+ * Alternative animation for error messages
+ */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ========================================
+   MOBILE RESPONSIVE
+   ======================================== */
+
+@media (max-width: 768px) {
+  /**
+   * Form Error Summary - Mobile
+   */
+  .form-error-summary {
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  
+  .error-summary-header h3 {
+    font-size: 0.9375rem;
+  }
+  
+  .error-list {
+    padding-left: 1.25rem;
+    font-size: 0.875rem;
+  }
+  
+  /**
+   * System Error - Mobile
+   * Stack content vertically on small screens
+   */
+  .system-error {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.75rem 1rem;
+  }
+  
+  .system-error-content {
+    width: 100%;
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  
+  .system-error-message {
+    font-size: 0.875rem;
+  }
+  
+  .system-error-close {
+    align-self: flex-end;
+    margin-top: -0.5rem;
+    margin-right: -0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  /**
+   * Extra Small Screens
+   */
+  .form-error-summary {
+    padding: 0.5rem;
+  }
+  
+  .error-summary-header h3 {
+    font-size: 0.875rem;
+  }
+  
+  .error-list {
+    font-size: 0.8125rem;
+    padding-left: 1rem;
+  }
+  
+  .system-error {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .system-error-message {
+    font-size: 0.8125rem;
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY
+   ======================================== */
+
+/**
+ * Focus Outlines for Keyboard Navigation
+ * Enhanced focus indicators for better accessibility
+ */
+.field-error:focus-visible,
+.error-list a:focus-visible,
+.error-close:focus-visible,
+.system-error-close:focus-visible {
+  outline: 3px solid #dc3545;
+  outline-offset: 2px;
+}
+
+/**
+ * High Contrast Mode Support
+ * Enhanced visibility for users with high contrast preferences
+ */
+@media (prefers-contrast: high) {
+  input.field-error,
+  select.field-error,
+  textarea.field-error {
+    border-width: 3px !important;
+    border-color: #000000 !important;
+    background-color: #ffffff !important;
+  }
+  
+  .field-error-message {
+    color: #000000;
+    font-weight: 600;
+  }
+  
+  .form-error-summary {
+    border-left-width: 6px;
+    border-color: #000000;
+    background-color: #ffffff;
+  }
+  
+  .system-error {
+    background-color: #000000;
+    border-bottom: 3px solid #ffffff;
+  }
+  
+  .error-list a {
+    color: #000000;
+    font-weight: 600;
+  }
+}
+
+/**
+ * Reduced Motion Support
+ * Respects user preference for reduced animations
+ */
+@media (prefers-reduced-motion: reduce) {
+  .form-error-summary,
+  .system-error {
+    animation: none;
+  }
+  
+  .error-list a,
+  .error-close,
+  .system-error-close {
+    transition: none;
+  }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 1;
+      transform: none;
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/**
+ * Screen Reader Only Text
+ * Hidden visually but available to screen readers
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/**
+ * ARIA Live Regions
+ * For dynamic error announcements
+ */
+[role="alert"],
+[aria-live="assertive"],
+[aria-live="polite"] {
+  /* Ensure live regions are visible when they have content */
+  display: block;
+}
+
+[role="alert"]:empty,
+[aria-live="assertive"]:empty,
+[aria-live="polite"]:empty {
+  display: none;
+}
+
+/* ========================================
+   LEGACY COMPATIBILITY
+   ======================================== */
+
+/**
+ * Legacy Support for Existing Error Patterns
+ * Maintains compatibility with current implementation
+ */
+
+/* Legacy: .msg.error class removed - now using unified error system */
+/* If needed for backward compatibility, see tn_legacy.css */
+
+/* Legacy: .invalid class (used for email/phone validation) */
+input.invalid,
+select.invalid,
+textarea.invalid {
+  border-color: #dc3545 !important;
+  background-color: #fff5f5;
+}
+
+/* Legacy: div.field-error (error message containers) */
+div.field-error:not([id*="OptionGroup"]):not([role="group"]):not(input):not(select):not(textarea) {
+  color: #dc3545;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  display: none;
+}
+
+div.field-error:not([id*="OptionGroup"]):not([role="group"]):not(input):not(select):not(textarea):not(:empty) {
+  display: block;
+}
+
+div.field-error:not([id*="OptionGroup"]):not([role="group"]):not(input):not(select):not(textarea).show {
+  display: block;
+}
+
+/* Legacy: #formMsg.msg.error removed - now using unified error system */
+/* If needed for backward compatibility, see tn_legacy.css */
+
+/* Legacy: #errorBox and #errorMessage (if they exist) */
+#errorBox {
+  display: none;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+#errorBox[style*="display: block"],
+#errorBox.show {
+  display: block !important;
+  animation: slideDown 0.3s ease-out;
+}
+
+#errorMessage {
+  color: #721c24;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+/**
+ * Error State Utilities
+ * Helper classes for common error states
+ */
+
+.has-error {
+  position: relative;
+}
+
+.has-error::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid #dc3545;
+}
+
+.error-hidden {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+.error-visible {
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* ========================================
+   PRINT STYLES
+   ======================================== */
+
+@media print {
+  .form-error-summary,
+  .system-error,
+  .field-error-message {
+    display: none !important;
+  }
+  
+  input.field-error,
+  select.field-error,
+  textarea.field-error {
+    border: 1px solid #000000 !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+}
