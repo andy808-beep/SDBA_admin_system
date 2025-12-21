@@ -110,19 +110,35 @@ button#submitBtn:hover,
 
 button#backBtn,
 .nav-buttons button#backBtn {
-  background: var(--theme-primary-dark);
-  color: white;
-  border: none;
+  background: var(--theme-primary-dark, #6c757d) !important;  /* Fallback to gray if variable not set */
+  background-color: var(--theme-primary-dark, #6c757d) !important;
+  color: white !important;
+  border: none !important;
   padding: 0.75rem 2rem;
   border-radius: 6px;
   font-weight: 500;
   transition: background 0.3s ease;
 }
 
+/* TN-specific override: Use darker gold instead of gray */
+body[data-event="tn"] button#backBtn,
+body[data-event="tn"] .nav-buttons button#backBtn {
+  background: var(--theme-primary-dark, #c79100) !important;  /* Darker gold for TN */
+  background-color: var(--theme-primary-dark, #c79100) !important;
+}
+
 button#backBtn:hover,
 .nav-buttons button#backBtn:hover {
-  background: var(--theme-primary);
+  background: var(--theme-primary, #5a6268) !important;
+  background-color: var(--theme-primary, #5a6268) !important;
   opacity: 0.9;
+}
+
+/* TN-specific hover: Use lighter gold */
+body[data-event="tn"] button#backBtn:hover,
+body[data-event="tn"] .nav-buttons button#backBtn:hover {
+  background: var(--theme-primary, #f7b500) !important;  /* Lighter gold for TN */
+  background-color: var(--theme-primary, #f7b500) !important;
 }
 
 /* Card container - reduce padding for WU/SC forms */
@@ -729,4 +745,78 @@ input[type="email"].invalid {
     padding: 0.75rem 0.75rem;
     font-size: 0.95rem;
   }
+}
+
+/* ========== CRITICAL FIX: BACK BUTTON VISIBILITY ========== */
+/* Ensure back button is NEVER transparent on light backgrounds */
+/* This section has maximum specificity and multiple fallbacks */
+
+/* Back button base styles - with hardcoded fallback colors */
+/* Note: TN-specific styles in tn_legacy.css will override these with darker gold */
+button#backBtn,
+#backBtn,
+[id="backBtn"],
+.nav-buttons button#backBtn,
+.nav-buttons #backBtn {
+  /* Multiple background declarations for maximum compatibility */
+  background: #6c757d !important;  /* Solid gray fallback (for WU/SC) */
+  background: var(--theme-primary-dark, #6c757d) !important;  /* Theme color with fallback */
+  background-color: #6c757d !important;  /* Solid gray fallback (for WU/SC) */
+  background-color: var(--theme-primary-dark, #6c757d) !important;  /* Theme color with fallback */
+  color: #ffffff !important;
+  color: white !important;
+  border: none !important;
+  border-width: 0 !important;
+  padding: 0.75rem 2rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  border-radius: 6px !important;
+  transition: background 0.3s ease !important;
+  /* Prevent any transparent backgrounds */
+  background-image: none !important;
+  opacity: 1 !important;
+}
+
+/* TN-specific override: Use darker gold instead of gray */
+body[data-event="tn"] button#backBtn,
+body[data-event="tn"] #backBtn,
+body[data-event="tn"] [id="backBtn"],
+body[data-event="tn"] .nav-buttons button#backBtn,
+body[data-event="tn"] .nav-buttons #backBtn {
+  background: var(--theme-primary-dark, #c79100) !important;  /* Darker gold for TN */
+  background-color: var(--theme-primary-dark, #c79100) !important;
+}
+
+/* Back button hover state */
+button#backBtn:hover,
+#backBtn:hover,
+.nav-buttons button#backBtn:hover {
+  background: #5a6268 !important;  /* Darker gray (for WU/SC) */
+  background: var(--theme-primary, #5a6268) !important;
+  background-color: #5a6268 !important;
+  background-color: var(--theme-primary, #5a6268) !important;
+  opacity: 0.9 !important;
+}
+
+/* TN-specific hover: Use lighter gold */
+body[data-event="tn"] button#backBtn:hover,
+body[data-event="tn"] #backBtn:hover,
+body[data-event="tn"] .nav-buttons button#backBtn:hover {
+  background: var(--theme-primary, #f7b500) !important;  /* Lighter gold for TN */
+  background-color: var(--theme-primary, #f7b500) !important;
+}
+
+/* Override any inline styles */
+button#backBtn[style],
+.nav-buttons button#backBtn[style] {
+  background: var(--theme-primary-dark, #6c757d) !important;
+  background-color: var(--theme-primary-dark, #6c757d) !important;
+  color: white !important;
+}
+
+/* TN-specific inline style override */
+body[data-event="tn"] button#backBtn[style],
+body[data-event="tn"] .nav-buttons button#backBtn[style] {
+  background: var(--theme-primary-dark, #c79100) !important;  /* Darker gold for TN */
+  background-color: var(--theme-primary-dark, #c79100) !important;
 }

@@ -116,7 +116,7 @@ let stepper = null;
  * Get event short ref for auto-save
  */
 function getTNEventShortRef() {
-  return getEventShortRef() || window.__CONFIG?.event?.event_short_ref || window.__CONFIG?.event?.short_ref || 'TN2025';
+  return getEventShortRef() || window.__CONFIG?.event?.event_short_ref || window.__CONFIG?.event?.short_ref || 'TN2026';
 }
 
 // Practice-specific state
@@ -613,6 +613,19 @@ async function loadStepContent(step) {
     return;
   }
   
+  // Force parent container (tnScope) visibility
+  if (tnScope) {
+    tnScope.style.display = 'block';
+    tnScope.style.visibility = 'visible';
+    tnScope.style.opacity = '1';
+  }
+  
+  // Force wizardMount visibility (ensure content is always visible)
+  wizardMount.style.display = 'block';
+  wizardMount.style.visibility = 'visible';
+  wizardMount.style.opacity = '1';
+  Logger.debug(`✅ loadStepContent: Container visibility forced for step ${step}`);
+  
   // Handle step 0 (Race Info) specially - no template, generated content
   if (step === 0) {
     wizardMount.innerHTML = '';
@@ -679,11 +692,20 @@ async function loadStepContent(step) {
       break;
   }
   
-  // Set up navigation
-  setupStepNavigation();
+  // Set up step-specific navigation (each step has its own button IDs)
+  // Step-specific navigation is handled by initStepX() functions which call setupStepXNavigation()
+  // For steps that use generic backBtn/nextBtn, we set them up here as fallback
+  if (step === 3 || step === 4) {
+    setupStepNavigation(); // Fallback for steps using generic buttons
+  }
   
   // Update stepper to reflect current step
   updateStepper();
+  
+  // Ensure step container is visible
+  if (wizardMount) {
+    wizardMount.style.display = 'block';
+  }
   
   // IMPORTANT: Update i18n translations for the newly loaded template content
   // This ensures all data-i18n elements are translated after template is cloned
@@ -907,6 +929,20 @@ function createRaceInfoContent() {
 function initStep0() {
   Logger.debug('🎯 initStep0: Initializing Race Info page');
   
+  // Force parent container visibility
+  if (tnScope) {
+    tnScope.style.display = 'block';
+    tnScope.style.visibility = 'visible';
+    tnScope.style.opacity = '1';
+  }
+  
+  // Ensure wizardMount is visible
+  if (wizardMount) {
+    wizardMount.style.display = 'block';
+    wizardMount.style.visibility = 'visible';
+    wizardMount.style.opacity = '1';
+  }
+  
   // Set up Next button handler
   const nextBtn = document.getElementById('raceInfoNextBtn');
   if (nextBtn) {
@@ -934,6 +970,20 @@ async function initStep1() {
   console.log('\n[CHECKPOINT 1] initStep1() called');
   
 	Logger.debug('🎯 initStep1: Starting team count selection');
+  
+  // Force parent container visibility
+  if (tnScope) {
+    tnScope.style.display = 'block';
+    tnScope.style.visibility = 'visible';
+    tnScope.style.opacity = '1';
+  }
+  
+  // Ensure wizardMount is visible
+  if (wizardMount) {
+    wizardMount.style.display = 'block';
+    wizardMount.style.visibility = 'visible';
+    wizardMount.style.opacity = '1';
+  }
   
   // Create team count selection UI (will replace template content)
   createTeamCountSelector();
@@ -1221,16 +1271,17 @@ function setupTeamCountHandler() {
     if (nextButton.dataset.handlerAttached === 'true') {
       Logger.debug('🎯 setupTeamCountHandler: Next button handler already attached, skipping');
     } else {
-      nextButton.addEventListener('click', () => {
-        Logger.debug('🎯 initStep1: Next button clicked, validating step 1');
+      nextButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        console.log('🔜 Step 1: Next button (nextToStep2) clicked, validating step 1');
         
         // Validate all team information before proceeding
         if (validateStep1()) {
-          Logger.debug('🎯 initStep1: Validation passed, saving data and proceeding to step 2');
+          console.log('✅ Step 1: Validation passed, saving data and proceeding to step 2');
           saveStep1Data();
-          loadStep(2);
+          showStep(2);
         } else {
-          Logger.debug('🎯 initStep1: Validation failed, staying on step 1');
+          console.log('⚠️ Step 1: Validation failed, staying on step 1');
         }
       });
       nextButton.dataset.handlerAttached = 'true';
@@ -1446,7 +1497,7 @@ async function generateTeamFields(teamCount) {
     const { data, error } = await sb
       .from('v_divisions_public')
       .select('division_code, name_en, name_tc')
-      .eq('event_short_ref', 'TN2025')
+      .eq('event_short_ref', 'TN2026')
       .eq('is_active', true)
       .order('sort_order');
     
@@ -1483,7 +1534,7 @@ async function generateTeamFields(teamCount) {
     const { data: packageData, error: packageError } = await sb
       .from('v_packages_public')
       .select('package_code, title_en, title_tc, listed_unit_price, included_practice_hours_per_team, tees_qty, padded_shorts_qty, dry_bag_qty')
-      .eq('event_short_ref', 'TN2025')
+      .eq('event_short_ref', 'TN2026')
       .eq('is_active', true)
       .order('sort_order');
     
@@ -1793,6 +1844,20 @@ function setupPackageBoxHandlers(teamIndex) {
 async function initStep2() {
 	Logger.debug('🎯 initStep2: Starting team information step');
   
+  // Force parent container visibility
+  if (tnScope) {
+    tnScope.style.display = 'block';
+    tnScope.style.visibility = 'visible';
+    tnScope.style.opacity = '1';
+  }
+  
+  // Ensure wizardMount is visible
+  if (wizardMount) {
+    wizardMount.style.display = 'block';
+    wizardMount.style.visibility = 'visible';
+    wizardMount.style.opacity = '1';
+  }
+  
   // Load team count from step 1
   const teamCount = sessionStorage.getItem('tn_team_count');
   if (!teamCount) {
@@ -2044,32 +2109,41 @@ function setupStep2Validation() {
  * Set up navigation for step 2
  */
 function setupStep2Navigation() {
-  // Back button
-  const backBtn = document.getElementById('backToStep1');
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-	Logger.debug('🎯 initStep2: Back button clicked, going to step 1');
-      // DON'T clear data when going back - we want to restore it!
-      // clearStepDataFromHere(1); // ← COMMENTED OUT
-      loadStep(1);
+  // Step 2 uses step-specific button IDs: backToStep1, nextToStep3
+  const backToStep1 = document.getElementById('backToStep1');
+  const nextToStep3 = document.getElementById('nextToStep3');
+  
+  if (backToStep1) {
+    // Remove existing listeners by cloning
+    const newBackBtn = backToStep1.cloneNode(true);
+    backToStep1.parentNode.replaceChild(newBackBtn, backToStep1);
+    
+    newBackBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      console.log('🔙 Step 2: Back button clicked, going to step 1');
+      saveStep2Data(); // Save current step data
+      showStep(1);
     });
   }
   
-  // Next button
-  const nextBtn = document.getElementById('nextToStep3');
-  if (nextBtn) {
-    nextBtn.addEventListener('click', () => {
-	Logger.debug('🎯 initStep2: Next button clicked, validating step 2');
-      
-      if (validateStep2()) {
-	Logger.debug('🎯 initStep2: Validation passed, saving data and proceeding to step 3');
+  if (nextToStep3) {
+    // Remove existing listeners by cloning
+    const newNextBtn = nextToStep3.cloneNode(true);
+    nextToStep3.parentNode.replaceChild(newNextBtn, nextToStep3);
+    
+    newNextBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      console.log('🔜 Step 2: Next button clicked, validating step 2');
+      if (validateStep2()) { // Validate before proceeding
         saveStep2Data();
-        loadStep(3);
+        showStep(3);
       } else {
-	Logger.debug('🎯 initStep2: Validation failed, staying on step 2');
+        console.log('⚠️ Step 2: Validation failed, staying on step 2');
       }
     });
   }
+  
+  Logger.debug('🎯 setupStep2Navigation: Step 2 navigation handlers attached');
 }
 
 /**
@@ -2416,9 +2490,51 @@ function saveTeamData() {
  */
 async function initStep3() {
 	Logger.debug('🎯 initStep3: Starting race day arrangements step');
+  console.log('🎯 Initializing Step 3 - Race Day');
   
-  // Create race day form with database items
-  await createRaceDayForm();
+  // Force parent container visibility
+  if (tnScope) {
+    tnScope.style.display = 'block';
+    tnScope.style.visibility = 'visible';
+    tnScope.style.opacity = '1';
+  }
+  
+  // Ensure wizardMount is visible (template is already cloned by loadStepContent)
+  if (wizardMount) {
+    wizardMount.style.display = 'block';
+    wizardMount.style.visibility = 'visible';
+    wizardMount.style.opacity = '1';
+    console.log('✅ wizardMount is visible');
+  }
+  
+  // Ensure the race day form container is visible
+  const raceDayForm = document.getElementById('raceDayForm');
+  if (raceDayForm) {
+    raceDayForm.style.display = 'block';
+    const card = raceDayForm.closest('.card');
+    if (card) {
+      card.style.display = 'block';
+    }
+    console.log('✅ raceDayForm found and visible');
+  } else {
+    console.warn('⚠️ raceDayForm not found!');
+    // Try to find it within wizardMount after a short delay
+    setTimeout(() => {
+      const retryForm = document.getElementById('raceDayForm');
+      if (retryForm) {
+        console.log('✅ raceDayForm found on retry');
+        retryForm.style.display = 'block';
+      } else {
+        console.error('❌ raceDayForm still not found after retry');
+      }
+    }, 100);
+  }
+  
+  // Load prices from database and update price displays
+  await updateRaceDayPrices();
+  
+  // Wait a tick for DOM to fully settle after template cloning
+  await new Promise(resolve => setTimeout(resolve, 50));
   
   // Diagnostic: Check if all expected fields exist
   console.log('\n🎯 initStep3: Checking Step 3 fields:');
@@ -2432,13 +2548,41 @@ async function initStep3() {
     'speedboatQty'     // ← Boat quantity
   ];
   
+  const missingFields = [];
   expectedFields.forEach(fieldId => {
     const field = document.getElementById(fieldId);
-    console.log(`  ${fieldId}:`, field ? '✓ EXISTS' : '❌ MISSING');
     if (field) {
-      console.log(`    Type: ${field.type}, Value: "${field.value}"`);
+      console.log(`  ${fieldId}: ✓ EXISTS (Type: ${field.type}, Value: "${field.value}")`);
+      // Ensure field is visible
+      field.style.display = '';
+      if (field.closest('.form-group') || field.closest('.section')) {
+        field.closest('.form-group')?.style.setProperty('display', '');
+        field.closest('.section')?.style.setProperty('display', '');
+      }
+    } else {
+      console.error(`  ${fieldId}: ❌ MISSING`);
+      missingFields.push(fieldId);
     }
   });
+  
+  if (missingFields.length > 0) {
+    console.error('⚠️ Missing fields:', missingFields);
+    // Try to find them again after a delay
+    setTimeout(() => {
+      missingFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+          console.log(`  ${fieldId}: Found on retry ✓`);
+        }
+      });
+    }, 200);
+  }
+  
+  // Set up navigation handlers (must be done after template is loaded)
+  // Wait a bit more to ensure DOM is fully ready
+  setTimeout(() => {
+    setupStep3Navigation();
+  }, 100);
   
   // Load saved data if available (legacy function)
   loadRaceDayData();
@@ -2449,6 +2593,7 @@ async function initStep3() {
     FieldRestoreUtility.debugStorage('tn_');
   }
   
+  // Restore field values from sessionStorage
   setTimeout(() => {
     restoreTNStep3();
   }, 250);
@@ -2468,7 +2613,7 @@ async function createRaceDayForm() {
     const { data: raceDayItems, error } = await sb
       .from('v_race_day_items_public')
       .select('*')
-      .eq('event_short_ref', 'TN2025')
+      .eq('event_short_ref', 'TN2026')
       .order('sort_order');
     
     if (error) {
@@ -2733,32 +2878,100 @@ function groupRaceDayItems(items) {
  * Set up navigation for step 3
  */
 function setupStep3Navigation() {
-  // Back button
-  const backBtn = document.getElementById('backToStep2');
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-	Logger.debug('🎯 initStep3: Back button clicked, going to step 2');
-      // DON'T clear data when going back - we want to restore it!
-      // clearStepDataFromHere(2); // ← COMMENTED OUT
-      loadStep(2);
-    });
+  console.log('🎯 setupStep3Navigation: Setting up Step 3 navigation');
+  
+  // Find buttons within wizardMount (where template content was cloned)
+  const container = wizardMount || document.querySelector('#wizardMount');
+  if (!container) {
+    console.error('❌ setupStep3Navigation: wizardMount container not found');
+    return;
   }
   
-  // Next button
-  const nextBtn = document.getElementById('nextToStep4');
-  if (nextBtn) {
-    nextBtn.addEventListener('click', () => {
-	Logger.debug('🎯 initStep3: Next button clicked, validating step 3');
-      
-      if (validateStep3()) {
-	Logger.debug('🎯 initStep3: Validation passed, saving data and proceeding to step 4');
-        saveStep3Data();
-        loadStep(4);
-      } else {
-	Logger.debug('🎯 initStep3: Validation failed, staying on step 3');
-      }
-    });
+  // Step 3 uses backBtn/nextBtn from template, but we'll handle them with step-specific logic
+  // Also handle form submission for raceDayForm
+  // Search within container first, then fallback to document-wide search
+  const backBtn = container.querySelector('#backBtn') || document.getElementById('backBtn');
+  const nextBtn = container.querySelector('#nextBtn') || document.getElementById('nextBtn');
+  const raceDayForm = container.querySelector('#raceDayForm') || document.getElementById('raceDayForm');
+  
+  console.log('🎯 setupStep3Navigation: Found elements:', {
+    backBtn: !!backBtn,
+    nextBtn: !!nextBtn,
+    raceDayForm: !!raceDayForm
+  });
+  
+  // Back button (equivalent to backToStep2)
+  if (backBtn) {
+    // Check if handler already attached
+    if (backBtn.dataset.navHandlerAttached === 'true') {
+      console.log('⚠️ Step 3: Back button handler already attached, skipping');
+    } else {
+      backBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🔙 Step 3: Back button clicked, going to step 2');
+        saveStep3Data(); // Save current step data
+        showStep(2);
+      });
+      backBtn.dataset.navHandlerAttached = 'true';
+      console.log('✅ Step 3: Back button handler attached');
+    }
+  } else {
+    console.warn('⚠️ Step 3: backBtn not found');
   }
+  
+  // Handle form submission for raceDayForm (preferred method for Step 3)
+  if (raceDayForm) {
+    // Check if handler already attached
+    if (raceDayForm.dataset.navHandlerAttached === 'true') {
+      console.log('⚠️ Step 3: Form navigation handler already attached, skipping');
+    } else {
+      // Handle form submission
+      raceDayForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🔜 Step 3: Form submitted, validating step 3');
+        if (validateStep3()) {
+          saveStep3Data();
+          showStep(4);
+        } else {
+          console.log('⚠️ Step 3: Validation failed, staying on step 3');
+        }
+        return false;
+      });
+      raceDayForm.dataset.navHandlerAttached = 'true';
+      console.log('✅ Step 3: Form submit handler attached');
+    }
+  } else {
+    console.warn('⚠️ Step 3: raceDayForm not found');
+  }
+  
+  // Handle nextBtn click (works even if inside form)
+  if (nextBtn) {
+    // Check if handler already attached
+    if (nextBtn.dataset.navHandlerAttached === 'true') {
+      console.log('⚠️ Step 3: Next button handler already attached, skipping');
+    } else {
+      nextBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🔜 Step 3: Next button clicked, validating step 3');
+        if (validateStep3()) {
+          saveStep3Data();
+          showStep(4);
+        } else {
+          console.log('⚠️ Step 3: Validation failed, staying on step 3');
+        }
+        return false;
+      });
+      nextBtn.dataset.navHandlerAttached = 'true';
+      console.log('✅ Step 3: Next button handler attached');
+    }
+  } else {
+    console.warn('⚠️ Step 3: nextBtn not found');
+  }
+  
+  Logger.debug('🎯 setupStep3Navigation: Step 3 navigation handlers attached');
 }
 
 /**
@@ -2787,6 +3000,111 @@ function loadRaceDayData() {
     
   } catch (error) {
 	Logger.error('🎯 loadRaceDayData: Error loading saved data:', error);
+  }
+}
+
+/**
+ * Load race day item prices from database and update price displays
+ */
+async function updateRaceDayPrices() {
+	Logger.debug('🎯 updateRaceDayPrices: Loading race day item prices from database');
+  
+  try {
+    // Load race day items from database
+    const { data: raceDayItems, error } = await sb
+      .from('v_race_day_items_public')
+      .select('item_code, listed_unit_price, title_en, title_tc')
+      .eq('event_short_ref', 'TN2026')
+      .order('sort_order');
+    
+    if (error) {
+	Logger.error('🎯 updateRaceDayPrices: Database error:', error);
+      // Continue with fallback prices from template
+      return;
+    }
+    
+	Logger.debug('🎯 updateRaceDayPrices: Loaded', raceDayItems?.length || 0, 'race day items');
+    
+    if (!raceDayItems || raceDayItems.length === 0) {
+	Logger.warn('🎯 updateRaceDayPrices: No race day items found, using template fallback prices');
+      return;
+    }
+    
+    // Get translated currency symbol
+    const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+    const currencySymbol = t('hkDollar', 'HK$');
+    
+    // Map item codes to price element IDs
+    // The mapping logic matches what createRaceDayForm() used
+    raceDayItems.forEach(item => {
+      const itemCodeLower = (item.item_code || '').toLowerCase();
+      const titleLower = (item.title_en || '').toLowerCase();
+      const price = item.listed_unit_price;
+      
+      if (!price && price !== 0) {
+	Logger.warn(`🎯 updateRaceDayPrices: No price for item ${item.item_code}, skipping`);
+        return;
+      }
+      
+      // Format price with commas (e.g., 2500 -> "2,500")
+      const formattedPrice = typeof price === 'number' 
+        ? price.toLocaleString('en-US') 
+        : price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      
+      let priceElementId = null;
+      
+      // Map item codes to price element IDs
+      // Priority: exact matches first, then partial matches
+      if (itemCodeLower === 'marquee' || 
+          itemCodeLower === 'rd_marquee' ||
+          itemCodeLower === 'athlete_marquee') {
+        priceElementId = 'marqueePrice';
+      } else if (itemCodeLower === 'steer_with' ||
+                 itemCodeLower === 'rd_steerer' ||
+                 itemCodeLower === 'steersman_with' ||
+                 (itemCodeLower.includes('steer') && !itemCodeLower.includes('without') && !itemCodeLower.includes('no'))) {
+        // steer_with or steersman with practice (not "without" or "no practice")
+        priceElementId = 'steerWithPrice';
+      } else if (itemCodeLower === 'steer_without' ||
+                 itemCodeLower === 'rd_steerer_no_practice' ||
+                 itemCodeLower === 'steersman_without' ||
+                 (itemCodeLower.includes('steer') && (itemCodeLower.includes('without') || itemCodeLower.includes('no_practice') || itemCodeLower.includes('no practice')))) {
+        priceElementId = 'steerWithoutPrice';
+      } else if (itemCodeLower === 'junk_boat' ||
+                 itemCodeLower === 'rd_junk' ||
+                 itemCodeLower === 'junk' ||
+                 titleLower.includes('junk') ||
+                 titleLower.includes('pleasure')) {
+        priceElementId = 'junkPrice';
+      } else if (itemCodeLower === 'speed_boat' ||
+                 itemCodeLower === 'rd_speedboat' ||
+                 itemCodeLower === 'speedboat') {
+        priceElementId = 'speedPrice';
+      }
+      
+      if (priceElementId) {
+        const priceElement = document.getElementById(priceElementId);
+        if (priceElement) {
+          // Update price text (preserve any existing label like "Unit Price:")
+          const currentText = priceElement.textContent.trim();
+          if (currentText.startsWith(currencySymbol)) {
+            priceElement.textContent = `${currencySymbol}${formattedPrice}`;
+          } else {
+            // If it has "Unit Price:" prefix in parent, just update the number
+            priceElement.textContent = `${currencySymbol}${formattedPrice}`;
+          }
+	Logger.debug(`🎯 updateRaceDayPrices: Updated ${priceElementId} with price ${currencySymbol}${formattedPrice} from item ${item.item_code}`);
+        } else {
+	Logger.warn(`🎯 updateRaceDayPrices: Price element ${priceElementId} not found in DOM`);
+        }
+      }
+    });
+    
+	Logger.debug('🎯 updateRaceDayPrices: Price update complete');
+    
+  } catch (error) {
+	Logger.error('🎯 updateRaceDayPrices: Error updating prices:', error);
+    // Continue with fallback prices from template
   }
 }
 
@@ -2834,53 +3152,90 @@ function restoreTNStep3() {
  */
 function initStep4() {
 	Logger.debug('🎯 initStep4: Starting step 4 initialization');
+  console.log('🎯 Initializing Step 4 - Practice Booking');
   const startTime = performance.now();
+  
+  // Force parent container visibility
+  if (tnScope) {
+    tnScope.style.display = 'block';
+    tnScope.style.visibility = 'visible';
+    tnScope.style.opacity = '1';
+  }
+  
+  // Ensure wizardMount is visible (template is already cloned by loadStepContent)
+  if (wizardMount) {
+    wizardMount.style.display = 'block';
+    wizardMount.style.visibility = 'visible';
+    wizardMount.style.opacity = '1';
+    console.log('✅ wizardMount is visible');
+  }
   
   // Initialize practice configuration
 	Logger.debug('🎯 initStep4: Initializing practice configuration');
   initPracticeConfig();
   
-  // Confirm the cloned DOM contains #calendarContainer
-  const calendarEl = document.getElementById('calendarContainer');
-  if (!calendarEl) {
-	Logger.error('🎯 initStep4: #calendarContainer not found after mount');
-    return;
-  }
-	Logger.debug('🎯 initStep4: #calendarContainer found, proceeding with calendar init');
-  
-  // Set up calendar container
-  initCalendarContainer();
-  
-  // Populate slot preference selects
-	Logger.debug('🎯 initStep4: Populating slot preferences');
-  populateSlotPreferences();
-  
-  // Set up duplicate prevention
-  setupSlotDuplicatePrevention();
-  
-  // Set up slot preference change handlers
-  setupSlotPreferenceHandlers();
-  
-  // Load team selector
-  initTeamSelector();
-  
-  
-  // Set up navigation
-  setupStep4Navigation();
-  
-  // Set up copy from Team 1 button
-  setupCopyFromTeam1Button();
-  
-  // Initialize copy button visibility (hidden for Team 1)
-  hideCopyFromTeam1Option();
-  
-  const endTime = performance.now();
-	Logger.debug(`🎯 initStep4: Completed in ${(endTime - startTime).toFixed(2)}ms`);
-  
-  // Restore practice data after initialization
+  // Wait a bit for DOM to settle after template cloning
   setTimeout(() => {
-    restorePracticeData();
-  }, 200); // Wait for calendar and selects to initialize
+    // Confirm the cloned DOM contains #calendarContainer
+    const calendarEl = document.getElementById('calendarContainer');
+    if (!calendarEl) {
+      Logger.error('🎯 initStep4: #calendarContainer not found after mount');
+      // Try again after a longer delay
+      setTimeout(() => {
+        const retryCalendar = document.getElementById('calendarContainer');
+        if (retryCalendar) {
+          console.log('✅ calendarContainer found on retry');
+          initCalendarContainer();
+          continueStep4Init();
+        } else {
+          console.error('❌ calendarContainer still not found after retry');
+        }
+      }, 200);
+      return;
+    }
+    Logger.debug('🎯 initStep4: #calendarContainer found, proceeding with calendar init');
+    
+    // Set up calendar container
+    initCalendarContainer();
+    
+    // Continue with rest of initialization
+    continueStep4Init();
+  }, 50);
+  
+  // Helper function to continue Step 4 initialization after calendar is ready
+  function continueStep4Init() {
+    // Populate slot preference selects
+    Logger.debug('🎯 initStep4: Populating slot preferences');
+    populateSlotPreferences();
+    
+    // Set up duplicate prevention
+    setupSlotDuplicatePrevention();
+    
+    // Set up slot preference change handlers
+    setupSlotPreferenceHandlers();
+    
+    // Load team selector
+    initTeamSelector();
+    
+    // Set up copy from Team 1 button
+    setupCopyFromTeam1Button();
+    
+    // Initialize copy button visibility (hidden for Team 1)
+    hideCopyFromTeam1Option();
+    
+    // Set up navigation (with delay to ensure DOM is ready)
+    setTimeout(() => {
+      setupStep4Navigation();
+    }, 100);
+    
+    const endTime = performance.now();
+    Logger.debug(`🎯 initStep4: Completed in ${(endTime - startTime).toFixed(2)}ms`);
+    
+    // Restore practice data after initialization
+    setTimeout(() => {
+      restorePracticeData();
+    }, 200); // Wait for calendar and selects to initialize
+  }
 }
 
 /**
@@ -3084,10 +3439,10 @@ function createTNCalendar(container, options = {}) {
     maxDatesPerTeam: practiceConfig.max_dates_per_team || 3
   };
   
-  // Default to current year if no dates in config
-  const currentYear = new Date().getFullYear();
-  const start = startDate ? new Date(startDate) : new Date(currentYear, 0, 1);
-  const end = endDate ? new Date(endDate) : new Date(currentYear, 11, 31);
+  // Default to 2026 season if no dates in config
+  const seasonYear = 2026;
+  const start = startDate ? new Date(startDate) : new Date(seasonYear, 0, 1); // Jan 1, 2026
+  const end = endDate ? new Date(endDate) : new Date(seasonYear, 6, 31); // Jul 31, 2026
   
 	Logger.debug('createTNCalendar: Generated date range:', { start, end });
   
@@ -3191,7 +3546,14 @@ function generateMonthDays(monthStart, monthEnd, allowedWeekdays = [1,2,3,4,5,6,
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
     const weekday = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const isPast = date < new Date();
+    
+    // Check if date is past (but allow all 2026 dates in practice window)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day for comparison
+    const dateOnly = new Date(date);
+    dateOnly.setHours(0, 0, 0, 0);
+    const isPast = dateOnly < today;
+    
     const isAllowedWeekday = allowedWeekdays.includes(weekday);
     
     days.push({
@@ -3278,9 +3640,17 @@ function createDayContent(day) {
   const dateStr = day.date.toISOString().split('T')[0];
   const constraints = window.__PRACTICE_CONSTRAINTS || {};
   
-  // Check if date is within practice window
-  const isWithinWindow = !constraints.startDate || !constraints.endDate || 
-    (day.date >= new Date(constraints.startDate) && day.date <= new Date(constraints.endDate));
+  // Check if date is within practice window (allow all 2026 dates in window)
+  let isWithinWindow = true;
+  if (constraints.startDate && constraints.endDate) {
+    const windowStart = new Date(constraints.startDate);
+    windowStart.setHours(0, 0, 0, 0);
+    const windowEnd = new Date(constraints.endDate);
+    windowEnd.setHours(23, 59, 59, 999); // End of day
+    const checkDate = new Date(day.date);
+    checkDate.setHours(0, 0, 0, 0);
+    isWithinWindow = checkDate >= windowStart && checkDate <= windowEnd;
+  }
   
   // Check if date is on allowed weekday
   const dayOfWeek = day.date.getDay(); // 0=Sunday, 1=Monday, etc.
@@ -4646,14 +5016,14 @@ function fillSingleTeamForSubmission() {
   sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
 	Logger.debug('🎯 Step 3: Race day data filled');
   
-  // Step 4: Fill practice data for team 1 with 12 hours minimum (weekdays after 10/27/2025)
+  // Step 4: Fill practice data for team 1 with 12 hours minimum (weekdays after 10/27/2026)
   const practiceRows = [
-    { pref_date: '2025-10-29', duration_hours: 2, helper: 'S' }, // Wednesday - 2hr
-    { pref_date: '2025-10-31', duration_hours: 2, helper: 'T' }, // Friday - 2hr
-    { pref_date: '2025-11-03', duration_hours: 2, helper: 'S' }, // Monday - 2hr
-    { pref_date: '2025-11-05', duration_hours: 2, helper: 'ST' }, // Wednesday - 2hr
-    { pref_date: '2025-11-07', duration_hours: 2, helper: 'S' }, // Friday - 2hr
-    { pref_date: '2025-11-10', duration_hours: 2, helper: 'T' }  // Monday - 2hr (Total: 12hrs)
+    { pref_date: '2026-10-28', duration_hours: 2, helper: 'S' }, // Wednesday - 2hr
+    { pref_date: '2026-10-30', duration_hours: 2, helper: 'T' }, // Friday - 2hr
+    { pref_date: '2026-11-02', duration_hours: 2, helper: 'S' }, // Monday - 2hr
+    { pref_date: '2026-11-04', duration_hours: 2, helper: 'ST' }, // Wednesday - 2hr
+    { pref_date: '2026-11-06', duration_hours: 2, helper: 'S' }, // Friday - 2hr
+    { pref_date: '2026-11-09', duration_hours: 2, helper: 'T' }  // Monday - 2hr (Total: 12hrs)
   ];
   
   // Slot ranks: 3 for 2hr sessions, 3 for 1hr sessions (using only Saturday slots)
@@ -4743,14 +5113,14 @@ function fillMultipleTeamsForSubmission() {
   sessionStorage.setItem('tn_race_day', JSON.stringify(raceDayData));
 	Logger.debug('🎯 Step 3: Race day data filled');
   
-  // Step 4: Fill practice data for all teams with 12 hours minimum (weekdays after 10/27/2025)
+  // Step 4: Fill practice data for all teams with 12 hours minimum (weekdays after 10/27/2026)
   const practiceRows = [
-    { pref_date: '2025-10-29', duration_hours: 2, helper: 'S' }, // Wednesday - 2hr
-    { pref_date: '2025-10-31', duration_hours: 2, helper: 'T' }, // Friday - 2hr
-    { pref_date: '2025-11-03', duration_hours: 2, helper: 'S' }, // Monday - 2hr
-    { pref_date: '2025-11-05', duration_hours: 2, helper: 'ST' }, // Wednesday - 2hr
-    { pref_date: '2025-11-07', duration_hours: 2, helper: 'S' }, // Friday - 2hr
-    { pref_date: '2025-11-10', duration_hours: 2, helper: 'T' }  // Monday - 2hr (Total: 12hrs)
+    { pref_date: '2026-10-28', duration_hours: 2, helper: 'S' }, // Wednesday - 2hr
+    { pref_date: '2026-10-30', duration_hours: 2, helper: 'T' }, // Friday - 2hr
+    { pref_date: '2026-11-02', duration_hours: 2, helper: 'S' }, // Monday - 2hr
+    { pref_date: '2026-11-04', duration_hours: 2, helper: 'ST' }, // Wednesday - 2hr
+    { pref_date: '2026-11-06', duration_hours: 2, helper: 'S' }, // Friday - 2hr
+    { pref_date: '2026-11-09', duration_hours: 2, helper: 'T' }  // Monday - 2hr (Total: 12hrs)
   ];
   
   // Slot ranks: 3 for 2hr sessions, 3 for 1hr sessions (using only Saturday slots)
@@ -4880,9 +5250,9 @@ async function testSubmissionWithCurrentData() {
     
         const payload = {
           client_tx_id: 'test_debug_' + Date.now(),
-          eventShortRef: 'TN2025',
+          eventShortRef: 'TN2026',
       category: raceCategory,
-      season: 2025,
+      season: 2026,
       org_name: contact.name,
       org_address: contact.address,
       counts: {
@@ -5070,7 +5440,7 @@ function previewStep5WithSampleData() {
   sessionStorage.setItem('tn_org_name', 'Hong Kong Dragon Boat Association');
   sessionStorage.setItem('tn_org_address', '123 Victoria Road, Central, Hong Kong');
   sessionStorage.setItem('tn_category', 'mixed_corporate');
-  sessionStorage.setItem('tn_season', '2025');
+  sessionStorage.setItem('tn_season', '2026');
   
   // 2. Team data (3 teams) - using division codes from database
   const sampleTeams = [
@@ -5111,9 +5481,9 @@ function previewStep5WithSampleData() {
   if (writeTeamRows && writeTeamRanks) {
     // Team 1 practice data
     const team1Practice = [
-      { pref_date: '2025-01-15', duration_hours: 2, helper: 'S' },
-      { pref_date: '2025-01-17', duration_hours: 1, helper: 'T' },
-      { pref_date: '2025-01-20', duration_hours: 2, helper: 'ST' }
+      { pref_date: '2026-01-15', duration_hours: 2, helper: 'S' },
+      { pref_date: '2026-01-16', duration_hours: 1, helper: 'T' },
+      { pref_date: '2026-01-20', duration_hours: 2, helper: 'ST' }
     ];
     const team1Ranks = [
       { rank: 1, slot_code: 'SAT2_0800_1000' },
@@ -5125,8 +5495,8 @@ function previewStep5WithSampleData() {
     
     // Team 2 practice data
     const team2Practice = [
-      { pref_date: '2025-01-16', duration_hours: 2, helper: 'ST' },
-      { pref_date: '2025-01-19', duration_hours: 1, helper: 'S' }
+      { pref_date: '2026-01-16', duration_hours: 2, helper: 'ST' },
+      { pref_date: '2026-01-19', duration_hours: 1, helper: 'S' }
     ];
     const team2Ranks = [
       { rank: 1, slot_code: 'SUN2_1100_1300' },
@@ -5137,7 +5507,7 @@ function previewStep5WithSampleData() {
     
     // Team 3 practice data (minimal)
     const team3Practice = [
-      { pref_date: '2025-01-18', duration_hours: 2, helper: 'T' }
+      { pref_date: '2026-01-18', duration_hours: 2, helper: 'T' }
     ];
     const team3Ranks = [
       { rank: 1, slot_code: 'SUN2_1315_1515' }
@@ -5232,32 +5602,70 @@ function testCalendarDataCollection() {
  * Set up navigation for step 4
  */
 function setupStep4Navigation() {
-  // Back button
-  const backBtn = document.getElementById('backBtn');
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-	Logger.debug('🎯 initStep4: Back button clicked, going to step 3');
-      // DON'T clear data when going back - we want to restore it!
-      // clearStepDataFromHere(3); // ← COMMENTED OUT
-      loadStep(3);
-    });
+  console.log('🎯 setupStep4Navigation: Setting up Step 4 navigation');
+  
+  // Find buttons within wizardMount (where template content was cloned)
+  const container = wizardMount || document.querySelector('#wizardMount');
+  if (!container) {
+    console.error('❌ setupStep4Navigation: wizardMount container not found');
+    return;
   }
   
-  // Next button
-  const nextBtn = document.getElementById('nextBtn');
-  if (nextBtn) {
-    nextBtn.addEventListener('click', () => {
-	Logger.debug('🎯 initStep4: Next button clicked, validating step 4');
-      
-      if (validateStep4()) {
-	Logger.debug('🎯 initStep4: Validation passed, saving data and proceeding to step 5');
-        saveStep4Data();
-        loadStep(5);
-      } else {
-	Logger.debug('🎯 initStep4: Validation failed, staying on step 4');
-      }
-    });
+  // Step 4 uses backBtn/nextBtn from template (equivalent to backToStep3, nextToStep5)
+  // Search within container first, then fallback to document-wide search
+  const backBtn = container.querySelector('#backBtn') || document.getElementById('backBtn');
+  const nextBtn = container.querySelector('#nextBtn') || document.getElementById('nextBtn');
+  
+  console.log('🎯 setupStep4Navigation: Found elements:', {
+    backBtn: !!backBtn,
+    nextBtn: !!nextBtn
+  });
+  
+  // Back button (equivalent to backToStep3)
+  if (backBtn) {
+    // Check if handler already attached
+    if (backBtn.dataset.navHandlerAttached === 'true') {
+      console.log('⚠️ Step 4: Back button handler already attached, skipping');
+    } else {
+      backBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🔙 Step 4: Back button clicked, going to step 3');
+        saveStep4Data(); // Save current step data
+        showStep(3);
+      });
+      backBtn.dataset.navHandlerAttached = 'true';
+      console.log('✅ Step 4: Back button handler attached');
+    }
+  } else {
+    console.warn('⚠️ Step 4: backBtn not found');
   }
+  
+  // Next button (equivalent to nextToStep5)
+  if (nextBtn) {
+    // Check if handler already attached
+    if (nextBtn.dataset.navHandlerAttached === 'true') {
+      console.log('⚠️ Step 4: Next button handler already attached, skipping');
+    } else {
+      nextBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🔜 Step 4: Next button clicked, validating step 4');
+        if (validateStep4()) {
+          saveStep4Data();
+          showStep(5);
+        } else {
+          console.log('⚠️ Step 4: Validation failed, staying on step 4');
+        }
+      });
+      nextBtn.dataset.navHandlerAttached = 'true';
+      console.log('✅ Step 4: Next button handler attached');
+    }
+  } else {
+    console.warn('⚠️ Step 4: nextBtn not found');
+  }
+  
+  Logger.debug('🎯 setupStep4Navigation: Step 4 navigation handlers attached');
 }
 
 /**
@@ -5842,8 +6250,74 @@ function highlightDateOnCalendar(date, hours, helpers) {
  * Initialize Step 5 - Summary
  */
 function initStep5() {
+  console.log('🎯 Initializing Step 5 - Summary');
+  
+  // Force parent container visibility
+  if (tnScope) {
+    tnScope.style.display = 'block';
+    tnScope.style.visibility = 'visible';
+    tnScope.style.opacity = '1';
+  }
+  
+  // Ensure wizardMount is visible
+  if (wizardMount) {
+    wizardMount.style.display = 'block';
+    wizardMount.style.visibility = 'visible';
+    wizardMount.style.opacity = '1';
+    console.log('✅ wizardMount is visible');
+  }
+  
   // Load and display summary data
   loadSummaryData();
+  
+  // Set up step 5 navigation
+  setupStep5Navigation();
+}
+
+/**
+ * Set up navigation for step 5 (Summary/Submit)
+ */
+function setupStep5Navigation() {
+  // Step 5 uses backBtn and submitBtn
+  const backBtn = document.getElementById('backBtn');
+  const submitBtn = document.getElementById('submitBtn');
+  
+  // Back button (goes to step 4)
+  if (backBtn) {
+    // Remove existing listeners by cloning
+    const newBackBtn = backBtn.cloneNode(true);
+    backBtn.parentNode.replaceChild(newBackBtn, backBtn);
+    
+    newBackBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      console.log('🔙 Step 5: Back button clicked, going to step 4');
+      // No data to save on summary step
+      showStep(4);
+    });
+  }
+  
+  // Submit button
+  if (submitBtn) {
+    // Remove existing listeners by cloning
+    const newSubmitBtn = submitBtn.cloneNode(true);
+    submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+    
+    newSubmitBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      console.log('✅ Step 5: Submit button clicked');
+      if (validateStep5()) {
+        if (typeof submitTNForm === 'function') {
+          submitTNForm();
+        } else {
+          Logger.error('submitTNForm function not available');
+        }
+      } else {
+        console.log('⚠️ Step 5: Validation failed, cannot submit');
+      }
+    });
+  }
+  
+  Logger.debug('🎯 setupStep5Navigation: Step 5 navigation handlers attached');
 }
 
 /**
@@ -6209,44 +6683,130 @@ function loadPracticeSummary() {
 }
 
 /**
- * Set up step navigation
+ * Get current step number
+ * @returns {number} Current step (1-5)
+ */
+function getCurrentStep() {
+  return currentStep || 1; // Default to step 1
+}
+
+/**
+ * Show a specific step (hides all others and initializes)
+ * @param {number} stepNumber - Step number to show (1-5)
+ */
+function showStep(stepNumber) {
+  console.log(`📍 showStep: Showing step ${stepNumber}`);
+  
+  // Validate step number
+  if (stepNumber < 1 || stepNumber > 5) {
+    Logger.error(`showStep: Invalid step number ${stepNumber}`);
+    return;
+  }
+  
+  // Force tnScope container to be visible (parent container)
+  if (tnScope) {
+    tnScope.style.display = 'block';
+    tnScope.style.visibility = 'visible';
+    tnScope.style.opacity = '1';
+    console.log(`✅ tnScope forced visible`);
+  }
+  
+  // Force wizardMount to be visible (fix for invisible step content)
+  if (wizardMount) {
+    wizardMount.style.display = 'block';
+    wizardMount.style.visibility = 'visible';
+    wizardMount.style.opacity = '1';
+    console.log(`✅ wizardMount forced visible for step ${stepNumber}`);
+  } else {
+    console.log(`❌ wizardMount element not found`);
+  }
+  
+  // Load step content (async but we don't await here to match navigation pattern)
+  loadStep(stepNumber);
+  
+  // Step initialization is handled by loadStep -> loadStepContent -> initStepX()
+  // Navigation buttons are set up by setupStepNavigation() after step loads
+}
+
+/**
+ * Update navigation buttons visibility and text based on current step
+ * @param {number} stepNumber - Current step number
+ */
+function updateNavigationButtons(stepNumber) {
+  const backBtn = document.getElementById('backBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  
+  // Show/hide back button (hide on step 1, show on steps 2-5)
+  if (backBtn) {
+    if (stepNumber > 1) {
+      backBtn.style.display = 'inline-block';
+    } else {
+      backBtn.style.display = 'none';
+    }
+  }
+  
+  // Update next button text for final step (step 5 becomes Submit)
+  if (nextBtn) {
+    if (stepNumber === 5) {
+      const submitText = window.i18n ? window.i18n.t('submitButton', 'Submit') : 'Submit';
+      nextBtn.textContent = submitText;
+      // Change button type if needed
+      if (nextBtn.type !== 'submit') {
+        nextBtn.type = 'button'; // Keep as button, submit handled separately
+      }
+    } else {
+      const nextText = window.i18n ? window.i18n.t('nextButton', 'Next →') : 'Next →';
+      nextBtn.textContent = nextText;
+      nextBtn.type = 'button';
+    }
+  }
+}
+
+/**
+ * Set up unified step navigation (fallback for steps using generic backBtn/nextBtn)
+ * Note: Step-specific buttons (backToStep1, nextToStep3, etc.) are handled by setupStepXNavigation()
  */
 function setupStepNavigation() {
-  // Back button
-  const backBtn = document.getElementById('backBtn');
-  if (backBtn) {
-    backBtn.addEventListener('click', async () => {
-      if (currentStep > 1) {
-        const targetStep = currentStep - 1;
-        // DON'T clear data when going back - we want to restore it!
-        // clearStepDataFromHere(targetStep); // ← COMMENTED OUT
-        await loadStep(targetStep);
-      }
-    });
-  }
+  // This is a fallback for steps that use generic backBtn/nextBtn IDs
+  // Most steps now use step-specific button handlers in setupStepXNavigation()
+  Logger.debug('🎯 setupStepNavigation: Fallback navigation (not used for most steps)');
+}
+
+/**
+ * Handle next button click (unified logic)
+ */
+function handleNextButtonClick() {
+  const currentStepNum = getCurrentStep();
+  console.log('🔜 Next button clicked. Current step:', currentStepNum);
   
-  // Next button
-  const nextBtn = document.getElementById('nextBtn');
-  if (nextBtn) {
-    nextBtn.addEventListener('click', async () => {
-      if (validateCurrentStep()) {
-        saveCurrentStepData();
-        if (currentStep < totalSteps) {
-          await loadStep(currentStep + 1);
-        }
-      }
-    });
-  }
-  
-  // Submit button (step 5)
-  const submitBtn = document.getElementById('submitBtn');
-  if (submitBtn) {
-    submitBtn.addEventListener('click', () => {
-      if (validateCurrentStep()) {
+  // Validate current step before proceeding
+  if (validateCurrentStep()) {
+    // Save current step data
+    saveCurrentStepData();
+    
+    if (currentStepNum < totalSteps) {
+      const nextStep = currentStepNum + 1;
+      loadStep(nextStep);
+      updateStepIndicator(nextStep);
+    } else if (currentStepNum === 5) {
+      // Final step - submit form
+      if (typeof submitTNForm === 'function') {
         submitTNForm();
+      } else {
+        Logger.error('submitTNForm function not available');
       }
-    });
+    }
+  } else {
+    console.log('⚠️ Validation failed, staying on step', currentStepNum);
   }
+}
+
+/**
+ * Update step indicator (stepper visual state)
+ * @param {number} stepNumber - Step number to show as active
+ */
+function updateStepIndicator(stepNumber) {
+  updateStepper();
 }
 
 /**
@@ -7059,9 +7619,9 @@ async function submitTNForm() {
     // Build payload in server-expected format
     const payload = {
       client_tx_id: getClientTxId(),
-      eventShortRef: getEventShortRef() || 'TN2025',
+      eventShortRef: getEventShortRef() || 'TN2026',
       category: raceCategory,
-      season: window.__CONFIG?.event?.season || 2025,
+      season: window.__CONFIG?.event?.season || 2026,
       org_name: contact.name,
       org_address: contact.address,
       counts: {
@@ -7603,9 +8163,9 @@ if (window.__DEV__) {
       
       const payload = {
         client_tx_id: getClientTxId(),
-        eventShortRef: getEventShortRef() || 'TN2025',
+        eventShortRef: getEventShortRef() || 'TN2026',
         category: raceCategory,
-        season: window.__CONFIG?.event?.season || 2025,
+        season: window.__CONFIG?.event?.season || 2026,
         org_name: contact.name,
         org_address: contact.address,
         counts: {
@@ -7653,9 +8213,9 @@ if (window.__DEV__) {
       
       const payload = {
         client_tx_id: getClientTxId(),
-        eventShortRef: getEventShortRef() || 'TN2025',
+        eventShortRef: getEventShortRef() || 'TN2026',
         category: raceCategory,
-        season: window.__CONFIG?.event?.season || 2025,
+        season: window.__CONFIG?.event?.season || 2026,
         org_name: contact.name,
         org_address: contact.address,
         counts: {
@@ -7746,8 +8306,8 @@ if (window.__DEV__) {
       {
         team_index: 0,
         dates: [
-          { date: '2025-01-15', hours: 2, helpers: 'ST' },
-          { date: '2025-01-22', hours: 1, helpers: 'S' }
+          { date: '2026-01-15', hours: 2, helpers: 'ST' },
+          { date: '2026-01-22', hours: 1, helpers: 'S' }
         ],
         slotPrefs_2hr: { slot_pref_1: 'SAT2_0800_1000', slot_pref_2: 'SAT2_1000_1200' },
         slotPrefs_1hr: { slot_pref_1: 'SAT1_0800_0900' }
@@ -7755,7 +8315,7 @@ if (window.__DEV__) {
       {
         team_index: 1,
         dates: [
-          { date: '2025-01-16', hours: 2, helpers: 'T' }
+          { date: '2026-01-16', hours: 2, helpers: 'T' }
         ],
         slotPrefs_2hr: { slot_pref_1: 'SUN2_0900_1100' }
       }
@@ -7798,9 +8358,9 @@ if (window.__DEV__) {
       // Generate payload
       const payload = {
         client_tx_id: getClientTxId(),
-        eventShortRef: getEventShortRef() || 'TN2025',
+        eventShortRef: getEventShortRef() || 'TN2026',
         category: 'mixed_open',
-        season: 2025,
+        season: 2026,
         org_name: 'Test Organization',
         org_address: '123 Test Street, Test City',
         counts: {
@@ -7829,8 +8389,8 @@ if (window.__DEV__) {
             {
               team_key: 't1',
               dates: [
-                { pref_date: '2025-01-15', duration_hours: 2, helper: 'ST' },
-                { pref_date: '2025-01-22', duration_hours: 1, helper: 'S' }
+                { pref_date: '2026-01-15', duration_hours: 2, helper: 'ST' },
+                { pref_date: '2026-01-22', duration_hours: 1, helper: 'S' }
               ],
               slot_ranks: [
                 { rank: 1, slot_code: 'SAT2_0800_1000' },
@@ -7841,7 +8401,7 @@ if (window.__DEV__) {
             {
               team_key: 't2',
               dates: [
-                { pref_date: '2025-01-16', duration_hours: 2, helper: 'T' }
+                { pref_date: '2026-01-16', duration_hours: 2, helper: 'T' }
               ],
               slot_ranks: [
                 { rank: 1, slot_code: 'SUN2_0900_1100' }

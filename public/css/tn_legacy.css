@@ -281,12 +281,63 @@
 }
 
 #tnScope .nav-buttons button#backBtn {
-  background-color: var(--theme-primary-dark) !important;
+  background: var(--theme-primary-dark, #c79100) !important;  /* Fallback to darker gold */
+  background-color: var(--theme-primary-dark, #c79100) !important;
+  color: white !important;
+  border: none !important;
+}
+
+/* ========== FORCE NAVIGATION BUTTONS VISIBILITY (Step 3 & 4) ========== */
+/* Ensure navigation buttons are always visible in Step 3 and Step 4 */
+
+/* Force nav-buttons container visibility */
+#tnScope .nav-buttons {
+  display: flex !important;
+  visibility: visible !important;
+}
+
+/* Force individual button visibility */
+#tnScope #backBtn,
+#tnScope #nextBtn,
+#tnScope .nav-buttons #backBtn,
+#tnScope .nav-buttons #nextBtn,
+#tnScope button#backBtn,
+#tnScope button#nextBtn {
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  height: auto !important;
+  width: auto !important;
+  position: relative !important;
+  min-height: 44px !important;
+  min-width: 100px !important;
+  pointer-events: auto !important;
+}
+
+/* CRITICAL: Force back button background color (override any transparent backgrounds) */
+/* Unified TN Back Button Styling - ALL back buttons should match darker gold theme */
+#tnScope #backBtn,
+#tnScope .nav-buttons #backBtn,
+#tnScope button#backBtn {
+  background: var(--theme-primary-dark, #c79100) !important;  /* Darker gold, not gray */
+  background-color: var(--theme-primary-dark, #c79100) !important;
+  color: white !important;
+  border: none !important;
+  padding: 0.7rem 1.2rem !important;
+  font-weight: bold !important;
 }
 
 #tnScope .nav-buttons button#backBtn:hover {
-  background-color: var(--theme-primary) !important;
+  background: var(--theme-primary, #f7b500) !important;  /* Lighter gold on hover */
+  background-color: var(--theme-primary, #f7b500) !important;
   opacity: 0.9;
+}
+
+/* EMERGENCY OVERRIDE: Ensure back button is never transparent */
+#tnScope button#backBtn[style*="background"] {
+  background: var(--theme-primary-dark, #c79100) !important;  /* Darker gold, not gray */
+  background-color: var(--theme-primary-dark, #c79100) !important;
+  color: white !important;
 }
 
 /* ========== UTILITY CLASSES ========== */
@@ -428,6 +479,31 @@
   margin: 0;
 }
 
+/* ========== QTY INPUT CONTAINER STYLES ========== */
+
+#tnScope .qty-input-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+#tnScope .qty-input-container .qty-input {
+  width: 80px;
+  margin: 0;
+}
+
+#tnScope .qty-input-container .unit-label {
+  margin: 0;
+  font-weight: normal;
+}
+
+#tnScope .qty-input-container .price {
+  margin: 0;
+  font-weight: bold;
+  color: var(--theme-primary-dark, #c79100);
+}
+
 /* ========== TEAM SELECTOR STYLES ========== */
 
 #tnScope .team-selector {
@@ -487,4 +563,51 @@
 
 #tnScope .copy-from-team1 button:hover {
   background: #218838;
+}
+
+/* ========== CRITICAL FIX: BACK BUTTON MUST ALWAYS BE VISIBLE ========== */
+/* This rule has maximum specificity to override any other styles or inline styles */
+/* Prevents transparent background on light backgrounds */
+
+/* Unified TN Back Button Styling - ALL back buttons should match darker gold theme */
+/* This ensures Steps 2, 3, 4, and 5 all use the same darker gold color */
+#tnScope button#backBtn,
+#tnScope button#backToStep1,
+#tnScope button#backToStep2,
+#tnScope button#backToStep3,
+#tnScope .nav-buttons button#backBtn,
+#tnScope #backBtn,
+#tnScope [id="backBtn"] {
+  background: var(--theme-primary-dark, #c79100) !important;  /* Darker gold, not gray */
+  background-color: var(--theme-primary-dark, #c79100) !important;
+  color: white !important;
+  border: none !important;
+  padding: 0.75rem 2rem !important;
+  border-radius: 8px !important;
+  font-size: 1rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  /* Never allow transparent background */
+  background-image: none !important;
+  opacity: 1 !important;
+}
+
+/* Back button hover state - lighter gold */
+#tnScope button#backBtn:hover,
+#tnScope button#backToStep1:hover,
+#tnScope button#backToStep2:hover,
+#tnScope button#backToStep3:hover,
+#tnScope .nav-buttons button#backBtn:hover {
+  background: var(--theme-primary, #f7b500) !important;  /* Lighter gold on hover */
+  background-color: var(--theme-primary, #f7b500) !important;
+  opacity: 0.9 !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Override any inline styles that might set transparent background */
+#tnScope button#backBtn[style] {
+  background: var(--theme-primary-dark, #c79100) !important;  /* Darker gold, not gray */
+  background-color: var(--theme-primary-dark, #c79100) !important;
+  color: white !important;
 }

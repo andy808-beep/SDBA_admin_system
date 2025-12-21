@@ -68,25 +68,25 @@ CREATE INDEX IF NOT EXISTS idx_ui_texts_active   ON public.ui_texts(is_active, s
 INSERT INTO public.ui_texts (event_short_ref, screen, key, text_en, text_tc, sort_order)
 VALUES
 -- Common buttons
-('TN2025','common','btn_back','Back','返回',10),
-('TN2025','common','btn_next','Next','下一步',20),
+('TN2026','common','btn_back','Back','返回',10),
+('TN2026','common','btn_next','Next','下一步',20),
 
 -- Page 1: Category
-('TN2025','p1_category','title','Select Race Category','選擇參賽組別',10),
-('TN2025','p1_category','entry_options','Entry Options','報名選項',20),
-('TN2025','p1_category','teams_label','How many teams?','隊伍數量',30),
+('TN2026','p1_category','title','Select Race Category','選擇參賽組別',10),
+('TN2026','p1_category','entry_options','Entry Options','報名選項',20),
+('TN2026','p1_category','teams_label','How many teams?','隊伍數量',30),
 
 -- Page 2: Team info
-('TN2025','p2_teaminfo','title','Team & Organization Info','隊伍及機構資料',10),
-('TN2025','p2_teaminfo','label_org_name','Organization / Group Name','機構 / 團體名稱',20),
-('TN2025','p2_teaminfo','label_address','Mailing Address','通訊地址',30),
+('TN2026','p2_teaminfo','title','Team & Organization Info','隊伍及機構資料',10),
+('TN2026','p2_teaminfo','label_org_name','Organization / Group Name','機構 / 團體名稱',20),
+('TN2026','p2_teaminfo','label_address','Mailing Address','通訊地址',30),
 
 -- Page 3: Race-day
-('TN2025','p3_raceday','title','Race-Day Arrangements','比賽日安排',10),
+('TN2026','p3_raceday','title','Race-Day Arrangements','比賽日安排',10),
 
 -- Page 4: Booking
-('TN2025','p4_booking','title','Practice Booking','練習預約',10),
-('TN2025','p4_booking','window_hint','Practice window: Jan–Jul (from config)','練習時段：一月至七月（由設定提供）',20)
+('TN2026','p4_booking','title','Practice Booking','練習預約',10),
+('TN2026','p4_booking','window_hint','Practice window: Jan–Jul (from config)','練習時段：一月至七月（由設定提供）',20)
 ON CONFLICT (event_short_ref, screen, key) DO UPDATE
 SET text_en   = EXCLUDED.text_en,
     text_tc   = EXCLUDED.text_tc,

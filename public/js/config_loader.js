@@ -15,7 +15,7 @@ const CACHE_PREFIX = 'raceApp:config:';
 
 /**
  * Generate cache key for event configuration
- * @param {string} eventShortRef - Event short reference (e.g., "TN2025")
+ * @param {string} eventShortRef - Event short reference (e.g., "TN2026")
  * @returns {string} Cache key
  */
 function getCacheKey(eventShortRef) {
@@ -191,22 +191,37 @@ async function fetchConfigFromTables(eventShortRef) {
     throw new Error(`Event not found or not enabled: ${eventShortRef}`);
   }
   
-  // Query divisions from view (matching RPC structure)
-  // Note: Views may need to be granted REST API access in Supabase
+  // Query divisions from division_config_general using event_type
+  // CORRECT: Use event_type from event config instead of event_short_ref
   let divisionsData = [];
   try {
     const { data, error } = await sb
-      .from('v_divisions_public')
-      .select('event_short_ref, division_code, name_en, name_tc, is_corporate, sort_order, is_active, by_invitation_only')
-      .eq('event_short_ref', eventShortRef)
-      .eq('is_active', true);
+      .from('division_config_general')
+      .select('div_code_prefix, div_main_name_en, div_main_name_tc, div_sub_name_en, div_sub_name_tc, is_corporate, sort_order, by_invitation_only, status')
+      .eq('event_type', eventData.ref_event_type)  // e.g., 'warm_up', 'short_course', 'main_race'
+      .eq('status', 'active')
+      .order('sort_order');
     if (error) {
-      console.warn('Failed to query v_divisions_public:', error);
+      console.warn('Failed to query division_config_general:', error);
     } else {
-      divisionsData = data || [];
+      // Transform to match expected structure (similar to v_divisions_public view)
+      divisionsData = (data || []).map(div => ({
+        event_short_ref: eventShortRef,
+        division_code: div.div_code_prefix,
+        name_en: div.div_sub_name_en && div.div_sub_name_en.trim() 
+          ? `${div.div_main_name_en} – ${div.div_sub_name_en}`
+          : div.div_main_name_en,
+        name_tc: div.div_sub_name_tc && div.div_sub_name_tc.trim()
+          ? `${div.div_main_name_tc || div.div_main_name_en} – ${div.div_sub_name_tc}`
+          : (div.div_main_name_tc || div.div_main_name_en),
+        is_corporate: div.is_corporate,
+        sort_order: div.sort_order,
+        is_active: true, // All results are active since we filter by status='active'
+        by_invitation_only: div.by_invitation_only
+      }));
     }
   } catch (error) {
-    console.warn('Error querying v_divisions_public:', error);
+    console.warn('Error querying division_config_general:', error);
   }
     
   // Query packages from view (matching RPC structure)
@@ -324,7 +339,7 @@ async function fetchConfigFromTables(eventShortRef) {
 
 /**
  * Load event configuration with caching support
- * @param {string} eventShortRef - Event short reference (e.g., "TN2025")
+ * @param {string} eventShortRef - Event short reference (e.g., "TN2026")
  * @param {object} options - Configuration options
  * @param {boolean} options.useCache - Whether to use cached data (default: true)
  * @returns {Promise<object>} Configuration object
@@ -337,11 +352,11 @@ export async function loadEventConfig(eventShortRef, { useCache = true } = {}) {
   // Map event references to database format
   let dbEventRef = eventShortRef;
   if (eventShortRef === 'tn') {
-    dbEventRef = 'TN2025';
+    dbEventRef = 'TN2026';
   } else if (eventShortRef === 'wu') {
-    dbEventRef = 'WU2025';
+    dbEventRef = 'WU2026';
   } else if (eventShortRef === 'sc') {
-    dbEventRef = 'SC2025';
+    dbEventRef = 'SC2026';
   }
   
   console.log(`🔗 Config Loader: Loading configuration for event: ${eventShortRef} (useCache: ${useCache})`);

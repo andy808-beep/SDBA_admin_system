@@ -31,8 +31,8 @@ export function createTNConfig() {
       event_short_ref: 'tn',
       event_long_name_en: 'TN Legacy Registration',
       form_enabled: true,
-      practice_start_date: '2025-01-01',
-      practice_end_date: '2025-07-31'
+      practice_start_date: '2026-01-01',
+      practice_end_date: '2026-07-31'
     },
     labels: {
       contact_name: 'Name',
@@ -90,8 +90,8 @@ export function createTNConfig() {
       { slot_code: 'evening_1h', label: 'Evening Session (6-7 PM)', duration_hours: 1 }
     ],
     practice: {
-      practice_start_date: '2025-01-01',
-      practice_end_date: '2025-07-31',
+      practice_start_date: '2026-01-01',
+      practice_end_date: '2026-07-31',
       min_rows: 1,
       max_rows: 3,
       window_rules: {
@@ -115,10 +115,14 @@ export function createTNConfig() {
 async function loadTNTemplates() {
   try {
     Logger.debug('🎯 loadTNTemplates: Starting template loading');
-    // Check if templates are already loaded
-    const existingTemplate = document.getElementById('tn-step-1');
-    if (existingTemplate) {
-      Logger.debug('🎯 loadTNTemplates: TN templates already loaded');
+    
+    // IMPROVED: Check all templates, not just step-1, to prevent duplicates
+    const existingTemplates = ['tn-step-1', 'tn-step-2', 'tn-step-3', 'tn-step-4', 'tn-step-5']
+      .map(id => document.getElementById(id))
+      .filter(el => el !== null);
+    
+    if (existingTemplates.length > 0) {
+      Logger.debug(`🎯 loadTNTemplates: ${existingTemplates.length}/5 templates already loaded, skipping`);
       return;
     }
     
@@ -141,14 +145,24 @@ async function loadTNTemplates() {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
     
-    // Extract and append templates to document head
+    // Extract templates and append to document head (only if they don't exist)
     const templates = tempDiv.querySelectorAll('template');
-    Logger.debug(`loadTNTemplates: Found ${templates.length} templates`);
+    Logger.debug(`loadTNTemplates: Found ${templates.length} templates in HTML`);
+    
+    let appendedCount = 0;
     templates.forEach(template => {
-      document.head.appendChild(template.cloneNode(true));
+      const templateId = template.id;
+      // Double-check: only append if this template ID doesn't exist yet
+      if (!document.getElementById(templateId)) {
+        document.head.appendChild(template.cloneNode(true));
+        appendedCount++;
+        Logger.debug(`✅ Appended template: ${templateId}`);
+      } else {
+        Logger.warn(`⚠️ Skipped duplicate template: ${templateId}`);
+      }
     });
     
-    Logger.info('TN templates loaded successfully');
+    Logger.info(`TN templates loaded successfully (${appendedCount} templates appended)`);
   } catch (error) {
     Logger.error('Failed to load TN templates:', error);
     throw error;
@@ -226,11 +240,11 @@ async function loadPicker() {
         events = dbEvents.map(ev => {
           // Map database event references to expected format
           let mappedRef = ev.event_short_ref;
-          if (ev.event_short_ref === 'TN2025') {
+          if (ev.event_short_ref === 'TN2026') {
             mappedRef = 'tn';
-          } else if (ev.event_short_ref === 'WU2025') {
+          } else if (ev.event_short_ref === 'WU2026') {
             mappedRef = 'wu';
-          } else if (ev.event_short_ref === 'SC2025') {
+          } else if (ev.event_short_ref === 'SC2026') {
             mappedRef = 'sc';
           }
 
@@ -262,24 +276,24 @@ async function loadPicker() {
       events = [
         {
           ref: 'tn',
-          name: isZh ? '赤柱國際龍舟錦標賽2025' : 'Stanley International Dragon Boat Championships 2025',
-          name_en: 'Stanley International Dragon Boat Championships 2025',
-          name_tc: '赤柱國際龍舟錦標賽2025',
-          description: isZh ? '2025 年 5 月 31 日, 星期六' : '31 May, 2025, Saturday',
-          description_en: '31 May, 2025, Saturday',
-          description_tc: '2025 年 5 月 31 日, 星期六',
+          name: isZh ? '赤柱國際龍舟錦標賽2026' : 'Stanley International Dragon Boat Championships 2026',
+          name_en: 'Stanley International Dragon Boat Championships 2026',
+          name_tc: '赤柱國際龍舟錦標賽2026',
+          description: isZh ? '2026 年 5 月 30 日, 星期六' : '30 May, 2026, Saturday',
+          description_en: '30 May, 2026, Saturday',
+          description_tc: '2026 年 5 月 30 日, 星期六',
           details: isZh ? '赤柱正灘' : 'Stanley Main Beach',
           details_en: 'Stanley Main Beach',
           details_tc: '赤柱正灘'
         },
         {
           ref: 'wu',
-          name: isZh ? '赤柱龍舟熱身賽 2025' : 'Stanley Dragon Boat Warm-Up Races 2025',
-          name_en: 'Stanley Dragon Boat Warm-Up Races 2025',
-          name_tc: '赤柱龍舟熱身賽 2025',
-          description: isZh ? '2025 年 5 月 3 日, 星期六' : '3 May, 2025, Saturday',
-          description_en: '3 May, 2025, Saturday',
-          description_tc: '2025 年 5 月 3 日, 星期六',
+          name: isZh ? '赤柱龍舟熱身賽 2026' : 'Stanley Dragon Boat Warm-Up Races 2026',
+          name_en: 'Stanley Dragon Boat Warm-Up Races 2026',
+          name_tc: '赤柱龍舟熱身賽 2026',
+          description: isZh ? '2026 年 5 月 2 日, 星期六' : '2 May, 2026, Saturday',
+          description_en: '2 May, 2026, Saturday',
+          description_tc: '2026 年 5 月 2 日, 星期六',
           details: isZh ? '赤柱正灘' : 'Stanley Main Beach',
           details_en: 'Stanley Main Beach',
           details_tc: '赤柱正灘'
@@ -289,9 +303,9 @@ async function loadPicker() {
           name: isZh ? '第二十四屆香港龍舟短途賽' : 'The 24th Hong Kong Dragon Boat Short Course Races',
           name_en: 'The 24th Hong Kong Dragon Boat Short Course Races',
           name_tc: '第二十四屆香港龍舟短途賽',
-          description: isZh ? '2025 年 6 月 15 日, 星期日' : '15 June, 2025, Sunday',
-          description_en: '15 June, 2025, Sunday',
-          description_tc: '2025 年 6 月 15 日, 星期日',
+          description: isZh ? '2026 年 6 月 14 日, 星期日' : '14 June, 2026, Sunday',
+          description_en: '14 June, 2026, Sunday',
+          description_tc: '2026 年 6 月 14 日, 星期日',
           details: isZh ? '赤柱正灘' : 'Stanley Main Beach',
           details_en: 'Stanley Main Beach',
           details_tc: '赤柱正灘'

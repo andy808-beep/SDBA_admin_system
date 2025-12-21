@@ -29,18 +29,18 @@ let eventType = null; // 'wu' or 'sc'
 
 /**
  * Get event short ref for auto-save
- * Returns full event short ref like 'WU2025' or 'SC2025'
+ * Returns full event short ref like 'WU2026' or 'SC2026'
  */
 function getWUSCEventShortRef() {
   // eventType is 'wu' or 'sc' (lowercase, extracted from eventShortRef)
   // Construct full ref for auto-save
   if (eventType) {
-    return eventType.toUpperCase() + '2025';
+    return eventType.toUpperCase() + '2026';
   }
   // Fallback to config or imported function
   const cfg = window.__CONFIG;
   const eventRef = cfg?.event?.event_short_ref || cfg?.event?.short_ref || getEventShortRef();
-  return eventRef || 'WU2025';
+  return eventRef || 'WU2026';
 }
 
 /**
@@ -50,7 +50,7 @@ export async function initWUSCWizard(eventShortRef) {
 	Logger.debug('🎯 initWUSCWizard called with:', eventShortRef);
   console.log('🎯 Initializing WU/SC Wizard with auto-save');
   
-  // eventShortRef is like 'WU2025' or 'SC2025'
+  // eventShortRef is like 'WU2026' or 'SC2026'
   // Extract just the type part ('wu' or 'sc') for sessionStorage keys
   eventType = eventShortRef ? eventShortRef.substring(0, 2).toLowerCase() : 'wu';
   wuScScope = document.getElementById('wuScContainer');
@@ -105,7 +105,7 @@ export async function initWUSCWizard(eventShortRef) {
   initStepper();
   
   // Auto-save integration
-  // Use the eventShortRef parameter directly (e.g., 'WU2025' or 'SC2025')
+  // Use the eventShortRef parameter directly (e.g., 'WU2026' or 'SC2026')
   const eventRef = eventShortRef || getWUSCEventShortRef();
   
   // Try to restore from localStorage FIRST (before loading step 0)
@@ -930,8 +930,8 @@ async function renderTeamDetails(count) {
     clearBtn.style.borderRadius = '4px';
     clearBtn.style.cursor = 'pointer';
     clearBtn.onclick = function() {
-      localStorage.removeItem('raceApp:config:WU2025');
-      localStorage.removeItem('raceApp:config:SC2025');
+      localStorage.removeItem('raceApp:config:WU2026');
+      localStorage.removeItem('raceApp:config:SC2026');
       location.reload();
     };
     warningMsg.appendChild(clearBtn);
@@ -1827,7 +1827,7 @@ function populateSummary() {
   
   // Basics
   const sumSeason = document.getElementById('sumSeason');
-  if (sumSeason) sumSeason.textContent = cfg?.event?.season || '2025';
+  if (sumSeason) sumSeason.textContent = cfg?.event?.season || '2026';
   
   const sumOrg = document.getElementById('sumOrg');
   const orgName = sessionStorage.getItem(`${eventType}_orgName`) || document.getElementById('orgName')?.value || '—';
@@ -2553,9 +2553,9 @@ function collectFormData() {
   };
   
   return {
-    eventShortRef: eventType.toUpperCase() + '2025', // Convert 'wu' to 'WU2025'
+    eventShortRef: eventType.toUpperCase() + '2026', // Convert 'wu' to 'WU2026'
     category: teams[0]?.category || 'warm_up', // Use first team's category (Division – Entry Group)
-    season: cfg?.event?.season || 2025,
+    season: cfg?.event?.season || 2026,
     org_name: orgName,
     org_address: orgAddress,
     teams: teams,

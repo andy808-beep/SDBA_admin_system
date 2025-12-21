@@ -143,15 +143,15 @@ CREATE INDEX IF NOT EXISTS idx_orderitem_event_type_sort    ON public.annual_eve
 -- 4) Seed / Upsert rows
 -- ======================
 
--- WARM-UP (WU2025) packages
+-- WARM-UP (WU2026) packages
 INSERT INTO public.annual_event_order_item_config
 (event_short_ref, order_item_type, order_item_code, order_item_short_ref,
  order_item_title_en, order_item_title_tc, listed_unit_price,
  min_order_qty, max_order_qty, show_on_app_form, sort_order, is_active)
 VALUES
-('WU2025', 'package', 'std_wu', 'Std (WU)', 'Standard Boat', '標準龍', 4600, 0, 1, true, 1, true),
-('WU2025', 'package', 'sb_wu',  'SB (WU)',  'Small Boat',    '小籠',   2800, 0, 1, true, 2, true),
-('WU2025', 'package', 'invitation_wu', 'Invitation (WU)', 'By Invitation', '邀請賽', 0, 0, 1, true, 99, true)
+('WU2026', 'package', 'std_wu', 'Std (WU)', 'Standard Boat', '標準龍', 4600, 0, 1, true, 1, true),
+('WU2026', 'package', 'sb_wu',  'SB (WU)',  'Small Boat',    '小籠',   2800, 0, 1, true, 2, true),
+('WU2026', 'package', 'invitation_wu', 'Invitation (WU)', 'By Invitation', '邀請賽', 0, 0, 1, true, 99, true)
 ON CONFLICT (event_short_ref, order_item_code) DO UPDATE
 SET order_item_type = EXCLUDED.order_item_type,
     order_item_short_ref = EXCLUDED.order_item_short_ref,
@@ -164,7 +164,7 @@ SET order_item_type = EXCLUDED.order_item_type,
     sort_order           = EXCLUDED.sort_order,
     is_active            = EXCLUDED.is_active;
 
--- MAIN RACE (TN2025) packages — include freebies/caps
+-- MAIN RACE (TN2026) packages — include freebies/caps
 INSERT INTO public.annual_event_order_item_config
 (event_short_ref, order_item_type, order_item_code, order_item_short_ref,
  order_item_title_en, order_item_title_tc, package_description_long,
@@ -172,16 +172,16 @@ INSERT INTO public.annual_event_order_item_config
  included_practice_hours_per_team, min_order_qty, max_order_qty, show_on_app_form,
  sort_order, is_active)
 VALUES
-('TN2025', 'package', 'option_1_non_corp', 'Option I', 'Option I', '選項 I',
+('TN2026', 'package', 'option_1_non_corp', 'Option I', 'Option I', '選項 I',
  '- Entry Fee 參賽費\n- Practice with equipment 練習及器材 X 12 hrs\n- Souvenir Tee 龍舟紀念 T 恤 X 20 pieces\n- Padded Shorts 龍舟專用短褲 X 20 pieces\n- 20L Dry Bag 防水袋 X 1 piece',
  20900, 20, 20, 1, 12, 0, 1, true, 1, true),
-('TN2025', 'package', 'option_1_corp', 'Option I', 'Option I', '選項 I',
+('TN2026', 'package', 'option_1_corp', 'Option I', 'Option I', '選項 I',
  '- Entry Fee 參賽費\n- Practice with equipment 練習及器材 X 12 hrs\n- Souvenir Tee 龍舟紀念 T 恤 X 20 pieces\n- Padded Shorts 龍舟專用短褲 X 20 pieces\n- 20L Dry Bag 防水袋 X 1 piece',
  21900, 20, 20, 1, 12, 0, 1, true, 2, true),
-('TN2025', 'package', 'option_2_non_corp', 'Option II', 'Option II', '選項 II',
+('TN2026', 'package', 'option_2_non_corp', 'Option II', 'Option II', '選項 II',
  '- Entry Fee 參賽費\n- Practice with equipment 練習及器材 X 12 hrs\n- Souvenir Tee 龍舟紀念 T 恤 X 20 pieces\n- 20L Dry Bag 防水袋 X 1 piece',
  17500, 20, 0, 1, 12, 0, NULL, true, 3, true),
-('TN2025', 'package', 'option_2_corp', 'Option II', 'Option II', '選項 II',
+('TN2026', 'package', 'option_2_corp', 'Option II', 'Option II', '選項 II',
  '- Entry Fee 參賽費\n- Practice with equipment 練習及器材 X 12 hrs\n- Souvenir Tee 龍舟紀念 T 恤 X 20 pieces\n- 20L Dry Bag 防水袋 X 1 piece',
  18500, 20, 0, 1, 12, 0, NULL, true, 4, true)
 ON CONFLICT (event_short_ref, order_item_code) DO UPDATE
@@ -201,16 +201,16 @@ SET order_item_type = EXCLUDED.order_item_type,
     sort_order           = EXCLUDED.sort_order,
     is_active            = EXCLUDED.is_active;
 
--- SHORT COURSE (SC2025) packages
+-- SHORT COURSE (SC2026) packages
 INSERT INTO public.annual_event_order_item_config
 (event_short_ref, order_item_type, order_item_code, order_item_short_ref,
  order_item_title_en, order_item_title_tc, listed_unit_price,
  min_order_qty, max_order_qty, show_on_app_form, sort_order, is_active)
 VALUES
-('SC2025', 'package', 'std_sc', 'Std (SC)', 'Standard Boat', '標準龍', 4600, 0, 1, true, 1, true),
-('SC2025', 'package', 'sb_sc', 'SB (SC)', 'Small Boat', '小籠', 2800, 0, 1, true, 2, true),
-('SC2025', 'package', 'postsec_pkg_sc', 'Post-Sec Pkg (SC)', 'Post-Secondary w/ Package', '大專組 連 Package', 5500, 0, 1, true, 3, true),
-('SC2025', 'package', 'invitation_sc', 'Invitation (SC)', 'By Invitation', '邀請賽', 0, 0, 1, true, 99, true)
+('SC2026', 'package', 'std_sc', 'Std (SC)', 'Standard Boat', '標準龍', 4600, 0, 1, true, 1, true),
+('SC2026', 'package', 'sb_sc', 'SB (SC)', 'Small Boat', '小籠', 2800, 0, 1, true, 2, true),
+('SC2026', 'package', 'postsec_pkg_sc', 'Post-Sec Pkg (SC)', 'Post-Secondary w/ Package', '大專組 連 Package', 5500, 0, 1, true, 3, true),
+('SC2026', 'package', 'invitation_sc', 'Invitation (SC)', 'By Invitation', '邀請賽', 0, 0, 1, true, 99, true)
 ON CONFLICT (event_short_ref, order_item_code) DO UPDATE
 SET order_item_type = EXCLUDED.order_item_type,
     order_item_short_ref = EXCLUDED.order_item_short_ref,
@@ -223,19 +223,19 @@ SET order_item_type = EXCLUDED.order_item_type,
     sort_order           = EXCLUDED.sort_order,
     is_active            = EXCLUDED.is_active;
 
--- RACE-DAY ARRANGEMENTS (WU2025)
+-- RACE-DAY ARRANGEMENTS (WU2026)
 INSERT INTO public.annual_event_order_item_config
 (event_short_ref, order_item_type, order_item_code, order_item_short_ref,
  order_item_title_en, order_item_title_tc, listed_unit_price,
  min_order_qty, max_order_qty, show_on_app_form, sort_order, is_active)
 VALUES
-('WU2025', 'race_day_arrangement', 'rd_marquee', '[RD] Marquee', 'Athlete Marquee', '帳篷', 800, 0, 20, true, 1, true),
-('WU2025', 'race_day_arrangement', 'rd_marquee_location', '[RD] Marquee Special', 'Athlete Marquee - Specific Location', '帳篷 - 預留位置', 500, 0, 999, false, 2, true),
-('WU2025', 'race_day_arrangement', 'rd_steerer', '[RD] Steerer', 'Official Steerer', '大會舵手', 800, 0, 1, true, 3, true),
-('WU2025', 'race_day_arrangement', 'rd_steerer_no_practice', '[RD] Steerer (X Practice)', 'Official Steerer', '大會舵手', 1500, 0, 1, true, 4, true),
-('WU2025', 'race_day_arrangement', 'rd_junk', '[RD] Junk', 'Junk Registration', '遊艇登記', 2500, 0, 5, true, 5, true),
-('WU2025', 'race_day_arrangement', 'rd_speedboat', '[RD] Speedboat', 'Speed Boat Registration', '快艇登記', 1500, 0, 5, true, 6, true),
-('WU2025', 'race_day_arrangement', 'rd_advertisement_10000', '[RD] Ads', 'Advertisement Charge', '廣告費', 10000, 0, 999, false, 99, true)
+('WU2026', 'race_day_arrangement', 'rd_marquee', '[RD] Marquee', 'Athlete Marquee', '帳篷', 800, 0, 20, true, 1, true),
+('WU2026', 'race_day_arrangement', 'rd_marquee_location', '[RD] Marquee Special', 'Athlete Marquee - Specific Location', '帳篷 - 預留位置', 500, 0, 999, false, 2, true),
+('WU2026', 'race_day_arrangement', 'rd_steerer', '[RD] Steerer', 'Official Steerer', '大會舵手', 800, 0, 1, true, 3, true),
+('WU2026', 'race_day_arrangement', 'rd_steerer_no_practice', '[RD] Steerer (X Practice)', 'Official Steerer', '大會舵手', 1500, 0, 1, true, 4, true),
+('WU2026', 'race_day_arrangement', 'rd_junk', '[RD] Junk', 'Junk Registration', '遊艇登記', 2500, 0, 5, true, 5, true),
+('WU2026', 'race_day_arrangement', 'rd_speedboat', '[RD] Speedboat', 'Speed Boat Registration', '快艇登記', 1500, 0, 5, true, 6, true),
+('WU2026', 'race_day_arrangement', 'rd_advertisement_10000', '[RD] Ads', 'Advertisement Charge', '廣告費', 10000, 0, 999, false, 99, true)
 ON CONFLICT (event_short_ref, order_item_code) DO UPDATE
 SET order_item_type = EXCLUDED.order_item_type,
     order_item_short_ref = EXCLUDED.order_item_short_ref,
@@ -248,19 +248,75 @@ SET order_item_type = EXCLUDED.order_item_type,
     sort_order           = EXCLUDED.sort_order,
     is_active            = EXCLUDED.is_active;
 
--- PRACTICE FEES (WU2025)
+-- RACE-DAY ARRANGEMENTS (TN2026)
 INSERT INTO public.annual_event_order_item_config
 (event_short_ref, order_item_type, order_item_code, order_item_short_ref,
  order_item_title_en, order_item_title_tc, listed_unit_price,
  min_order_qty, max_order_qty, show_on_app_form, sort_order, is_active)
 VALUES
-('WU2025', 'practice', 'extra_practice_hr_regular', '[P] Extra Practice (Std)', 'Extra Practice – Standard Boat Rental (Per Hr)', '額外練習 – 標準龍租船費 (每小時)', 600, 0, 999, true, 1, true),
-('WU2025', 'practice', 'extra_practice_sb_hr_regular', '[P] Extra Practice (SB)', 'Extra Practice – Small Boat Rental (Per Hr)', '額外練習 – 小龍租船費 (每小時)', 1150, 0, 999, true, 2, true),
-('WU2025', 'practice', 'morning_night_practice_extra', '[P] Morning/Night Practice', 'Early Morning/Night Practice - Extra Charge (Per Hr)', '清晨/晚間練習 - 額外收費 (每小時)', 800, 0, 999, true, 3, true),
-('WU2025', 'practice', 'practice_trainer', '[P] Trainer', 'Practice - Official Trainer', '練習 - 大會教練', 550, 0, 999, true, 4, true),
-('WU2025', 'practice', 'practice_steerer', '[P] Steerer', 'Practice - Official Steerer', '練習 - 大會舵手', 350, 0, 999, true, 5, true),
-('WU2025', 'practice', 'practice_steerer_onsite', '[P] Steerer - On Site', 'Practice - Official Steerer - On Site Request', '練習 - 大會舵手 - 練習即日聘用', 700, 0, 999, true, 6, true),
-('WU2025', 'practice', 'practice_admin_charge', '[P] Admin Charge', 'Admin Charge', '行政費', 500, 0, 999, false, 99, true)
+-- Athlete Marquee (HK$800 from Excel Row 50)
+('TN2026', 'race_day_arrangement', 'rd_marquee', '[RD] Marquee',
+ 'Athlete Marquee', '帳篷', 800, 0, 20, true, 1, true),
+-- Official Steersman With Practice (HK$800 from Excel Row 52)
+('TN2026', 'race_day_arrangement', 'rd_steerer', '[RD] Steerer',
+ 'Official Steerer', '大會舵手', 800, 0, 1, true, 2, true),
+-- Official Steersman Without Practice (HK$1500 from Excel Row 53)
+('TN2026', 'race_day_arrangement', 'rd_steerer_no_practice', '[RD] Steerer (X Practice)',
+ 'Official Steerer', '大會舵手', 1500, 0, 1, true, 3, true),
+-- Boat registrations
+('TN2026', 'race_day_arrangement', 'rd_junk', '[RD] Junk',
+ 'Junk Registration', '遊艇登記', 2500, 0, 5, true, 4, true),
+('TN2026', 'race_day_arrangement', 'rd_speedboat', '[RD] Speedboat',
+ 'Speed Boat Registration', '快艇登記', 1500, 0, 5, true, 5, true)
+ON CONFLICT (event_short_ref, order_item_code) DO UPDATE
+SET order_item_type = EXCLUDED.order_item_type,
+    order_item_short_ref = EXCLUDED.order_item_short_ref,
+    order_item_title_en  = EXCLUDED.order_item_title_en,
+    order_item_title_tc  = EXCLUDED.order_item_title_tc,
+    listed_unit_price    = EXCLUDED.listed_unit_price,
+    min_order_qty        = EXCLUDED.min_order_qty,
+    max_order_qty        = EXCLUDED.max_order_qty,
+    show_on_app_form     = EXCLUDED.show_on_app_form,
+    sort_order           = EXCLUDED.sort_order,
+    is_active            = EXCLUDED.is_active;
+
+-- PRACTICE FEES (WU2026)
+INSERT INTO public.annual_event_order_item_config
+(event_short_ref, order_item_type, order_item_code, order_item_short_ref,
+ order_item_title_en, order_item_title_tc, listed_unit_price,
+ min_order_qty, max_order_qty, show_on_app_form, sort_order, is_active)
+VALUES
+('WU2026', 'practice', 'extra_practice_hr_regular', '[P] Extra Practice (Std)', 'Extra Practice – Standard Boat Rental (Per Hr)', '額外練習 – 標準龍租船費 (每小時)', 600, 0, 999, true, 1, true),
+('WU2026', 'practice', 'extra_practice_sb_hr_regular', '[P] Extra Practice (SB)', 'Extra Practice – Small Boat Rental (Per Hr)', '額外練習 – 小龍租船費 (每小時)', 1150, 0, 999, true, 2, true),
+('WU2026', 'practice', 'morning_night_practice_extra', '[P] Morning/Night Practice', 'Early Morning/Night Practice - Extra Charge (Per Hr)', '清晨/晚間練習 - 額外收費 (每小時)', 800, 0, 999, true, 3, true),
+('WU2026', 'practice', 'practice_trainer', '[P] Trainer', 'Practice - Official Trainer', '練習 - 大會教練', 550, 0, 999, true, 4, true),
+('WU2026', 'practice', 'practice_steerer', '[P] Steerer', 'Practice - Official Steerer', '練習 - 大會舵手', 350, 0, 999, true, 5, true),
+('WU2026', 'practice', 'practice_steerer_onsite', '[P] Steerer - On Site', 'Practice - Official Steerer - On Site Request', '練習 - 大會舵手 - 練習即日聘用', 700, 0, 999, true, 6, true),
+('WU2026', 'practice', 'practice_admin_charge', '[P] Admin Charge', 'Admin Charge', '行政費', 500, 0, 999, false, 99, true)
+ON CONFLICT (event_short_ref, order_item_code) DO UPDATE
+SET order_item_type = EXCLUDED.order_item_type,
+    order_item_short_ref = EXCLUDED.order_item_short_ref,
+    order_item_title_en  = EXCLUDED.order_item_title_en,
+    order_item_title_tc  = EXCLUDED.order_item_title_tc,
+    listed_unit_price    = EXCLUDED.listed_unit_price,
+    min_order_qty        = EXCLUDED.min_order_qty,
+    max_order_qty        = EXCLUDED.max_order_qty,
+    show_on_app_form     = EXCLUDED.show_on_app_form,
+    sort_order           = EXCLUDED.sort_order,
+    is_active            = EXCLUDED.is_active;
+
+-- PRACTICE FEES (TN2026)
+INSERT INTO public.annual_event_order_item_config
+(event_short_ref, order_item_type, order_item_code, order_item_short_ref,
+ order_item_title_en, order_item_title_tc, listed_unit_price,
+ min_order_qty, max_order_qty, show_on_app_form, sort_order, is_active)
+VALUES
+('TN2026', 'practice', 'extra_practice_hr_regular', '[P] Extra Practice (Std)', 'Extra Practice – Standard Boat Rental (Per Hr)', '額外練習 – 標準龍租船費 (每小時)', 600, 0, 999, true, 1, true),
+('TN2026', 'practice', 'morning_night_practice_extra', '[P] Morning/Night Practice', 'Early Morning/Night Practice - Extra Charge (Per Hr)', '清晨/晚間練習 - 額外收費 (每小時)', 800, 0, 999, true, 2, true),
+('TN2026', 'practice', 'practice_trainer', '[P] Trainer', 'Practice - Official Trainer', '練習 - 大會教練', 550, 0, 999, true, 3, true),
+('TN2026', 'practice', 'practice_steerer', '[P] Steerer', 'Practice - Official Steerer', '練習 - 大會舵手', 350, 0, 999, true, 4, true),
+('TN2026', 'practice', 'practice_steerer_onsite', '[P] Steerer - On Site', 'Practice - Official Steerer - On Site Request', '練習 - 大會舵手 - 練習即日聘用', 700, 0, 999, true, 5, true),
+('TN2026', 'practice', 'practice_admin_charge', '[P] Admin Charge', 'Admin Charge', '行政費', 500, 0, 999, false, 99, true)
 ON CONFLICT (event_short_ref, order_item_code) DO UPDATE
 SET order_item_type = EXCLUDED.order_item_type,
     order_item_short_ref = EXCLUDED.order_item_short_ref,

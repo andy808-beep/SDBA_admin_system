@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
   if (!eventShortRef) return bad(req, "eventShortRef is required");
   if (!category) return bad(req, "category is required");
   
-  // Normalize event type from eventShortRef (e.g., 'SC2025' -> 'sc', 'TN2025' -> 'tn')
+  // Normalize event type from eventShortRef (e.g., 'SC2026' -> 'sc', 'TN2026' -> 'tn')
   const eventType = eventShortRef.replace(/\d+/g, '').toLowerCase(); // Remove numbers and lowercase
   
   // Check if this is a WU/SC event (has teams array with individual categories)
@@ -320,7 +320,7 @@ Deno.serve(async (req) => {
     const { data: eventRows, error: eventError } = await admin
       .from('v_event_config_public')
       .select('event_short_ref, season, form_enabled, practice_start_date, practice_end_date')
-      .eq('event_short_ref', 'TN2025')
+      .eq('event_short_ref', 'TN2026')
       .limit(1);
     
     if (eventError) throw new Error(`Event lookup failed: ${eventError.message}`);
@@ -339,7 +339,7 @@ Deno.serve(async (req) => {
       const { data: divRows, error: divError } = await admin
         .from('v_divisions_public')
         .select('division_code')
-        .eq('event_short_ref', 'TN2025')
+        .eq('event_short_ref', 'TN2026')
         .eq('division_code', divLetter)
         .eq('is_active', true)
         .limit(1);
@@ -350,7 +350,7 @@ Deno.serve(async (req) => {
         const { data: availableDivs } = await admin
           .from('v_divisions_public')
           .select('division_code')
-          .eq('event_short_ref', 'TN2025')
+          .eq('event_short_ref', 'TN2026')
           .eq('is_active', true);
         const available = availableDivs?.map(d => d.division_code).join(', ') || 'none';
         throw new Error(`Division ${divLetter} not active for ${eventShortRef}. Available: ${available}`);
@@ -363,7 +363,7 @@ Deno.serve(async (req) => {
         const { data: pkgRows, error: pkgError } = await admin
           .from('v_packages_public')
           .select('package_code')
-          .eq('event_short_ref', 'TN2025')
+          .eq('event_short_ref', 'TN2026')
           .in('package_code', Array.from(pkgCodes))
           .eq('is_active', true);
         
@@ -395,12 +395,12 @@ Deno.serve(async (req) => {
         const { data: eventConfig } = await admin
           .from('v_event_config_public')
           .select('practice_start_date, practice_end_date, allowed_weekdays')
-          .eq('event_short_ref', 'TN2025')
+          .eq('event_short_ref', 'TN2026')
           .single();
         
         // Use January to December as default practice window if config not available
-        const practiceStart = eventConfig?.practice_start_date || '2025-01-01';
-        const practiceEnd = eventConfig?.practice_end_date || '2025-12-31';
+        const practiceStart = eventConfig?.practice_start_date || '2026-01-01';
+        const practiceEnd = eventConfig?.practice_end_date || '2026-12-31';
         const allowedWeekdays = eventConfig?.allowed_weekdays || [1,2,3,4,5]; // Monday-Friday
         
         for (const team of tnPractice.teams) {

@@ -846,7 +846,7 @@ export function initFormForEvent(eventShortRef) {
 	if (eventShortRef && cfg?.event?.event_short_ref) {
 		const argLower = eventShortRef.toLowerCase();
 		const loadedLower = cfg.event.event_short_ref.toLowerCase();
-		// Allow partial matches (e.g., 'wu' matches 'WU2025')
+		// Allow partial matches (e.g., 'wu' matches 'WU2026')
 		if (!loadedLower.includes(argLower) && !argLower.includes(loadedLower.replace(/\d+/g, '').toLowerCase())) {
 		Logger.warn('initFormForEvent: ref mismatch between arg and loaded config', { arg: eventShortRef, loaded: cfg.event.event_short_ref });
 		}

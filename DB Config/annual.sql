@@ -23,7 +23,7 @@ END $$;
 
 -- 1) Create annual_event_config if missing (includes new columns)
 CREATE TABLE IF NOT EXISTS public.annual_event_config (
-  event_short_ref        text   PRIMARY KEY,  -- e.g. 'TN2025'
+  event_short_ref        text   PRIMARY KEY,  -- e.g. 'TN2026'
   ref_event_type         citext NOT NULL REFERENCES public.event_general_catalog(event_type),
   season                 int    NOT NULL CHECK (season BETWEEN 2000 AND 2100),
 
@@ -167,7 +167,17 @@ CREATE INDEX IF NOT EXISTS idx_aedm_event ON public.annual_event_division_map(ev
 CREATE INDEX IF NOT EXISTS idx_aedm_div   ON public.annual_event_division_map(div_id);
 CREATE INDEX IF NOT EXISTS idx_aedm_code  ON public.annual_event_division_map(div_code_prefix);
 
--- 3) Seed / Upsert events with practice window + flags
+-- 3) Remove old 2025 events (cleanup before seeding 2026)
+DELETE FROM public.annual_event_division_map WHERE event_short_ref LIKE '%2025';
+DELETE FROM public.annual_event_config WHERE season = 2025;
+DELETE FROM public.annual_event_config WHERE event_short_ref LIKE '%2025';
+
+-- Verify only 2026 events remain (optional check - comment out in production)
+-- SELECT event_short_ref, event_long_name_en, season 
+-- FROM public.annual_event_config 
+-- ORDER BY event_short_ref;
+
+-- 3a) Seed / Upsert events with practice window + flags
 INSERT INTO public.annual_event_config (
   event_short_ref, ref_event_type, season,
   event_long_name_en, event_long_name_tc,
@@ -179,15 +189,15 @@ INSERT INTO public.annual_event_config (
   event_colour_code_hex, reg_form_status,
   practice_start_date, practice_end_date, form_enabled, banner_text_en, banner_text_tc, config_version
 ) VALUES
-('WU2025', 'warm_up', 2025,
- 'Stanley Dragon Boat Warm-Up Races 2025', '赤柱龍舟熱身賽 2025',
- '3 May, 2025, Saturday', '2025 年 5 月 3 日, 星期六', DATE '2025-05-03',
+('WU2026', 'warm_up', 2026,
+ 'Stanley Dragon Boat Warm-Up Races 2026', '赤柱龍舟熱身賽 2026',
+ '2 May, 2026, Saturday', '2026 年 5 月 2 日, 星期六', DATE '2026-05-02',
  'Stanley Main Beach', '赤柱正灘',
  '250m', '250 米',
  '8am - 5 pm', '上午八時至下午五時',
- '21 April, 2025', '2025 年 4 月 21 日',
+ '20 April, 2026', '2026 年 4 月 20 日',
  '3B3EC0', 'Live',
- DATE '2025-01-01', DATE '2025-07-31', true, NULL, NULL, 1)
+ DATE '2026-01-01', DATE '2026-07-31', true, NULL, NULL, 1)
 ON CONFLICT (event_short_ref) DO UPDATE
 SET ref_event_type        = EXCLUDED.ref_event_type,
     season                = EXCLUDED.season,
@@ -224,15 +234,15 @@ INSERT INTO public.annual_event_config (
   event_colour_code_hex, reg_form_status,
   practice_start_date, practice_end_date, form_enabled, banner_text_en, banner_text_tc, config_version
 ) VALUES
-('TN2025', 'main_race', 2025,
- 'Stanley International Dragon Boat Championships 2025', '赤柱國際龍舟錦標賽2025',
- '31 May, 2025, Saturday', '2025 年 5 月 31 日, 星期六', DATE '2025-05-31',
+('TN2026', 'main_race', 2026,
+ 'Stanley International Dragon Boat Championships 2026', '赤柱國際龍舟錦標賽2026',
+ '30 May, 2026, Saturday', '2026 年 5 月 30 日, 星期六', DATE '2026-05-30',
  'Stanley Main Beach', '赤柱正灘',
  '270m', '270 米',
  '8am - 5 pm', '上午八時至下午五時',
- '9 May, 2025', '2025 年 5 月 9 日',
+ '8 May, 2026', '2026 年 5 月 8 日',
  'E9BF00', 'Live',
- DATE '2025-01-01', DATE '2025-07-31', true, NULL, NULL, 1)
+ DATE '2026-01-01', DATE '2026-07-31', true, NULL, NULL, 1)
 ON CONFLICT (event_short_ref) DO UPDATE
 SET ref_event_type        = EXCLUDED.ref_event_type,
     season                = EXCLUDED.season,
@@ -269,15 +279,15 @@ INSERT INTO public.annual_event_config (
   event_colour_code_hex, reg_form_status,
   practice_start_date, practice_end_date, form_enabled, banner_text_en, banner_text_tc, config_version
 ) VALUES
-('SC2025', 'short_course', 2025,
+('SC2026', 'short_course', 2026,
  'The 24th Hong Kong Dragon Boat Short Course Races', '第二十四屆香港龍舟短途賽',
- '15 June, 2025, Sunday', '2025 年 6 月 15 日, 星期日', DATE '2025-06-15',
+ '14 June, 2026, Sunday', '2026 年 6 月 14 日, 星期日', DATE '2026-06-14',
  'Stanley Main Beach', '赤柱正灘',
  '200m', '200 米',
  '9am - 5 pm', '上午九時至下午五時',
- '2 June, 2025', '2025 年 6 月 2 日',
+ '1 June, 2026', '2026 年 6 月 1 日',
  '538136', 'Live',
- DATE '2025-01-01', DATE '2025-08-31', true, NULL, NULL, 1)
+ DATE '2026-01-01', DATE '2026-08-31', true, NULL, NULL, 1)
 ON CONFLICT (event_short_ref) DO UPDATE
 SET ref_event_type        = EXCLUDED.ref_event_type,
     season                = EXCLUDED.season,
@@ -305,19 +315,19 @@ SET ref_event_type        = EXCLUDED.ref_event_type,
 
 -- 4) Map divisions per event (using division_config_general)
 INSERT INTO public.annual_event_division_map (event_short_ref, div_id, div_code_prefix)
-SELECT 'WU2025', d.div_id, d.div_code_prefix
+SELECT 'WU2026', d.div_id, d.div_code_prefix
 FROM public.division_config_general d
 WHERE d.div_code_prefix IN ('WM','WL','WX','WPM','WPL','WPX','Y','YL','D')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO public.annual_event_division_map (event_short_ref, div_id, div_code_prefix)
-SELECT 'TN2025', d.div_id, d.div_code_prefix
+SELECT 'TN2026', d.div_id, d.div_code_prefix
 FROM public.division_config_general d
 WHERE d.div_code_prefix IN ('M','L','X','C')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO public.annual_event_division_map (event_short_ref, div_id, div_code_prefix)
-SELECT 'SC2025', d.div_id, d.div_code_prefix
+SELECT 'SC2026', d.div_id, d.div_code_prefix
 FROM public.division_config_general d
 WHERE d.div_code_prefix IN ('SM','SL','SX','SU','SPM','SPL','SPX','HKU')
 ON CONFLICT DO NOTHING;
