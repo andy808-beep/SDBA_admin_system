@@ -169,6 +169,63 @@ async function loadTNTemplates() {
   }
 }
 
+async function loadWUSCTemplates() {
+  try {
+    Logger.debug('🎯 loadWUSCTemplates: Starting template loading');
+    
+    // Check if templates are already loaded
+    const existingTemplates = ['wu-sc-step-1', 'wu-sc-step-2', 'wu-sc-step-3', 'wu-sc-step-4']
+      .map(id => document.getElementById(id))
+      .filter(el => el !== null);
+    
+    if (existingTemplates.length === 4) {
+      Logger.debug(`🎯 loadWUSCTemplates: All 4 templates already loaded, skipping`);
+      return;
+    }
+    
+    // Load templates from wu_sc_templates.html
+    Logger.debug('🎯 loadWUSCTemplates: Fetching wu_sc_templates.html');
+    const result = await fetchWithErrorHandling('./wu_sc_templates.html', {
+      method: 'GET',
+      context: 'load_wu_sc_templates',
+      maxRetries: 2
+    });
+    
+    if (!result.ok) {
+      throw new Error(result.userMessage || `Failed to load WU/SC templates: ${result.error}`);
+    }
+    
+    const html = typeof result.data === 'string' ? result.data : '';
+    Logger.debug('🎯 loadWUSCTemplates: HTML loaded, length:', html.length);
+    
+    // Create a temporary container to parse the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // Extract templates and append to document body (matching register.html behavior)
+    const templates = tempDiv.querySelectorAll('template');
+    Logger.debug(`loadWUSCTemplates: Found ${templates.length} templates in HTML`);
+    
+    let appendedCount = 0;
+    templates.forEach(template => {
+      const templateId = template.id;
+      // Only append if this template ID doesn't exist yet
+      if (!document.getElementById(templateId)) {
+        document.body.appendChild(template.cloneNode(true));
+        appendedCount++;
+        Logger.debug(`✅ Appended template: ${templateId}`);
+      } else {
+        Logger.warn(`⚠️ Skipped duplicate template: ${templateId}`);
+      }
+    });
+    
+    Logger.info(`WU/SC templates loaded successfully (${appendedCount} templates appended)`);
+  } catch (error) {
+    Logger.error('Failed to load WU/SC templates:', error);
+    throw error;
+  }
+}
+
 function showPicker(message) {
   Logger.debug('🎯 showPicker: Showing event picker');
   const picker = q('eventPicker');
@@ -461,6 +518,12 @@ async function attemptLoad(ref) {
         // config_loader internally handles TTL + version persistence; we refresh proactively
         await loadEventConfig(ref, { useCache: true });
       }
+      
+      // Wait for WU/SC templates before initializing wizard
+      if (ref === 'wu' || ref === 'sc') {
+        await loadWUSCTemplates();
+      }
+      
       initFormForEvent(ref);
       bindTotals();
       bindSubmit();
