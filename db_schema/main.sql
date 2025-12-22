@@ -570,6 +570,9 @@ create table public.registration_meta (
   client_tx_id text,
   event_short_ref text,
 
+  -- Race day order quantities (only populated on primary team - first team in registration)
+  race_day_quantities jsonb,
+
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
 
@@ -1063,6 +1066,8 @@ AS $$
 DECLARE
   reg_record public.registration_meta%ROWTYPE;
   new_team_id uuid;
+  v_race_day_quantities jsonb;
+  v_primary_reg_id uuid;
 BEGIN
   -- Get the registration record
   SELECT * INTO reg_record
@@ -1072,6 +1077,15 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Registration not found or not pending: %', reg_id;
   END IF;
+  
+  -- Find primary team's race_day_quantities (first team with matching client_tx_id and event_short_ref)
+  SELECT id, race_day_quantities INTO v_primary_reg_id, v_race_day_quantities
+  FROM public.registration_meta
+  WHERE client_tx_id = reg_record.client_tx_id
+    AND event_short_ref = reg_record.event_short_ref
+    AND race_day_quantities IS NOT NULL
+  ORDER BY created_at ASC
+  LIMIT 1;
   
   -- Route to appropriate team table based on event_type
   IF reg_record.event_type = 'tn' THEN
@@ -1132,6 +1146,38 @@ BEGIN
     RAISE EXCEPTION 'Unknown event_type: %', reg_record.event_type;
   END IF;
   
+  -- Copy race_day_quantities to race_day_requests if this is the primary team
+  -- Only create race_day_requests for TN events (race_day_requests table links to team_meta)
+  IF reg_record.event_type = 'tn' AND v_race_day_quantities IS NOT NULL AND reg_id = v_primary_reg_id THEN
+    INSERT INTO public.race_day_requests (
+      team_id,
+      marquee_qty,
+      steer_with_qty,
+      steer_without_qty,
+      junk_boat_no,
+      junk_boat_qty,
+      speed_boat_no,
+      speed_boat_qty
+    ) VALUES (
+      new_team_id,
+      COALESCE((v_race_day_quantities->>'marquee_qty')::int, 0),
+      COALESCE((v_race_day_quantities->>'steer_with_qty')::int, 0),
+      COALESCE((v_race_day_quantities->>'steer_without_qty')::int, 0),
+      NULLIF(v_race_day_quantities->>'junk_boat_no', ''),
+      COALESCE((v_race_day_quantities->>'junk_boat_qty')::int, 0),
+      NULLIF(v_race_day_quantities->>'speed_boat_no', ''),
+      COALESCE((v_race_day_quantities->>'speed_boat_qty')::int, 0)
+    )
+    ON CONFLICT (team_id) DO UPDATE SET
+      marquee_qty = EXCLUDED.marquee_qty,
+      steer_with_qty = EXCLUDED.steer_with_qty,
+      steer_without_qty = EXCLUDED.steer_without_qty,
+      junk_boat_no = EXCLUDED.junk_boat_no,
+      junk_boat_qty = EXCLUDED.junk_boat_qty,
+      speed_boat_no = EXCLUDED.speed_boat_no,
+      speed_boat_qty = EXCLUDED.speed_boat_qty;
+  END IF;
+  
   -- Update registration status
   UPDATE public.registration_meta
   SET 
@@ -1174,6 +1220,7 @@ COMMENT ON COLUMN public.registration_meta.approved_by IS 'Admin user who approv
 COMMENT ON COLUMN public.registration_meta.approved_at IS 'When the registration was approved/rejected';
 COMMENT ON COLUMN public.registration_meta.client_tx_id IS 'Client transaction ID for idempotency';
 COMMENT ON COLUMN public.registration_meta.event_short_ref IS 'Event reference for grouping';
+COMMENT ON COLUMN public.registration_meta.race_day_quantities IS 'Race day order quantities for this registration group. Only populated on primary team (first team in registration). Format: { marquee_qty, steer_with_qty, steer_without_qty, junk_boat_qty, junk_boat_no, speed_boat_qty, speed_boat_no }';
 
 -- =========================================================
 -- ROW LEVEL SECURITY POLICIES FOR REGISTRATION_META

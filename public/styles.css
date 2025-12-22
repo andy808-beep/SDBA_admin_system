@@ -820,3 +820,45 @@ body[data-event="tn"] .nav-buttons button#backBtn[style] {
   background: var(--theme-primary-dark, #c79100) !important;  /* Darker gold for TN */
   background-color: var(--theme-primary-dark, #c79100) !important;
 }
+
+/* ========== SUBMIT BUTTON STYLING - MATCHES NEXT BUTTON ========== */
+/* Submit button should look identical to Next button, using theme primary color */
+
+/* Submit button base styles - matches Next button */
+button#submitBtn,
+button[type="submit"],
+.nav-buttons button#submitBtn,
+.actions button#submitBtn {
+  background: var(--theme-primary) !important;
+  background-color: var(--theme-primary) !important;
+  color: white !important;
+  border: none !important;
+  padding: 0.75rem 2rem !important;
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  outline: none !important;
+}
+
+button#submitBtn:hover,
+button[type="submit"]:hover,
+.nav-buttons button#submitBtn:hover,
+.actions button#submitBtn:hover {
+  background: var(--theme-primary-dark) !important;
+  background-color: var(--theme-primary-dark) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+button#submitBtn:focus,
+button[type="submit"]:focus,
+button#submitBtn:focus-visible,
+button[type="submit"]:focus-visible {
+  outline: 0 !important;
+  outline-style: none !important;
+  outline-width: 0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  border: none !important;
+}

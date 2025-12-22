@@ -92,10 +92,7 @@ type Payload = {
   team_names_tc?: string[];
   team_options: ("opt1" | "opt2")[];
   managers: Manager[];
-  race_day?: {
-    marqueeQty?: number; steerWithQty?: number; steerWithoutQty?: number;
-    junkBoatNo?: string; junkBoatQty?: number; speedBoatNo?: string; speedboatQty?: number;
-  } | null;
+  race_day?: Array<{ item_code: string; qty: number; boat_no?: string }> | null;
   practice?: PracticeBlock[] | { teams: TNPracticeTeam[] };
   client_tx_id?: string;
   // New structure for WU/SC
@@ -186,6 +183,42 @@ function derivePackageCode(eventRef: string, category: string, opt: "opt1" | "op
   const isCorp = category === "mixed_corporate";
   const tier = opt === "opt1" ? "option_1" : "option_2";
   return isCorp ? `${tier}_corp` : `${tier}_non_corp`;
+}
+
+// Transform race_day array to JSONB object for primary team
+function transformRaceDayToQuantities(raceDay: Array<{ item_code: string; qty: number; boat_no?: string }> | null): Record<string, any> | null {
+  if (!raceDay || !Array.isArray(raceDay) || raceDay.length === 0) return null;
+  
+  const quantities: Record<string, any> = {};
+  
+  for (const item of raceDay) {
+    switch (item.item_code) {
+      case 'rd_marquee':
+      case 'marquee':
+        quantities.marquee_qty = item.qty;
+        break;
+      case 'rd_steerer':
+      case 'steer_with':
+        quantities.steer_with_qty = item.qty;
+        break;
+      case 'rd_steerer_no_practice':
+      case 'steer_without':
+        quantities.steer_without_qty = item.qty;
+        break;
+      case 'rd_junk':
+      case 'junk_boat':
+        quantities.junk_boat_qty = item.qty;
+        if (item.boat_no) quantities.junk_boat_no = item.boat_no;
+        break;
+      case 'rd_speedboat':
+      case 'speed_boat':
+        quantities.speed_boat_qty = item.qty;
+        if (item.boat_no) quantities.speed_boat_no = item.boat_no;
+        break;
+    }
+  }
+  
+  return Object.keys(quantities).length > 0 ? quantities : null;
 }
 
 // ---------------- Handler ----------------
@@ -320,7 +353,7 @@ Deno.serve(async (req) => {
     const { data: eventRows, error: eventError } = await admin
       .from('v_event_config_public')
       .select('event_short_ref, season, form_enabled, practice_start_date, practice_end_date')
-      .eq('event_short_ref', 'TN2026')
+      .eq('event_short_ref', eventShortRef)
       .limit(1);
     
     if (eventError) throw new Error(`Event lookup failed: ${eventError.message}`);
@@ -339,7 +372,7 @@ Deno.serve(async (req) => {
       const { data: divRows, error: divError } = await admin
         .from('v_divisions_public')
         .select('division_code')
-        .eq('event_short_ref', 'TN2026')
+        .eq('event_short_ref', eventShortRef)
         .eq('division_code', divLetter)
         .eq('is_active', true)
         .limit(1);
@@ -350,7 +383,7 @@ Deno.serve(async (req) => {
         const { data: availableDivs } = await admin
           .from('v_divisions_public')
           .select('division_code')
-          .eq('event_short_ref', 'TN2026')
+          .eq('event_short_ref', eventShortRef)
           .eq('is_active', true);
         const available = availableDivs?.map(d => d.division_code).join(', ') || 'none';
         throw new Error(`Division ${divLetter} not active for ${eventShortRef}. Available: ${available}`);
@@ -363,7 +396,7 @@ Deno.serve(async (req) => {
         const { data: pkgRows, error: pkgError } = await admin
           .from('v_packages_public')
           .select('package_code')
-          .eq('event_short_ref', 'TN2026')
+          .eq('event_short_ref', eventShortRef)
           .in('package_code', Array.from(pkgCodes))
           .eq('is_active', true);
         
@@ -395,7 +428,7 @@ Deno.serve(async (req) => {
         const { data: eventConfig } = await admin
           .from('v_event_config_public')
           .select('practice_start_date, practice_end_date, allowed_weekdays')
-          .eq('event_short_ref', 'TN2026')
+          .eq('event_short_ref', eventShortRef)
           .single();
         
         // Use January to December as default practice window if config not available
@@ -511,6 +544,9 @@ Deno.serve(async (req) => {
     // 5) registration_meta (now stores individual team registrations for admin approval)
     const optionText = (o: "opt1" | "opt2") => (o === "opt1" ? "Option 1" : "Option 2");
     
+    // Transform race_day array to JSONB object for primary team
+    const raceDayQuantities = transformRaceDayToQuantities(race_day);
+    
     // Handle different event types
     let registrationsToInsert: any[];
     
@@ -541,6 +577,7 @@ Deno.serve(async (req) => {
         team_manager_3: mgrs[2]?.name || "",
         mobile_3:       mgrs[2]?.mobile || "",
         email_3:        mgrs[2]?.email  || "",
+        race_day_quantities: idx === 0 ? raceDayQuantities : null,  // Only primary team (index 0)
         status: 'pending'
       }));
     } else {
@@ -592,7 +629,7 @@ Deno.serve(async (req) => {
         }
       }
       
-      registrationsToInsert = teams.map((team: any) => ({
+      registrationsToInsert = teams.map((team: any, idx: number) => ({
         event_type: eventType,  // Use normalized event type ('wu' or 'sc')
         event_short_ref: eventShortRef,
         client_tx_id: payload.client_tx_id,
@@ -615,6 +652,7 @@ Deno.serve(async (req) => {
         team_manager_3: mgrs[2]?.name || "",
         mobile_3:       mgrs[2]?.mobile || "",
         email_3:        mgrs[2]?.email  || "",
+        race_day_quantities: idx === 0 ? raceDayQuantities : null,  // Only primary team (index 0)
         status: 'pending'
       }));
     }
@@ -624,7 +662,8 @@ Deno.serve(async (req) => {
       client_tx_id: payload.client_tx_id,
       event_short_ref: eventShortRef,
       first_team_en: registrationsToInsert[0]?.team_name_en,
-      first_team_tc: registrationsToInsert[0]?.team_name_tc
+      first_team_tc: registrationsToInsert[0]?.team_name_tc,
+      race_day_quantities: registrationsToInsert[0]?.race_day_quantities || null
     });
     
     const { data: insertedRegistrations, error: regError } = await admin
@@ -636,8 +675,8 @@ Deno.serve(async (req) => {
     const registration_ids: string[] = insertedRegistrations.map((r: any) => r.id);
     const team_codes: string[] = insertedRegistrations.map((r: any) => r.team_code);
 
-    // Note: race_day_requests and practice_preferences will be handled after admin approval
-    // when teams are moved from registration_meta to team_meta
+    // Note: race_day_quantities are stored on primary team (index 0) in registration_meta
+    // race_day_requests will be created after admin approval when teams are moved to team_meta
 
     return respond(req, { registration_ids, team_codes }, 200);
   } catch (err) {

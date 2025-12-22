@@ -781,7 +781,24 @@ export function collectStateFromForm() {
         for (const el of rdInputs) {
             const item_code = el.getAttribute('data-code');
             const qty = Number(el.value || 0);
-            if (item_code && qty > 0) state.race_day.push({ item_code, qty });
+            if (item_code && qty > 0) {
+                const raceDayItem = { item_code, qty };
+                
+                // Collect boat_no for junk and speed boats
+                if (item_code === 'rd_junk' || item_code === 'junk_boat' || item_code === 'rd_junk_boat') {
+                    const boatNoInput = dom.q('#junkBoatNo') || dom.q('[name="junkBoatNo"]') || dom.q('[id*="junkBoatNo"]');
+                    if (boatNoInput && boatNoInput.value) {
+                        raceDayItem.boat_no = boatNoInput.value.trim();
+                    }
+                } else if (item_code === 'rd_speedboat' || item_code === 'speed_boat' || item_code === 'rd_speed_boat') {
+                    const boatNoInput = dom.q('#speedBoatNo') || dom.q('[name="speedBoatNo"]') || dom.q('[id*="speedBoatNo"]');
+                    if (boatNoInput && boatNoInput.value) {
+                        raceDayItem.boat_no = boatNoInput.value.trim();
+                    }
+                }
+                
+                state.race_day.push(raceDayItem);
+            }
         }
     }
 

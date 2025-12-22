@@ -507,7 +507,23 @@ function resolveInitialRef() {
 }
 
 async function boot() {
+  // CHECK FOR SUCCESS PAGE FIRST - before anything else
+  // Check both URL parameter and window flag (set by success handler)
+  const urlParams = new URLSearchParams(window.location.search);
+  const isSuccessParam = urlParams.get('success') === 'true';
+  const isSuccessFlag = window.__SUCCESS_PAGE_ACTIVE === true;
+  
+  if (isSuccessParam || isSuccessFlag) {
+    console.log('🚀 Boot: Success page detected, skipping event bootstrap', {
+      urlParam: isSuccessParam,
+      flag: isSuccessFlag
+    });
+    // Let register.html's success handler take over
+    return;
+  }
+  
   Logger.info('🚀 Boot: Starting bootstrap sequence');
+  
   const ref = resolveInitialRef();
   Logger.debug('🚀 Boot: Resolved ref =', ref);
   

@@ -5238,8 +5238,8 @@ async function testSubmissionWithCurrentData() {
     
     const raceCategory = sessionStorage.getItem('tn_race_category') || 'mixed_open';
     const teamCount = teams.length; // Use actual team count from collected data
-    const opt1Count = teams.filter(t => t.option === 'opt1').length; // Calculate from actual teams
-    const opt2Count = teams.filter(t => t.option === 'opt2').length; // Calculate from actual teams
+    const opt1Count = teams.filter(t => t.option && t.option.startsWith('option_1')).length; // Calculate from actual teams
+    const opt2Count = teams.filter(t => t.option && t.option.startsWith('option_2')).length; // Calculate from actual teams
     
     // Generate unique team names to avoid duplicate key errors
     const uniqueTeamNames = teams.map((t, idx) => 
@@ -7533,7 +7533,7 @@ function collectPackageData() {
     const teamOption = sessionStorage.getItem(`tn_team_option_${i+1}`);
     if (teamOption) {
       packages.push({ 
-        package_id: teamOption === 'opt1' ? 'option_1' : 'option_2', 
+        package_id: teamOption,  // Use the full package code directly
         qty: 1 
       });
     }
@@ -7613,8 +7613,8 @@ async function submitTNForm() {
     // Get race category from step 1
     const raceCategory = sessionStorage.getItem('tn_race_category') || 'mixed_open';
     const teamCount = teams.length; // Use actual team count from collected data
-    const opt1Count = teams.filter(t => t.option === 'opt1').length; // Calculate from actual teams
-    const opt2Count = teams.filter(t => t.option === 'opt2').length; // Calculate from actual teams
+    const opt1Count = teams.filter(t => t.option && t.option.startsWith('option_1')).length; // Calculate from actual teams
+    const opt2Count = teams.filter(t => t.option && t.option.startsWith('option_2')).length; // Calculate from actual teams
     
     // Build payload in server-expected format
     const payload = {
@@ -7997,8 +7997,18 @@ function redirectToSuccessPage(receipt) {
   // Store receipt data for success page
   sessionStorage.setItem('success_receipt', JSON.stringify(receipt));
   
-  // Redirect to success page
-  window.location.href = '/register.html?success=true';
+  // Build the redirect URL - always use register.html to ensure consistency
+  const targetUrl = '/register.html?success=true';
+  
+  console.log('🔄 redirectToSuccessPage: Redirecting to', targetUrl);
+  console.log('🔄 redirectToSuccessPage: Receipt saved to sessionStorage:', {
+    registration_id: receipt.registration_id,
+    team_codes: receipt.team_codes,
+    hasEmail: !!receipt.email
+  });
+  
+  // Use location.href for reliable redirect
+  window.location.href = targetUrl;
 }
 
 /**
@@ -8158,8 +8168,8 @@ if (window.__DEV__) {
       
       const raceCategory = sessionStorage.getItem('tn_race_category') || 'mixed_open';
       const teamCount = teams.length; // Use actual team count from collected data
-      const opt1Count = teams.filter(t => t.option === 'opt1').length; // Calculate from actual teams
-      const opt2Count = teams.filter(t => t.option === 'opt2').length; // Calculate from actual teams
+      const opt1Count = teams.filter(t => t.option && t.option.startsWith('option_1')).length; // Calculate from actual teams
+      const opt2Count = teams.filter(t => t.option && t.option.startsWith('option_2')).length; // Calculate from actual teams
       
       const payload = {
         client_tx_id: getClientTxId(),
@@ -8208,8 +8218,8 @@ if (window.__DEV__) {
       
       const raceCategory = sessionStorage.getItem('tn_race_category') || 'mixed_open';
       const teamCount = teams.length; // Use actual team count from collected data
-      const opt1Count = teams.filter(t => t.option === 'opt1').length; // Calculate from actual teams
-      const opt2Count = teams.filter(t => t.option === 'opt2').length; // Calculate from actual teams
+      const opt1Count = teams.filter(t => t.option && t.option.startsWith('option_1')).length; // Calculate from actual teams
+      const opt2Count = teams.filter(t => t.option && t.option.startsWith('option_2')).length; // Calculate from actual teams
       
       const payload = {
         client_tx_id: getClientTxId(),

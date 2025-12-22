@@ -611,3 +611,43 @@
   background-color: var(--theme-primary-dark, #c79100) !important;
   color: white !important;
 }
+
+/* ========== TN SUBMIT BUTTON STYLING - MATCHES NEXT BUTTON ========== */
+/* Submit button should look identical to Next button, using TN gold theme */
+
+#tnScope button#submitBtn,
+#tnScope .actions button#submitBtn,
+#tnScope button[type="submit"] {
+  background: var(--theme-primary, #f7b500) !important;  /* TN gold, matches Next button */
+  background-color: var(--theme-primary, #f7b500) !important;
+  color: white !important;
+  border: none !important;
+  padding: 0.75rem 2rem !important;
+  border-radius: 8px !important;
+  font-size: 1rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  outline: none !important;
+}
+
+#tnScope button#submitBtn:hover,
+#tnScope .actions button#submitBtn:hover,
+#tnScope button[type="submit"]:hover {
+  background: var(--theme-primary-dark, #c79100) !important;  /* Darker gold on hover */
+  background-color: var(--theme-primary-dark, #c79100) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+#tnScope button#submitBtn:focus,
+#tnScope button[type="submit"]:focus,
+#tnScope button#submitBtn:focus-visible,
+#tnScope button[type="submit"]:focus-visible {
+  outline: 0 !important;
+  outline-style: none !important;
+  outline-width: 0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  border: none !important;
+}

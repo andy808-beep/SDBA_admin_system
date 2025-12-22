@@ -542,6 +542,144 @@
   <script type="module" src="./js/totals.js?v=1.0.0-mj5lf93y"></script>
   <script type="module" src="./js/submit.js?v=1.0.0-mj5lf93y"></script>
   <script type="module" src="./js/error-system.js?v=1.0.0-mj5lf93y"></script>
+  <!-- Success Page Handler Script - MUST RUN BEFORE event_bootstrap.js -->
+  <script>
+    (function() {
+      // Run immediately to prevent event_bootstrap from interfering
+      const urlParams = new URLSearchParams(window.location.search);
+      const isSuccess = urlParams.get('success') === 'true';
+      
+      if (isSuccess) {
+        // Set a flag to prevent boot() from running
+        window.__SUCCESS_PAGE_ACTIVE = true;
+        console.log('✅ Success page handler: Detected ?success=true, blocking event_bootstrap');
+        // Get receipt from sessionStorage
+        const receiptData = sessionStorage.getItem('success_receipt');
+        
+        if (receiptData) {
+          try {
+            const receipt = JSON.parse(receiptData);
+            
+            // Wait for DOM to be ready
+            function showSuccessPage() {
+              const eventPicker = document.getElementById('eventPicker');
+              const formContainer = document.getElementById('formContainer');
+              const successPage = document.getElementById('successPage');
+              
+              if (!successPage) {
+                console.error('Success page element not found');
+                return;
+              }
+              
+              // Hide other sections
+              if (eventPicker) eventPicker.style.display = 'none';
+              if (formContainer) formContainer.style.display = 'none';
+              
+              // Show success page
+              successPage.style.display = 'block';
+              
+              // Populate receipt details
+              const regIdEl = document.getElementById('successRegistrationId');
+              const teamCodesEl = document.getElementById('successTeamCodes');
+              const emailEl = document.getElementById('successEmail');
+              
+              if (regIdEl) regIdEl.textContent = receipt.registration_id || 'N/A';
+              if (teamCodesEl) {
+                teamCodesEl.textContent = Array.isArray(receipt.team_codes) 
+                  ? receipt.team_codes.join(', ') 
+                  : (receipt.team_codes || 'N/A');
+              }
+              if (emailEl) emailEl.textContent = receipt.email || 'N/A';
+              
+              // Set up copy button
+              const copyBtn = document.getElementById('copyReceiptBtn');
+              if (copyBtn) {
+                copyBtn.addEventListener('click', async function() {
+                  const text = `Registration ID: ${receipt.registration_id}\nTeam Codes: ${receipt.team_codes?.join(', ') || 'N/A'}\nEmail: ${receipt.email || 'N/A'}`;
+                  try {
+                    await navigator.clipboard.writeText(text);
+                    this.textContent = window.i18n ? window.i18n.t('copiedSuccess') : '✓ Copied!';
+                    setTimeout(() => {
+                      this.textContent = window.i18n ? window.i18n.t('copyDetails') : '📋 Copy Details';
+                    }, 2000);
+                  } catch (err) {
+                    console.error('Failed to copy:', err);
+                  }
+                });
+              }
+              
+              // Countdown timer (8 seconds)
+              let countdown = 8;
+              const countdownEl = document.getElementById('countdown');
+              const redirectMessage = document.getElementById('redirectMessage');
+              const redirectNowBtn = document.getElementById('redirectNowBtn');
+              
+              function redirectToEventSelection() {
+                // Clear session data
+                sessionStorage.removeItem('success_receipt');
+                
+                // Clear TN wizard data
+                const tnKeys = Object.keys(sessionStorage).filter(key => key.startsWith('tn_'));
+                tnKeys.forEach(key => sessionStorage.removeItem(key));
+                
+                // Redirect to event selection (clear URL parameters)
+                window.location.href = '/register.html';
+              }
+              
+              // Update countdown in redirect message
+              const timer = setInterval(function() {
+                countdown--;
+                if (redirectMessage && window.i18n) {
+                  const message = window.i18n.t('redirectingMessage', { seconds: countdown });
+                  redirectMessage.innerHTML = `<span>${message}</span>`;
+                } else if (redirectMessage) {
+                  redirectMessage.innerHTML = `<span>Redirecting to event selection in ${countdown} second${countdown !== 1 ? 's' : ''}...</span>`;
+                }
+                
+                if (countdown <= 0) {
+                  clearInterval(timer);
+                  redirectToEventSelection();
+                }
+              }, 1000);
+              
+              // Set up redirect now button
+              if (redirectNowBtn) {
+                redirectNowBtn.addEventListener('click', function() {
+                  clearInterval(timer);
+                  redirectToEventSelection();
+                });
+              }
+            }
+            
+            // Wait for DOM to be ready
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', showSuccessPage);
+            } else {
+              // DOM already ready, but wait a tick to ensure all elements are available
+              setTimeout(showSuccessPage, 0);
+            }
+            
+          } catch (error) {
+            console.error('Failed to parse receipt data:', error);
+            // Redirect to event selection if error - but preserve current path
+            window.__SUCCESS_PAGE_ACTIVE = false; // Clear flag before redirect
+            const currentPath = window.location.pathname;
+            window.location.href = currentPath.includes('register') ? currentPath.split('?')[0] : '/register.html';
+          }
+        } else {
+          // No receipt data, redirect to event selection
+          console.warn('Success page requested but no receipt data found');
+          window.__SUCCESS_PAGE_ACTIVE = false; // Clear flag before redirect
+          const currentPath = window.location.pathname;
+          window.location.href = currentPath.includes('register') ? currentPath.split('?')[0] : '/register.html';
+        }
+      } else {
+        // Not a success page, clear any stale flag
+        window.__SUCCESS_PAGE_ACTIVE = false;
+      }
+    })();
+  </script>
+  
   <script src="./js/field-restore-utility.js?v=1.0.0-mj5lf93y"></script>
   <script type="module" src="./js/event_bootstrap.js?v=1.0.0-mj5lf93y"></script>
   <script type="module" src="./js/tn_wizard.js?v=1.0.0-mj5lf93y"></script>
@@ -573,95 +711,6 @@
           document.body.appendChild(template);
         });
       });
-  </script>
-  
-  <!-- Success Page Handler Script -->
-  <script>
-    (function() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const isSuccess = urlParams.get('success') === 'true';
-      
-      if (isSuccess) {
-        // Get receipt from sessionStorage
-        const receiptData = sessionStorage.getItem('success_receipt');
-        
-        if (receiptData) {
-          try {
-            const receipt = JSON.parse(receiptData);
-            
-            // Hide other sections
-            document.getElementById('eventPicker').style.display = 'none';
-            document.getElementById('formContainer').style.display = 'none';
-            
-            // Show success page
-            document.getElementById('successPage').style.display = 'block';
-            
-            // Populate receipt details
-            document.getElementById('successRegistrationId').textContent = receipt.registration_id || 'N/A';
-            document.getElementById('successTeamCodes').textContent = 
-              Array.isArray(receipt.team_codes) ? receipt.team_codes.join(', ') : 'N/A';
-            document.getElementById('successEmail').textContent = receipt.email || 'N/A';
-            
-            // Set up copy button
-            document.getElementById('copyReceiptBtn').addEventListener('click', async function() {
-              const text = `Registration ID: ${receipt.registration_id}\nTeam Codes: ${receipt.team_codes?.join(', ')}\nEmail: ${receipt.email}`;
-              try {
-                await navigator.clipboard.writeText(text);
-                this.textContent = window.i18n ? window.i18n.t('copiedSuccess') : '✓ Copied!';
-                setTimeout(() => {
-                  this.textContent = window.i18n ? window.i18n.t('copyDetails') : '📋 Copy Details';
-                }, 2000);
-              } catch (err) {
-                console.error('Failed to copy:', err);
-              }
-            });
-            
-            // Countdown timer (8 seconds)
-            let countdown = 8;
-            const countdownEl = document.getElementById('countdown');
-            const redirectNowBtn = document.getElementById('redirectNowBtn');
-            
-            function redirectToEventSelection() {
-              // Clear session data
-              sessionStorage.removeItem('success_receipt');
-              
-              // Clear TN wizard data
-              const tnKeys = Object.keys(sessionStorage).filter(key => key.startsWith('tn_'));
-              tnKeys.forEach(key => sessionStorage.removeItem(key));
-              
-              // Redirect to event selection (clear URL parameters)
-              window.location.href = '/register.html';
-            }
-            
-            const timer = setInterval(function() {
-              countdown--;
-              if (countdownEl) {
-                countdownEl.textContent = countdown;
-              }
-              
-              if (countdown <= 0) {
-                clearInterval(timer);
-                redirectToEventSelection();
-              }
-            }, 1000);
-            
-            // Set up redirect now button
-            redirectNowBtn.addEventListener('click', function() {
-              clearInterval(timer);
-              redirectToEventSelection();
-            });
-            
-          } catch (error) {
-            console.error('Failed to parse receipt data:', error);
-            // Redirect to event selection if error
-            window.location.href = '/register.html';
-          }
-        } else {
-          // No receipt data, redirect to event selection
-          window.location.href = '/register.html';
-        }
-      }
-    })();
   </script>
   
   <!-- TN Legacy CSS Scoping Script -->
