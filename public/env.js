@@ -7,7 +7,14 @@ window.ENV = {
   SENTRY_DSN: null, // Example: "https://xxxxx@xxxxx.ingest.sentry.io/xxxxx"
 };
 
-// Dev flag: true on localhost
-window.__DEV__ = ['localhost', '127.0.0.1'].includes(location.hostname);
+// Dev flag: true on localhost and local network addresses
+// Matches logic in env_verifier.js for consistency
+const hostname = location.hostname;
+window.__DEV__ = 
+  hostname === 'localhost' || 
+  hostname === '127.0.0.1' ||
+  hostname.startsWith('192.168.') ||
+  hostname.startsWith('10.0.') ||
+  hostname.endsWith('.local');
 
 console.log('🔧 ENV: Environment variables loaded');

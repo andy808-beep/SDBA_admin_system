@@ -474,15 +474,26 @@ function updateStepper() {
  */
 async function loadStepContent(step) {
 	Logger.debug(`loadStepContent: Loading step ${step}`);
-  if (!wizardMount) {
-	Logger.error('loadStepContent: wizardMount not found');
+  
+  // Always get fresh reference to handle dynamic DOM changes (initStepper recreates DOM)
+  // This ensures we always use the correct mount element even if DOM was recreated
+  const mount = document.getElementById('wuScWizardMount');
+  if (!mount) {
+	Logger.error('loadStepContent: wuScWizardMount element not found in DOM', {
+      wuScContainer: !!document.getElementById('wuScContainer'),
+      wizardMount: !!document.getElementById('wizardMount'), // TN mount (should not be used)
+      currentStep: step
+    });
     return;
   }
   
+  // Update module-scoped variable for consistency (used by other functions)
+  wizardMount = mount;
+  
   // Handle step 0 (Race Info) specially - no template, generated content
   if (step === 0) {
-    wizardMount.innerHTML = '';
-    wizardMount.appendChild(createRaceInfoContent());
+    mount.innerHTML = '';
+    mount.appendChild(createRaceInfoContent());
     initStep0();
     // Update i18n translations
     if (window.i18n && typeof window.i18n.updateUI === 'function') {
@@ -504,8 +515,8 @@ async function loadStepContent(step) {
   
   // Clone template content
   const content = template.content.cloneNode(true);
-  wizardMount.innerHTML = '';
-  wizardMount.appendChild(content);
+  mount.innerHTML = '';
+  mount.appendChild(content);
   
   // Initialize step-specific functionality
   switch (step) {
