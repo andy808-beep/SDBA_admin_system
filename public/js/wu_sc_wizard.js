@@ -971,16 +971,11 @@ async function renderTeamDetails(count) {
         <input type="text" id="teamNameTc${i}" name="teamNameTc${i}" placeholder="${t('teamNameTcPlaceholder')}" data-i18n-placeholder="teamNameTcPlaceholder" />
       </div>
       <div class="form-group">
-        <label style="font-weight: bold; font-size: 1.05em; color: #0f6ec7;" data-i18n="divisionLabel">${t('divisionLabel')}</label>
-        <div id="boatTypeContainer${i}">
-          <div id="boatType${i}" class="radio-group"></div>
-          <div class="form-group" id="entryGroupContainer${i}" style="margin-left: 1.5rem; padding-left: 1rem; border-left: 3px solid #e0e0e0; margin-top: 0.25rem; max-width: calc(100% - 1.5rem); box-sizing: border-box; overflow: hidden;" hidden>
-            <label style="font-weight: normal; font-size: 0.95em; color: #555;" data-i18n="entryGroupLabel">${t('entryGroupLabel')}</label>
-            <div id="division${i}" class="radio-group"></div>
-          </div>
+        <label for="entryGroup${i}" style="font-weight: bold; font-size: 1.05em; color: #0f6ec7;" data-i18n="entryGroupLabel">${t('entryGroupLabel')}</label>
+        <div id="entryGroupContainer${i}">
+          <!-- Dropdown will be rendered here by JavaScript -->
         </div>
-        <div class="field-error-message" id="error-boatType${i}"></div>
-        <div class="field-error-message" id="error-division${i}"></div>
+        <div class="field-error-message" id="error-entryGroup${i}"></div>
       </div>
     `;
     
@@ -990,17 +985,172 @@ async function renderTeamDetails(count) {
     // Small delay to ensure DOM is ready
     await new Promise(resolve => setTimeout(resolve, 10));
     
-    // Load boat types and divisions (these may fail if config is empty, but form fields are already rendered)
+    // Load entry group dropdown (these may fail if config is empty, but form fields are already rendered)
     try {
-      await loadBoatTypesForTeam(i, cfg);
-      await loadDivisionsForTeam(i, cfg);
+      await renderEntryGroupDropdown(i, cfg);
     } catch (error) {
-	Logger.error(`renderTeamDetails: Error loading boat types/divisions for team ${i}:`, error);
+	Logger.error(`renderTeamDetails: Error loading entry group dropdown for team ${i}:`, error);
       // Continue anyway - form fields are already rendered
     }
   }
   
 	Logger.debug(`renderTeamDetails: Completed rendering ${count} team(s)`);
+}
+
+/**
+ * Render entry group dropdown for a team
+ * 100% config-driven - joins divisions with packages
+ * @param {number} teamIndex - 1-based team index
+ * @param {Object} cfg - Config object with divisions and packages
+ */
+async function renderEntryGroupDropdown(teamIndex, cfg) {
+	Logger.debug(`renderEntryGroupDropdown: Starting for team ${teamIndex}`);
+  
+  // Check if DropdownOptionsBuilder is available
+  if (!window.DropdownOptionsBuilder) {
+	Logger.error('renderEntryGroupDropdown: DropdownOptionsBuilder not available');
+    const container = document.getElementById(`entryGroupContainer${teamIndex}`);
+    if (container) {
+      container.innerHTML = '<div class="msg error">Error: Dropdown builder not loaded</div>';
+    }
+    return;
+  }
+  
+  const container = document.getElementById(`entryGroupContainer${teamIndex}`);
+  if (!container) {
+	Logger.error(`renderEntryGroupDropdown: Container not found: entryGroupContainer${teamIndex}`);
+    return;
+  }
+  
+  // Get current language
+  const lang = window.i18n?.getCurrentLanguage?.() || 'en';
+  const isZh = lang === 'zh' || lang === 'tc';
+  
+  // Build options from config
+  const options = window.DropdownOptionsBuilder.buildEntryGroupOptions(cfg, lang);
+  
+  if (options.length === 0) {
+	Logger.warn('renderEntryGroupDropdown: No entry group options available');
+    const errorMsg = document.createElement('div');
+    errorMsg.className = 'msg error';
+    const tErr = (key) => window.i18n ? window.i18n.t(key) : key;
+    errorMsg.innerHTML = `<strong>${tErr('noEntryGroupsAvailable')}</strong>`;
+    container.innerHTML = '';
+    container.appendChild(errorMsg);
+    return;
+  }
+  
+	Logger.debug(`renderEntryGroupDropdown: Built ${options.length} options for team ${teamIndex}`);
+  
+  // Create the dropdown
+  const select = document.createElement('select');
+  select.id = `entryGroup${teamIndex}`;
+  select.name = `entryGroup${teamIndex}`;
+  select.required = true;
+  select.className = 'form-select';
+  select.setAttribute('data-i18n-placeholder', 'selectEntryGroup');
+  
+  // Add placeholder option
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  const t = (key) => window.i18n ? window.i18n.t(key) : key;
+  placeholder.textContent = isZh ? '請選擇組別' : 'Select Entry Group';
+  placeholder.disabled = true;
+  placeholder.selected = true;
+  select.appendChild(placeholder);
+  
+  // Add options from config
+  for (const opt of options) {
+    const option = document.createElement('option');
+    option.value = opt.value;  // division_code (e.g., "WM")
+    option.textContent = window.DropdownOptionsBuilder.formatOptionLabel(opt, lang);
+    
+    // Store additional data as data attributes (for price calculation, etc.)
+    option.dataset.price = opt.price;
+    option.dataset.boatTypeEn = opt.boat_type_en;
+    option.dataset.boatTypeTc = opt.boat_type_tc;
+    option.dataset.labelEn = opt.label_en;
+    option.dataset.labelTc = opt.label_tc;
+    option.dataset.divisionCode = opt.division_code;
+    
+    select.appendChild(option);
+  }
+  
+  // Add change event listener
+  select.addEventListener('change', () => {
+    const selectedOption = select.options[select.selectedIndex];
+    
+    if (selectedOption.value === '') {
+      // Clear selection
+      clearEntryGroupSelection(teamIndex);
+      return;
+    }
+    
+    // Store selection in sessionStorage
+    const eventType = window.__EVENT_TYPE || 'wu';
+    sessionStorage.setItem(`${eventType}_team${teamIndex}_entryGroup`, select.value);
+    sessionStorage.setItem(`${eventType}_team${teamIndex}_entryGroupLabel`, selectedOption.dataset.labelEn);
+    sessionStorage.setItem(`${eventType}_team${teamIndex}_boatType`, selectedOption.dataset.boatTypeEn);
+    sessionStorage.setItem(`${eventType}_team${teamIndex}_price`, selectedOption.dataset.price);
+    sessionStorage.setItem(`${eventType}_team${teamIndex}_division`, selectedOption.dataset.labelEn); // For backward compatibility
+    
+	Logger.debug(`renderEntryGroupDropdown: Team ${teamIndex} selected: ${selectedOption.dataset.labelEn} (${select.value})`);
+    
+    // Clear any error messages
+    const errorElement = document.getElementById(`error-entryGroup${teamIndex}`);
+    if (errorElement) {
+      errorElement.textContent = '';
+    }
+    
+    // Recalculate totals if function exists
+    if (typeof calculateTotalCost === 'function') {
+      calculateTotalCost();
+    }
+  });
+  
+  // Clear container and add dropdown
+  container.innerHTML = '';
+  container.appendChild(select);
+  container.hidden = false;
+  
+  // Restore saved selection if exists
+  await restoreEntryGroupSelection(teamIndex, select);
+  
+	Logger.debug(`renderEntryGroupDropdown: Successfully rendered dropdown for team ${teamIndex}`);
+}
+
+/**
+ * Clear entry group selection for a team
+ * @param {number} teamIndex - 1-based team index
+ */
+function clearEntryGroupSelection(teamIndex) {
+  const eventType = window.__EVENT_TYPE || 'wu';
+  sessionStorage.removeItem(`${eventType}_team${teamIndex}_entryGroup`);
+  sessionStorage.removeItem(`${eventType}_team${teamIndex}_entryGroupLabel`);
+  sessionStorage.removeItem(`${eventType}_team${teamIndex}_boatType`);
+  sessionStorage.removeItem(`${eventType}_team${teamIndex}_price`);
+  sessionStorage.removeItem(`${eventType}_team${teamIndex}_division`);
+}
+
+/**
+ * Restore saved entry group selection
+ * @param {number} teamIndex - 1-based team index
+ * @param {HTMLSelectElement} select - The select element
+ */
+async function restoreEntryGroupSelection(teamIndex, select) {
+  const eventType = window.__EVENT_TYPE || 'wu';
+  const savedValue = sessionStorage.getItem(`${eventType}_team${teamIndex}_entryGroup`);
+  
+  if (savedValue && select) {
+    // Find the option with matching value
+    const option = Array.from(select.options).find(opt => opt.value === savedValue);
+    if (option) {
+      select.value = savedValue;
+      // Trigger change event to update sessionStorage and totals
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+	Logger.debug(`restoreEntryGroupSelection: Restored selection for team ${teamIndex}: ${savedValue}`);
+    }
+  }
 }
 
 /**
@@ -1031,33 +1181,25 @@ function restoreTeamDetails() {
 	Logger.debug(`🎯 restoreTeamDetails: Restored team ${i} name (TC):`, nameTc);
     }
     
-    // Restore boat type radio
-    if (boatType) {
-      // Find radio button by value (boatType is stored as title_en from packages)
-      const boatTypeRadio = document.querySelector(`input[name="boatType${i}"][value="${boatType}"]`);
-      if (boatTypeRadio) {
-        boatTypeRadio.checked = true;
-	Logger.debug(`🎯 restoreTeamDetails: Restored team ${i} boat type:`, boatType);
-        // Trigger change to show division options
-        boatTypeRadio.dispatchEvent(new Event('change', { bubbles: true }));
-      } else {
-	Logger.warn(`🎯 restoreTeamDetails: Boat type radio not found for team ${i}, value:`, boatType);
-      }
-    }
-    
-    // Restore division radio (after boat type triggers division display)
-    if (division) {
-      // Use setTimeout to ensure division options are rendered first
-      setTimeout(() => {
-        // Find radio button by value (division is stored as division_code)
-        const divisionRadio = document.querySelector(`input[name="division${i}"][value="${division}"]`);
-        if (divisionRadio) {
-          divisionRadio.checked = true;
-	Logger.debug(`🎯 restoreTeamDetails: Restored team ${i} division:`, division);
+    // Restore entry group dropdown selection
+    // Try new entryGroup field first, then fallback to division_code
+    const entryGroupCode = sessionStorage.getItem(`${eventType}_team${i}_entryGroup`) || division;
+    if (entryGroupCode) {
+      const entryGroupSelect = document.getElementById(`entryGroup${i}`);
+      if (entryGroupSelect) {
+        // Find option with matching value (division_code)
+        const option = Array.from(entryGroupSelect.options).find(opt => opt.value === entryGroupCode);
+        if (option) {
+          entryGroupSelect.value = entryGroupCode;
+          // Trigger change event to update sessionStorage and totals
+          entryGroupSelect.dispatchEvent(new Event('change', { bubbles: true }));
+	Logger.debug(`🎯 restoreTeamDetails: Restored team ${i} entry group:`, entryGroupCode);
         } else {
-	Logger.warn(`🎯 restoreTeamDetails: Division radio not found for team ${i}, value:`, division);
+	Logger.warn(`🎯 restoreTeamDetails: Entry group option not found for team ${i}, value:`, entryGroupCode);
         }
-      }, 150); // Wait for boat type change handler to complete and show divisions
+      } else {
+	Logger.warn(`🎯 restoreTeamDetails: Entry group dropdown not found for team ${i}`);
+      }
     }
   }
   
@@ -1090,23 +1232,23 @@ function restoreWUSCStep1Teams(teamCount) {
       { prefix: eventType + '_', debug: true }
     );
     
-    // Boat type (triggers division display)
-    const boatType = sessionStorage.getItem(`${eventType}_team${i}_boatType`);
-    if (boatType) {
-      const radio = document.querySelector(`input[name="boatType${i}"][value="${boatType}"]`);
-      if (radio) {
-        radio.checked = true;
-        console.log(`[Restore] ✓ boatType${i}: "${boatType}"`);
-        radio.dispatchEvent(new Event('change', { bubbles: true }));
-        
-        // Division (after boat type renders it)
-        setTimeout(() => {
-          FieldRestoreUtility.restoreRadio(
-            `division${i}`,
-            `team${i}_division`,
-            { prefix: eventType + '_', debug: true }
-          );
-        }, 150);
+    // Entry group dropdown (replaces boat type + division radio buttons)
+    const entryGroupCode = sessionStorage.getItem(`${eventType}_team${i}_entryGroup`) || 
+                           sessionStorage.getItem(`${eventType}_team${i}_division`);
+    if (entryGroupCode) {
+      const select = document.getElementById(`entryGroup${i}`);
+      if (select) {
+        // Find option with matching value (division_code)
+        const option = Array.from(select.options).find(opt => opt.value === entryGroupCode);
+        if (option) {
+          select.value = entryGroupCode;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          console.log(`[Restore] ✓ entryGroup${i}: "${entryGroupCode}"`);
+        } else {
+          console.warn(`[Restore] ✗ entryGroup${i}: Option not found for value "${entryGroupCode}"`);
+        }
+      } else {
+        console.warn(`[Restore] ✗ entryGroup${i}: Select element not found`);
       }
     }
   }
@@ -1120,6 +1262,7 @@ function restoreWUSCStep1Teams(teamCount) {
 
 /**
  * Load boat types for a specific team
+ * @deprecated Replaced by renderEntryGroupDropdown() - can be removed after testing
  */
 async function loadBoatTypesForTeam(teamIndex, cfg) {
 	Logger.debug(`loadBoatTypesForTeam: Starting for team ${teamIndex}`);
@@ -1215,6 +1358,7 @@ async function loadBoatTypesForTeam(teamIndex, cfg) {
 
 /**
  * Load divisions for a specific team
+ * @deprecated Replaced by renderEntryGroupDropdown() - can be removed after testing
  */
 async function loadDivisionsForTeam(teamIndex, cfg) {
   const container = document.getElementById(`division${teamIndex}`);
@@ -1235,6 +1379,7 @@ async function loadDivisionsForTeam(teamIndex, cfg) {
 
 /**
  * Show division row for a specific team
+ * @deprecated Replaced by renderEntryGroupDropdown() - can be removed after testing
  */
 function showDivisionRow(teamIndex) {
   const divisionContainer = document.getElementById(`division${teamIndex}`);
@@ -2028,13 +2173,20 @@ function calculateTotalCost() {
   const cfg = window.__CONFIG;
   let total = 0;
   
-  // Team entry fees
+  // Team entry fees - use price from dropdown selection
   const teamCount = parseInt(sessionStorage.getItem(`${eventType}_team_count`) || 0);
   for (let i = 1; i <= teamCount; i++) {
-    const boatType = sessionStorage.getItem(`${eventType}_team${i}_boatType`) || '';
-    const pkg = cfg?.packages?.find(p => p.title_en === boatType);
-    if (pkg) {
-      total += pkg.listed_unit_price;
+    // Get price directly from sessionStorage (set by dropdown change event)
+    const price = parseFloat(sessionStorage.getItem(`${eventType}_team${i}_price`)) || 0;
+    total += price;
+    
+    // Fallback: if price not found, try to get from package (for backward compatibility)
+    if (price === 0) {
+      const boatType = sessionStorage.getItem(`${eventType}_team${i}_boatType`) || '';
+      const pkg = cfg?.packages?.find(p => p.title_en === boatType);
+      if (pkg) {
+        total += pkg.listed_unit_price || 0;
+      }
     }
   }
   
@@ -2153,8 +2305,7 @@ function validateStep1() {
   for (let i = 1; i <= count; i++) {
     const teamNameEn = document.getElementById(`teamNameEn${i}`);
     const teamNameTc = document.getElementById(`teamNameTc${i}`);
-    const boatType = document.querySelector(`input[name="boatType${i}"]:checked`);
-    const division = document.querySelector(`input[name="division${i}"]:checked`);
+    const entryGroupSelect = document.getElementById(`entryGroup${i}`);
     
     if (!teamNameEn || !teamNameEn.value.trim()) {
       errors.push({
@@ -2164,17 +2315,10 @@ function validateStep1() {
       });
     }
     
-    if (!boatType) {
+    // Validate entry group dropdown (replaces boat type + division radio buttons)
+    if (!entryGroupSelect || !entryGroupSelect.value || entryGroupSelect.value === '') {
       errors.push({
-        field: `boatType${i}`,
-        messageKey: 'pleaseSelectDivision',
-        params: { num: i }
-      });
-    }
-    
-    if (!division) {
-      errors.push({
-        field: `division${i}`,
+        field: `entryGroup${i}`,
         messageKey: 'pleaseSelectEntryGroup',
         params: { num: i }
       });
@@ -2187,11 +2331,17 @@ function validateStep1() {
     if (teamNameTc?.value?.trim()) {
       sessionStorage.setItem(`${eventType}_team${i}_name_tc`, teamNameTc.value.trim());
     }
-    if (boatType) {
-      sessionStorage.setItem(`${eventType}_team${i}_boatType`, boatType.value);
-    }
-    if (division) {
-      sessionStorage.setItem(`${eventType}_team${i}_division`, division.value);
+    
+    // Entry group data is already saved by dropdown change event, but ensure it's set
+    if (entryGroupSelect && entryGroupSelect.value) {
+      const selectedOption = entryGroupSelect.options[entryGroupSelect.selectedIndex];
+      if (selectedOption && selectedOption.dataset) {
+        sessionStorage.setItem(`${eventType}_team${i}_entryGroup`, entryGroupSelect.value);
+        sessionStorage.setItem(`${eventType}_team${i}_entryGroupLabel`, selectedOption.dataset.labelEn || '');
+        sessionStorage.setItem(`${eventType}_team${i}_boatType`, selectedOption.dataset.boatTypeEn || '');
+        sessionStorage.setItem(`${eventType}_team${i}_price`, selectedOption.dataset.price || '0');
+        sessionStorage.setItem(`${eventType}_team${i}_division`, selectedOption.dataset.labelEn || ''); // For backward compatibility
+      }
     }
   }
   
@@ -2511,15 +2661,22 @@ function collectFormData() {
   for (let i = 1; i <= teamCount; i++) {
     const teamNameEn = sessionStorage.getItem(`${eventType}_team${i}_name_en`);
     const teamNameTc = sessionStorage.getItem(`${eventType}_team${i}_name_tc`);
+    
+    // Get data from dropdown selection (new way)
+    const entryGroupCode = sessionStorage.getItem(`${eventType}_team${i}_entryGroup`); // e.g., "WM"
+    const entryGroupLabel = sessionStorage.getItem(`${eventType}_team${i}_entryGroupLabel`); // e.g., "Standard Boat – Men"
     const boatType = sessionStorage.getItem(`${eventType}_team${i}_boatType`); // e.g., "Standard Boat"
-    const division = sessionStorage.getItem(`${eventType}_team${i}_division`); // e.g., "Standard Boat – Men"
+    
+    // Fallback to old division field for backward compatibility
+    const division = entryGroupLabel || sessionStorage.getItem(`${eventType}_team${i}_division`) || '';
     
     teams.push({
       name: teamNameEn, // Backward compatibility
       name_en: teamNameEn,
       name_tc: teamNameTc || '',
       boat_type: boatType,
-      division: division,
+      division: division, // e.g., "Standard Boat – Men"
+      division_code: entryGroupCode, // e.g., "WM" - for backend
       category: division // Division already contains "Boat Type – Entry Group"
     });
   }
