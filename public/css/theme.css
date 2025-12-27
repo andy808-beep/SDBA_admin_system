@@ -114,3 +114,39 @@ body[data-event="sc"] h2 {
   margin: 1rem 0;
 }
 
+/* Field error styling */
+.field-error {
+  display: none;
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background-color: #fee2e2;
+  border-left: 3px solid #dc2626;
+  border-radius: 0.25rem;
+  animation: slideDown 0.2s ease-out;
+}
+
+.field-error:empty {
+  display: none !important;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+input.error,
+select.error,
+textarea.error {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+}
+

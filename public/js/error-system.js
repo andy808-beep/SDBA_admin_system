@@ -490,6 +490,53 @@ class ErrorSystem {
   }
 
   /**
+   * Clear errors - convenience method that accepts optional fieldId
+   * If fieldId is provided, clears that specific field error
+   * If fieldId is not provided, clears all form errors
+   * 
+   * @param {string} [fieldId] - Optional field ID to clear specific error
+   * @returns {boolean} True if error(s) were cleared
+   */
+  clearErrors(fieldId) {
+    if (fieldId) {
+      // Clear specific field error
+      const errorEl = document.getElementById(`error-${fieldId}`);
+      if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.style.display = 'none';
+        errorEl.classList.remove('show');
+      }
+      
+      const field = document.getElementById(fieldId);
+      if (field) {
+        field.classList.remove('error', 'field-error');
+      }
+      
+      // Use clearFieldError for proper cleanup if error exists in system
+      if (this.errors.has(fieldId)) {
+        return this.clearFieldError(fieldId);
+      }
+      
+      return true;
+    } else {
+      // Clear all errors
+      document.querySelectorAll('[id^="error-"]').forEach(el => {
+        el.textContent = '';
+        el.style.display = 'none';
+        el.classList.remove('show');
+      });
+      
+      document.querySelectorAll('.error, .field-error').forEach(el => {
+        el.classList.remove('error', 'field-error');
+      });
+      
+      // Use clearFormErrors for proper cleanup
+      this.clearFormErrors();
+      return true;
+    }
+  }
+
+  /**
    * Show system-level error
    * 
    * @param {string} messageKey - Translation key for error message

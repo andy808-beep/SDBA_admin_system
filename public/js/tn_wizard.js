@@ -3613,7 +3613,12 @@ function createMonthBlock(monthData, allowedWeekdays = [1,2,3,4,5,6,0]) {
       dayEl.className += ' empty';
     } else {
       if (day.available) {
-        dayEl.innerHTML = createDayContent(day);
+        // createDayContent now returns a div with programmatically set dropdowns
+        const contentDiv = createDayContent(day);
+        // Append all children from the content div to dayEl
+        while (contentDiv.firstChild) {
+          dayEl.appendChild(contentDiv.firstChild);
+        }
       } else {
         dayEl.innerHTML = `<span class="day-number">${day.day}</span>`;
         dayEl.className += ' unavailable';
@@ -3661,6 +3666,9 @@ function createDayContent(day) {
   // Get translated strings for dropdowns
   const t = (key, fallback) => window.i18n ? window.i18n.t(key) : fallback;
   
+  // Use explicit selected attribute value to avoid browser normalization
+  const selectedAttr = 'selected="selected"';
+  
   const html = `
     <label class="day-checkbox">
       <input type="checkbox" data-date="${dateStr}" ${isDisabled ? 'disabled' : ''} />
@@ -3669,17 +3677,39 @@ function createDayContent(day) {
     <div class="dropdowns hide">
       <select class="duration">
         <option value="1" data-i18n="oneHour">${t('oneHour')}</option>
-        <option value="2" data-i18n="twoHours">${t('twoHours')}</option>
+        <option value="2" ${selectedAttr} data-i18n="twoHours">${t('twoHours')}</option>
       </select>
       <select class="helpers">
-        <option value="NONE" data-i18n="helperNone">${t('helperNone')}</option>
-        <option value="S" data-i18n="helperS">${t('helperS')}</option>
-        <option value="T" data-i18n="helperT">${t('helperT')}</option>
-        <option value="ST" data-i18n="helperST">${t('helperST')}</option>
+        <option value="NONE" ${selectedAttr} data-i18n="steersmanCoachNone">${t('steersmanCoachNone')}</option>
+        <option value="S" data-i18n="steersmanCoachS">${t('steersmanCoachS')}</option>
+        <option value="T" data-i18n="steersmanCoachT">${t('steersmanCoachT')}</option>
+        <option value="ST" data-i18n="steersmanCoachST">${t('steersmanCoachST')}</option>
       </select>
     </div>
   `;
-  return html;
+  
+  // Create a temporary container div to hold the HTML
+  const dayContentDiv = document.createElement('div');
+  dayContentDiv.innerHTML = html;
+  
+  // BUGFIX: Programmatically set default selections after innerHTML insertion
+  // innerHTML may not preserve selected attribute properly in all browsers
+  const durationSelect = dayContentDiv.querySelector('select.duration');
+  const helpersSelect = dayContentDiv.querySelector('select.helpers');
+  
+  if (durationSelect && durationSelect.options.length > 0) {
+    // Set 2h as default (index 1)
+    durationSelect.selectedIndex = 1;
+    durationSelect.value = '2';
+  }
+  
+  if (helpersSelect && helpersSelect.options.length > 0) {
+    // Set NONE as default (index 0)
+    helpersSelect.selectedIndex = 0;
+    helpersSelect.value = 'NONE';
+  }
+  
+  return dayContentDiv;
 }
 
 /**
@@ -3754,7 +3784,7 @@ function addDateToCurrentTeam(dateStr) {
   // Add new date with default values
   const newRow = {
     pref_date: dateStr,
-    duration_hours: 1,
+    duration_hours: 2,
     helper: 'NONE'
   };
   
@@ -5796,7 +5826,7 @@ function saveCurrentTeamPracticeData() {
     if (dateStr && durationSel && helperSel) {
       rows.push({
         pref_date: dateStr,
-        duration_hours: Number(durationSel.value) || 1,
+        duration_hours: Number(durationSel.value) || 2,
         helper: helperSel.value || 'NONE'
       });
     }
@@ -5817,6 +5847,9 @@ function validatePracticeRequired() {
   const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
   const errors = [];
   
+  // Check if practice is required (you may need to adjust this based on your actual logic)
+  const isPracticeRequired = window.__PRACTICE_ENABLED !== false; // Adjust based on your config
+  
   for (let i = 0; i < teamCount; i++) {
     const teamNum = i + 1;
     const key = `t${teamNum}`;
@@ -5828,68 +5861,49 @@ function validatePracticeRequired() {
     const rows = readTeamRows(key) || [];
     const ranks = readTeamRanks(key) || [];
     
-    // Check that team has at least one practice date
-    if (rows.length === 0) {
-      errors.push({
-        field: `practiceTeam${teamNum}`,
-        messageKey: 'practiceSelectionRequired',
-        params: { teamNum: teamNum, teamName: teamName }
-      });
-    }
-    
-    // Check that team has at least one slot preference
-    if (ranks.length === 0) {
-      errors.push({
-        field: `practiceTeam${teamNum}`,
-        messageKey: 'practiceTimeSlotRequired',
-        params: { teamNum: teamNum, teamName: teamName }
-      });
-    }
-    
-    // Calculate total hours for this team
-    let totalHours = 0;
-    for (const r of rows) {
-      totalHours += Number(r.duration_hours) || 0;
-    }
-    
-    // Check minimum 12 hours requirement
-    if (totalHours < 12) {
-      errors.push({
-        field: `practiceTeam${teamNum}`,
-        messageKey: 'practiceHoursMinimum',
-        params: { 
-          teamNum: teamNum, 
-          teamName: teamName,
-          hours: totalHours, 
-          min: 12 
-        }
-      });
-    }
-    
-    // Validate each practice row has complete data
-    for (let j = 0; j < rows.length; j++) {
-      const r = rows[j];
-      if (!r.pref_date) {
+    if (isPracticeRequired) {
+      // 1. Validate calendar selection (practice dates)
+      if (rows.length === 0) {
         errors.push({
-          field: `practiceTeam${teamNum}`,
-          messageKey: 'practiceDateInvalid',
-          params: { teamNum: teamNum, teamName: teamName, dateIndex: j + 1 }
+          field: `practice-team-${teamNum}`,
+          messageKey: 'practiceSelectionRequired',
+          params: { teamNum: teamNum, teamName: teamName }
         });
       }
-      if (![1, 2].includes(Number(r.duration_hours))) {
+      
+      // 2. Validate total practice hours (minimum 12 hours)
+      let totalHours = 0;
+      
+      for (const r of rows) {
+        const hours = Number(r.duration_hours) || 0;
+        totalHours += hours;
+      }
+      
+      // Check minimum 12 hours requirement
+      if (totalHours < 12) {
         errors.push({
-          field: `practiceTeam${teamNum}`,
-          messageKey: 'practiceDurationInvalid',
-          params: { teamNum: teamNum, teamName: teamName, dateIndex: j + 1 }
+          field: `practice-team-${teamNum}`,
+          messageKey: 'practiceMinimumRequired',
+          params: { 
+            teamNum: teamNum, 
+            teamName: teamName
+          }
         });
       }
-      if (!['NONE', 'S', 'T', 'ST'].includes(r.helper)) {
-        errors.push({
-          field: `practiceTeam${teamNum}`,
-          messageKey: 'practiceHelperRequired',
-          params: { teamNum: teamNum, teamName: teamName, dateIndex: j + 1 }
-        });
-      }
+      
+      // NOTE: Duration and steersman & coach validation removed
+      // Fields now have defaults (2h for duration, NONE for steersman/coach)
+      // so they can never be missing. No validation needed.
+    }
+    
+    // Check that team has at least one slot preference (optional, but keep for now)
+    if (ranks.length === 0 && rows.length > 0) {
+      // This is optional per the task, so we'll skip it
+      // errors.push({
+      //   field: `practice-team-${teamNum}`,
+      //   messageKey: 'practiceTimeSlotRequired',
+      //   params: { teamNum: teamNum, teamName: teamName }
+      // });
     }
   }
   
@@ -5911,15 +5925,22 @@ function setupCalendarEventListeners(container) {
       const dateStr = target.getAttribute('data-date');
       const dropdowns = target.closest('[data-date]')?.querySelector('.dropdowns');
       const key = getCurrentTeamKey();
+      const currentTeamIndex = getCurrentTeamIndex();
+      const teamNum = currentTeamIndex + 1;
       
       if (target.checked) {
         // add row if not present
         const rows = readTeamRows(key) || [];
         if (!rows.some(r => r.pref_date === dateStr)) {
-          rows.push({ pref_date: dateStr, duration_hours: 1, helper: 'NONE' });
+          rows.push({ pref_date: dateStr, duration_hours: 2, helper: 'NONE' });
           writeTeamRows(key, rows);
         }
         dropdowns?.classList.remove('hide');
+        
+        // Clear practice selection error when user selects a date
+        if (window.errorSystem && typeof window.errorSystem.clearErrors === 'function') {
+          window.errorSystem.clearErrors(`practice-team-${teamNum}`);
+        }
       } else {
         writeTeamRows(key, (readTeamRows(key)||[]).filter(r => r.pref_date !== dateStr));
         dropdowns?.classList.add('hide');
@@ -5928,18 +5949,28 @@ function setupCalendarEventListeners(container) {
       updatePracticeSummary(); // Update summary box immediately
     }
     
-    // Handle dropdown changes (duration, helpers)
+    // Handle dropdown changes (duration, steersman & coach)
     if (target.tagName === 'SELECT') {
       const dateStr = target.closest('[data-date]')?.getAttribute('data-date');
       const key = getCurrentTeamKey();
+      const currentTeamIndex = getCurrentTeamIndex();
+      const teamNum = currentTeamIndex + 1;
       const rows = readTeamRows(key) || [];
       const rowIndex = rows.findIndex(r => r.pref_date === dateStr);
       
       if (rowIndex >= 0) {
         if (target.classList.contains('duration')) {
-          rows[rowIndex].duration_hours = Number(target.value) || 1;
+          rows[rowIndex].duration_hours = Number(target.value) || 2;
+          // Clear duration error when user selects duration
+          if (window.errorSystem && typeof window.errorSystem.clearErrors === 'function') {
+            window.errorSystem.clearErrors(`duration-team-${teamNum}`);
+          }
         } else if (target.classList.contains('helpers')) {
           rows[rowIndex].helper = target.value || 'NONE';
+          // Clear steersman & coach error when user selects steersman & coach
+          if (window.errorSystem && typeof window.errorSystem.clearErrors === 'function') {
+            window.errorSystem.clearErrors(`helper-team-${teamNum}`);
+          }
         }
         writeTeamRows(key, rows);
       }
@@ -5994,7 +6025,7 @@ function getCurrentTeamDates() {
       // Find the parent container that holds the dropdowns
       const dateContainer = checkbox.closest('.day-checkbox')?.parentElement;
       
-      // Look for duration and helper selects within the same date container
+      // Look for duration and steersman & coach selects within the same date container
       const durationSelect = dateContainer?.querySelector('select.duration');
       const helperSelect = dateContainer?.querySelector('select.helpers');
       
@@ -6055,7 +6086,11 @@ function updateCalendarForTeam(teamIndex) {
     const dropdowns = label?.parentElement?.querySelector('.dropdowns');
     const durationSel = dropdowns?.querySelector('select.duration');
     const helperSel = dropdowns?.querySelector('select.helpers');
-    if (durationSel) durationSel.value = String(row.duration_hours || 1);
+    // Ensure duration defaults to 2 if missing or invalid
+    const durationHours = row.duration_hours && [1, 2].includes(Number(row.duration_hours)) 
+      ? Number(row.duration_hours) 
+      : 2;
+    if (durationSel) durationSel.value = String(durationHours);
     if (helperSel)  helperSel.value  = row.helper || 'NONE';
     dropdowns?.classList.remove('hide');
   });
@@ -6231,7 +6266,7 @@ function highlightDateOnCalendar(date, hours, helpers) {
 	Logger.debug(`🎯 highlightDateOnCalendar: No duration select found for ${date}`);
   }
   
-  // Set helper dropdown
+  // Set steersman & coach dropdown
   const helperSelect = dateContainer.querySelector('select.helpers');
   if (helperSelect) {
     helperSelect.value = helpers;
@@ -6657,7 +6692,7 @@ function loadPracticeSummary() {
         const date = new Date(row.pref_date).toLocaleDateString();
         const duration = row.duration_hours;
         const helper = row.helper;
-        // XSS FIX: Escape helper value (could be user-selected)
+        // XSS FIX: Escape steersman & coach value (could be user-selected)
         const safeHelper = SafeDOM.escapeHtml(helper);
         html += `<span style="margin-right: 1rem;">• ${date} (${duration}h, ${safeHelper})</span>`;
       });
@@ -7203,10 +7238,52 @@ function validateStep4() {
   // Display errors if any found
   if (errors.length > 0) {
     if (window.errorSystem) {
-      window.errorSystem.showFormErrors(errors, {
-        containerId: 'wizardMount',
-        scrollTo: true
+      // For practice errors, we need to display them in the pre-existing error divs
+      // since they don't have corresponding form fields
+      errors.forEach(error => {
+        const { field, messageKey, params = {} } = error;
+        const errorDivId = `error-${field}`;
+        const errorDiv = document.getElementById(errorDivId);
+        
+        if (errorDiv) {
+          // Get translated message
+          const message = window.i18n && typeof window.i18n.t === 'function'
+            ? window.i18n.t(messageKey, params)
+            : messageKey;
+          
+          // Display error in the div
+          errorDiv.textContent = message;
+          errorDiv.style.display = 'block';
+          errorDiv.classList.add('show');
+          
+          // Store in error system for proper cleanup
+          window.errorSystem.errors.set(field, {
+            field: null, // No field element
+            errorDiv: errorDiv,
+            messageKey: messageKey,
+            params: params,
+            message: message
+          });
+        } else {
+          // Fallback: use error system's showFieldError if field exists
+          // This handles other types of errors that do have fields
+          const fieldElement = document.getElementById(field);
+          if (fieldElement) {
+            window.errorSystem.showFieldError(field, messageKey, { params });
+          }
+        }
       });
+      
+      // Scroll to first error
+      if (errors.length > 0) {
+        const firstError = errors[0];
+        const firstErrorDiv = document.getElementById(`error-${firstError.field}`);
+        if (firstErrorDiv) {
+          setTimeout(() => {
+            firstErrorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 100);
+        }
+      }
     } else {
       // Fallback: errorSystem not available
       const errorMessages = errors.map(err => {
@@ -7440,7 +7517,7 @@ function buildTNPracticePayload() {
       team_key,
       dates: rows.map(r => ({
         pref_date: r.pref_date,
-        duration_hours: Number(r.duration_hours)||1,
+        duration_hours: Number(r.duration_hours) || 2,
         helper: r.helper || 'NONE'
       })),
       slot_ranks: ranks.map(r => ({

@@ -249,11 +249,17 @@ const translations = {
     oneHour: "1h",
     twoHours: "2h",
     
-    // Helper options
-    helperNone: "NONE",
-    helperS: "S",
-    helperT: "T",
-    helperST: "ST",
+    // Steersman & Coach options
+    steersmanCoachNone: "None",
+    steersmanCoachS: "Steersman (S)",
+    steersmanCoachT: "Tender (T)",
+    steersmanCoachST: "Steersman & Tender (ST)",
+    
+    // DEPRECATED: Keep for backward compatibility - Use steersmanCoach* keys instead
+    helperNone: "NONE",  // DEPRECATED: Use steersmanCoachNone
+    helperS: "S",        // DEPRECATED: Use steersmanCoachS
+    helperT: "T",        // DEPRECATED: Use steersmanCoachT
+    helperST: "ST",      // DEPRECATED: Use steersmanCoachST
     
     // Practice summary
     totalHoursSelected: "Total Hours Selected:",
@@ -432,11 +438,18 @@ const translations = {
     quantityExceedsMax: "Quantity cannot exceed {max}",
     
     // Practice validation messages
-    practiceSelectionRequired: "Team {teamNum} ({teamName}): Please select at least one practice date",
+    practiceSelectionRequired: "Please select practice date(s) for Team {teamNum}: {teamName}",
+    durationRequired: "Please select practice duration for Team {teamNum}: {teamName}",
+    steersmanCoachRequired: "Please select steersman & coach requirement for Team {teamNum}: {teamName}",
+    // DEPRECATED: Keep for backward compatibility - Use steersmanCoachRequired instead
+    helperRequired: "Please select helper requirement for Team {teamNum}: {teamName}",  // DEPRECATED: Use steersmanCoachRequired
+    practiceMinimumRequired: "Please select at least 12 hours of practice session(s) for Team {teamNum}: {teamName}",
     practiceTimeSlotRequired: "Team {teamNum} ({teamName}): Please select at least one time slot preference",
     practiceDateInvalid: "Team {teamNum} ({teamName}): Practice date {dateIndex} is missing or invalid",
     practiceDurationInvalid: "Team {teamNum} ({teamName}): Practice date {dateIndex} duration must be 1h or 2h",
-    practiceHelperRequired: "Team {teamNum} ({teamName}): Practice date {dateIndex} helper selection required",
+    practiceSteersmanCoachRequired: "Team {teamNum} ({teamName}): Practice date {dateIndex} steersman & coach selection required",
+    // DEPRECATED: Keep for backward compatibility - Use practiceSteersmanCoachRequired instead
+    practiceHelperRequired: "Team {teamNum} ({teamName}): Practice date {dateIndex} helper selection required",  // DEPRECATED: Use practiceSteersmanCoachRequired
     practiceHoursMinimum: "Team {teamNum} ({teamName}): Total practice hours ({hours}h) must be at least {min}h",
     duplicateSlotSelection: "This time slot is already selected in another preference",
     practiceDateWeekdayError: "One or more practice dates are not on allowed weekdays. Please select weekdays only.",
@@ -700,11 +713,17 @@ const translations = {
     oneHour: "1小時",
     twoHours: "2小時",
     
-    // Helper options
-    helperNone: "無",
-    helperS: "舵",
-    helperT: "教",
-    helperST: "舵教",
+    // Steersman & Coach options
+    steersmanCoachNone: "不需要",
+    steersmanCoachS: "舵手 (S)",
+    steersmanCoachT: "教練 (T)",
+    steersmanCoachST: "舵手及教練 (ST)",
+    
+    // DEPRECATED: Keep for backward compatibility - Use steersmanCoach* keys instead
+    helperNone: "無",      // DEPRECATED: Use steersmanCoachNone
+    helperS: "舵",         // DEPRECATED: Use steersmanCoachS
+    helperT: "教",         // DEPRECATED: Use steersmanCoachT
+    helperST: "舵教",      // DEPRECATED: Use steersmanCoachST
     
     // Practice summary
     totalHoursSelected: "已選總時數：",
@@ -883,12 +902,19 @@ const translations = {
     quantityExceedsMax: "數量不能超過 {max}",
     
     // Practice validation messages
-    practiceSelectionRequired: "第 {teamNum} 隊 ({teamName})：請選擇至少一個練習日期",
+    practiceSelectionRequired: "請為第 {teamNum} 隊：{teamName} 選擇訓練日期",
+    durationRequired: "請為第 {teamNum} 隊：{teamName} 選擇訓練時長",
+    steersmanCoachRequired: "請為第 {teamNum} 隊：{teamName} 選擇是否需要舵手及教練",
+    // DEPRECATED: Keep for backward compatibility - Use steersmanCoachRequired instead
+    helperRequired: "請為第 {teamNum} 隊：{teamName} 選擇是否需要舵手教練",  // DEPRECATED: Use steersmanCoachRequired
+    practiceMinimumRequired: "請為第 {teamNum} 隊：{teamName} 選擇至少12小時的訓練時段",
     practiceTimeSlotRequired: "第 {teamNum} 隊 ({teamName})：請選擇至少一個時段偏好",
-    practiceDateInvalid: "第 {teamNum} 隊 ({teamName})：練習日期 {dateIndex} 缺失或無效",
-    practiceDurationInvalid: "第 {teamNum} 隊 ({teamName})：練習日期 {dateIndex} 的時長必須為 1 小時或 2 小時",
-    practiceHelperRequired: "第 {teamNum} 隊 ({teamName})：練習日期 {dateIndex} 需要選擇助手",
-    practiceHoursMinimum: "第 {teamNum} 隊 ({teamName})：總練習時數 ({hours} 小時) 必須至少為 {min} 小時",
+    practiceDateInvalid: "第 {teamNum} 隊 ({teamName})：訓練日期 {dateIndex} 缺失或無效",
+    practiceDurationInvalid: "第 {teamNum} 隊 ({teamName})：訓練日期 {dateIndex} 的時長必須為 1 小時或 2 小時",
+    practiceSteersmanCoachRequired: "第 {teamNum} 隊 ({teamName})：訓練日期 {dateIndex} 需要選擇舵手及教練",
+    // DEPRECATED: Keep for backward compatibility - Use practiceSteersmanCoachRequired instead
+    practiceHelperRequired: "第 {teamNum} 隊 ({teamName})：訓練日期 {dateIndex} 需要選擇舵手教練",  // DEPRECATED: Use practiceSteersmanCoachRequired
+    practiceHoursMinimum: "第 {teamNum} 隊 ({teamName})：總訓練時數 ({hours} 小時) 必須至少為 {min} 小時",
     duplicateSlotSelection: "此時段已在其他偏好中選擇",
     practiceDateWeekdayError: "一個或多個練習日期不在允許的工作日。請僅選擇工作日。",
     practiceDateWindowError: "一個或多個練習日期超出允許的練習時間範圍。",
