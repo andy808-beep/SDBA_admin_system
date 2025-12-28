@@ -431,10 +431,6 @@ function initStepNavigation() {
       color: #333;
       flex: 1;
     }
-    #tnScope .info-value.deadline {
-      color: #dc3545;
-      font-weight: 600;
-    }
     #tnScope .appendix-row {
       padding-top: 1rem;
     }
@@ -814,10 +810,6 @@ function createRaceInfoContent() {
         color: #333;
         flex: 1;
       }
-      #tnScope .info-value.deadline {
-        color: #dc3545;
-        font-weight: 600;
-      }
       #tnScope .appendix-row {
         padding-top: 1rem;
       }
@@ -835,18 +827,40 @@ function createRaceInfoContent() {
         background: ${primaryDark} !important;
       }
       #tnScope .race-info-actions {
-        text-align: center;
+        margin-top: 2rem;
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
         padding-top: 1rem;
       }
-      #tnScope #raceInfoNextBtn {
-        background: ${primaryColor} !important;
+      
+      #tnScope #eventsBtn {
+        background: var(--theme-primary-dark, #c79100) !important;
         color: white !important;
-        padding: 0.875rem 2.5rem !important;
-        font-size: 1.1rem !important;
+        padding: 0.75rem 2rem !important;
+        font-size: 1rem !important;
         border: none !important;
         border-radius: 6px !important;
         cursor: pointer !important;
-        font-weight: 600 !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease !important;
+      }
+      
+      #tnScope #eventsBtn:hover {
+        background: var(--theme-primary, #f7b500) !important;
+        opacity: 0.9;
+      }
+      
+      #tnScope #raceInfoNextBtn {
+        background: ${primaryColor} !important;
+        color: white !important;
+        padding: 0.75rem 2rem !important;
+        font-size: 1rem !important;
+        border: none !important;
+        border-radius: 6px !important;
+        cursor: pointer !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease !important;
       }
       #tnScope #raceInfoNextBtn:hover {
         background: ${primaryDark} !important;
@@ -901,8 +915,8 @@ function createRaceInfoContent() {
         </div>
         
         <div class="info-row">
-          <span class="info-label" data-i18n="raceInfoDeadline">${t('raceInfoDeadline', 'Application Deadline')}</span>
-          <span class="info-value deadline">${deadline}</span>
+          <span class="info-label"><span class="deadline-label" data-i18n="raceInfoDeadline">${t('raceInfoDeadline', 'Application Deadline')}</span></span>
+          <span class="info-value"><span class="deadline-date">${deadline}</span></span>
         </div>
         
         <div class="info-row appendix-row">
@@ -911,10 +925,13 @@ function createRaceInfoContent() {
         </div>
       </div>
       
-      <!-- Next Button -->
+      <!-- Navigation Buttons -->
       <div class="race-info-actions">
-        <button type="button" id="raceInfoNextBtn">
-          <span data-i18n="raceInfoNext">${t('raceInfoNext', 'Next')}</span> →
+        <button type="button" id="eventsBtn" class="btn-back">
+          ← Events
+        </button>
+        <button type="button" id="raceInfoNextBtn" class="btn-next">
+          ${t('raceInfoNext', 'Next')} →
         </button>
       </div>
     </div>
@@ -952,6 +969,15 @@ function initStep0() {
       // Reinitialize stepper (to show it for step 1)
       initStepNavigation();
       loadStep(1);
+    });
+  }
+  
+  // Events button - go back to event selection
+  const eventsBtn = document.getElementById('eventsBtn');
+  if (eventsBtn) {
+    eventsBtn.addEventListener('click', () => {
+      Logger.debug('🎯 initStep0: Events button clicked, going back to event selection');
+      window.location.href = '/register.html'; // Or your event selection page URL
     });
   }
 }
@@ -1202,10 +1228,9 @@ function createTeamCountSelector() {
       <!-- Team fields will be generated here -->
     </div>
     <div id="formMsg" class="error-message" style="display: none;"></div>
-    <div class="form-actions" id="step1Actions" style="display: none;">
-      <button type="button" id="nextToStep2" class="btn btn-primary" data-i18n="nextTeamInfo">
-        ${t('nextTeamInfo')}
-      </button>
+    <div class="nav-buttons" id="step1Actions" style="display: none;">
+      <button type="button" id="backToRaceInfo" data-i18n="backButton">← Back</button>
+      <button type="button" id="nextToStep2" data-i18n="nextButton">Next →</button>
     </div>
   `;
   
@@ -1285,6 +1310,21 @@ function setupTeamCountHandler() {
         }
       });
       nextButton.dataset.handlerAttached = 'true';
+    }
+  }
+  
+  // Back button handler
+  const backButton = document.getElementById('backToRaceInfo');
+  if (backButton) {
+    if (backButton.dataset.handlerAttached === 'true') {
+      Logger.debug('🎯 setupTeamCountHandler: Back button handler already attached, skipping');
+    } else {
+      backButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        console.log('🔙 Step 1: Back button clicked, returning to Race Info');
+        showStep(0); // Go back to Race Info page
+      });
+      backButton.dataset.handlerAttached = 'true';
     }
   }
   
@@ -1446,7 +1486,8 @@ function checkForDuplicateNames() {
       if (nameCounts[name].length > 1) {
         hasDuplicates = true;
         nameCounts[name].forEach(team => {
-          team.nameElement.classList.add('field-error');
+          // Use 'error' class for input fields, not 'field-error' (that's for error message divs only)
+          team.nameElement.classList.add('error');
         });
       }
     });
@@ -3642,7 +3683,12 @@ function createMonthBlock(monthData, allowedWeekdays = [1,2,3,4,5,6,0]) {
  * Matches original calendar structure with checkboxes and dropdowns
  */
 function createDayContent(day) {
-  const dateStr = day.date.toISOString().split('T')[0];
+  // Fix timezone bug: toISOString() converts to UTC, shifting dates back by one day in Hong Kong (UTC+8)
+  // Use local date components instead
+  const year = day.date.getFullYear();
+  const month = String(day.date.getMonth() + 1).padStart(2, '0');
+  const dayNum = String(day.date.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${dayNum}`;
   const constraints = window.__PRACTICE_CONSTRAINTS || {};
   
   // Check if date is within practice window (allow all 2026 dates in window)
@@ -3680,10 +3726,10 @@ function createDayContent(day) {
         <option value="2" ${selectedAttr} data-i18n="twoHours">${t('twoHours')}</option>
       </select>
       <select class="helpers">
-        <option value="NONE" ${selectedAttr} data-i18n="steersmanCoachNone">${t('steersmanCoachNone')}</option>
+        <option value="NONE" data-i18n="steersmanCoachNone">${t('steersmanCoachNone')}</option>
         <option value="S" data-i18n="steersmanCoachS">${t('steersmanCoachS')}</option>
         <option value="T" data-i18n="steersmanCoachT">${t('steersmanCoachT')}</option>
-        <option value="ST" data-i18n="steersmanCoachST">${t('steersmanCoachST')}</option>
+        <option value="ST" ${selectedAttr} data-i18n="steersmanCoachST">${t('steersmanCoachST')}</option>
       </select>
     </div>
   `;
@@ -3704,9 +3750,9 @@ function createDayContent(day) {
   }
   
   if (helpersSelect && helpersSelect.options.length > 0) {
-    // Set NONE as default (index 0)
-    helpersSelect.selectedIndex = 0;
-    helpersSelect.value = 'NONE';
+    // Set ST (Steersman & Coach) as default (index 3)
+    helpersSelect.selectedIndex = 3;
+    helpersSelect.value = 'ST';
   }
   
   return dayContentDiv;
@@ -3731,8 +3777,17 @@ function addCalendarEventHandlers(container) {
   container.addEventListener('change', (event) => {
     if (event.target.type === 'checkbox' && event.target.hasAttribute('data-date')) {
       const checkbox = event.target;
-      const dropdowns = checkbox.closest('.calendar-day').querySelector('.dropdowns');
+      // The checkbox HAS the data-date attribute, it's not inside a data-date container
+      // Dropdowns are siblings of the checkbox's parent label
+      const label = checkbox.parentElement; // LABEL.day-checkbox
+      const dateContainer = label.parentElement; // Parent containing both label and dropdowns
+      const dropdowns = dateContainer?.querySelector('.dropdowns');
       const dateStr = checkbox.getAttribute('data-date');
+      
+      console.log('🔧 DEBUG addCalendarEventHandlers: checkbox:', checkbox);
+      console.log('🔧 DEBUG addCalendarEventHandlers: label:', label);
+      console.log('🔧 DEBUG addCalendarEventHandlers: dateContainer:', dateContainer);
+      console.log('🔧 DEBUG addCalendarEventHandlers: dropdowns:', dropdowns);
       
       if (checkbox.checked) {
         dropdowns.classList.remove('hide');
@@ -3785,7 +3840,7 @@ function addDateToCurrentTeam(dateStr) {
   const newRow = {
     pref_date: dateStr,
     duration_hours: 2,
-    helper: 'NONE'
+    helper: 'ST'
   };
   
   rows.push(newRow);
@@ -5827,7 +5882,7 @@ function saveCurrentTeamPracticeData() {
       rows.push({
         pref_date: dateStr,
         duration_hours: Number(durationSel.value) || 2,
-        helper: helperSel.value || 'NONE'
+        helper: helperSel.value || 'ST'
       });
     }
   });
@@ -5922,36 +5977,134 @@ function setupCalendarEventListeners(container) {
     
     // Handle checkbox changes
     if (target.type === 'checkbox') {
+      console.log('═'.repeat(60));
+      console.log('🎯 CHECKBOX CHANGED!');
+      console.log('  Target:', target);
+      console.log('  Checked:', target.checked);
+      console.log('  data-date:', target.getAttribute('data-date'));
+      
       const dateStr = target.getAttribute('data-date');
-      const dropdowns = target.closest('[data-date]')?.querySelector('.dropdowns');
+      
+      // The checkbox HAS the data-date attribute, it's not inside a data-date container
+      const checkbox = target;
+      const label = checkbox.parentElement;
+      const dateContainer = label.parentElement;
+      const dropdowns = dateContainer?.querySelector('.dropdowns');
+      
+      console.log('🔍 DOM TRAVERSAL:');
+      console.log('  checkbox:', checkbox);
+      console.log('  label:', label);
+      console.log('  label tagName:', label?.tagName);
+      console.log('  label className:', label?.className);
+      console.log('  dateContainer:', dateContainer);
+      console.log('  dateContainer tagName:', dateContainer?.tagName);
+      console.log('  dateContainer className:', dateContainer?.className);
+      console.log('  dropdowns:', dropdowns);
+      console.log('  dropdowns className:', dropdowns?.className);
+      
       const key = getCurrentTeamKey();
       const currentTeamIndex = getCurrentTeamIndex();
       const teamNum = currentTeamIndex + 1;
       
+      console.log('📊 TEAM INFO:');
+      console.log('  key:', key);
+      console.log('  teamNum:', teamNum);
+      
       if (target.checked) {
+        console.log('✅ CHECKBOX IS CHECKED - Adding date');
+        
         // add row if not present
         const rows = readTeamRows(key) || [];
-        if (!rows.some(r => r.pref_date === dateStr)) {
-          rows.push({ pref_date: dateStr, duration_hours: 2, helper: 'NONE' });
-          writeTeamRows(key, rows);
-        }
-        dropdowns?.classList.remove('hide');
+        console.log('  Current rows:', rows.length);
         
-        // Clear practice selection error when user selects a date
+        if (!rows.some(r => r.pref_date === dateStr)) {
+          rows.push({ pref_date: dateStr, duration_hours: 2, helper: 'ST' });
+          writeTeamRows(key, rows);
+          console.log('  ✅ Added row with defaults');
+        } else {
+          console.log('  ⚠️ Row already exists');
+        }
+        
+        // BUGFIX: Set dropdown values BEFORE showing
+        const durationSelect = dropdowns?.querySelector('select.duration');
+        const helpersSelect = dropdowns?.querySelector('select.helpers');
+        
+        console.log('🎨 DROPDOWNS:');
+        console.log('  durationSelect:', durationSelect);
+        console.log('  helpersSelect:', helpersSelect);
+        
+        if (durationSelect && durationSelect.options.length > 0) {
+          console.log('  📝 SETTING DURATION:');
+          console.log('    Before selectedIndex:', durationSelect.selectedIndex);
+          console.log('    Before value:', durationSelect.value);
+          console.log('    Options count:', durationSelect.options.length);
+          
+          durationSelect.selectedIndex = 1;
+          durationSelect.value = '2';
+          
+          console.log('    After selectedIndex:', durationSelect.selectedIndex);
+          console.log('    After value:', durationSelect.value);
+        } else {
+          console.error('  ❌ Cannot set duration - select not found or no options');
+        }
+        
+        if (helpersSelect && helpersSelect.options.length > 0) {
+          console.log('  📝 SETTING HELPER:');
+          console.log('    Before selectedIndex:', helpersSelect.selectedIndex);
+          console.log('    Before value:', helpersSelect.value);
+          console.log('    Options count:', helpersSelect.options.length);
+          
+          // Set ST (Steersman & Coach) as default (index 3)
+          helpersSelect.selectedIndex = 3;
+          helpersSelect.value = 'ST';
+          
+          console.log('    After selectedIndex:', helpersSelect.selectedIndex);
+          console.log('    After value:', helpersSelect.value);
+        } else {
+          console.error('  ❌ Cannot set helper - select not found or no options');
+        }
+        
+        console.log('  🎨 Removing hide class from dropdowns...');
+        dropdowns?.classList.remove('hide');
+        console.log('  ✅ Dropdowns shown');
+        
+        // Verify AFTER showing
+        console.log('  🔍 VERIFICATION AFTER SHOWING:');
+        console.log('    Duration value:', durationSelect?.value);
+        console.log('    Duration selectedIndex:', durationSelect?.selectedIndex);
+        console.log('    Helper value:', helpersSelect?.value);  
+        console.log('    Helper selectedIndex:', helpersSelect?.selectedIndex);
+        
+        // Clear error
         if (window.errorSystem && typeof window.errorSystem.clearErrors === 'function') {
           window.errorSystem.clearErrors(`practice-team-${teamNum}`);
         }
       } else {
+        console.log('❌ CHECKBOX IS UNCHECKED - Removing date');
         writeTeamRows(key, (readTeamRows(key)||[]).filter(r => r.pref_date !== dateStr));
         dropdowns?.classList.add('hide');
       }
-      saveCurrentTeamPracticeData(); // keep single save path
-      updatePracticeSummary(); // Update summary box immediately
+      
+      saveCurrentTeamPracticeData();
+      updatePracticeSummary();
+      
+      console.log('═'.repeat(60));
     }
     
     // Handle dropdown changes (duration, steersman & coach)
     if (target.tagName === 'SELECT') {
-      const dateStr = target.closest('[data-date]')?.getAttribute('data-date');
+      // SELECT is in .dropdowns, which is sibling of label containing checkbox
+      // Find the checkbox with data-date in the same container
+      const dropdowns = target.closest('.dropdowns');
+      const dateContainer = dropdowns?.parentElement;
+      const checkbox = dateContainer?.querySelector('input[type="checkbox"][data-date]');
+      const dateStr = checkbox?.getAttribute('data-date');
+      
+      console.log('🔧 DEBUG SELECT: dropdowns:', dropdowns);
+      console.log('🔧 DEBUG SELECT: dateContainer:', dateContainer);
+      console.log('🔧 DEBUG SELECT: checkbox:', checkbox);
+      console.log('🔧 DEBUG SELECT: dateStr:', dateStr);
+      
       const key = getCurrentTeamKey();
       const currentTeamIndex = getCurrentTeamIndex();
       const teamNum = currentTeamIndex + 1;
@@ -5966,7 +6119,7 @@ function setupCalendarEventListeners(container) {
             window.errorSystem.clearErrors(`duration-team-${teamNum}`);
           }
         } else if (target.classList.contains('helpers')) {
-          rows[rowIndex].helper = target.value || 'NONE';
+          rows[rowIndex].helper = target.value || 'ST';
           // Clear steersman & coach error when user selects steersman & coach
           if (window.errorSystem && typeof window.errorSystem.clearErrors === 'function') {
             window.errorSystem.clearErrors(`helper-team-${teamNum}`);
@@ -6091,7 +6244,7 @@ function updateCalendarForTeam(teamIndex) {
       ? Number(row.duration_hours) 
       : 2;
     if (durationSel) durationSel.value = String(durationHours);
-    if (helperSel)  helperSel.value  = row.helper || 'NONE';
+    if (helperSel)  helperSel.value  = row.helper || 'ST';
     dropdowns?.classList.remove('hide');
   });
 }
@@ -7518,7 +7671,7 @@ function buildTNPracticePayload() {
       dates: rows.map(r => ({
         pref_date: r.pref_date,
         duration_hours: Number(r.duration_hours) || 2,
-        helper: r.helper || 'NONE'
+        helper: r.helper || 'ST'
       })),
       slot_ranks: ranks.map(r => ({
         rank: Number(r.rank),

@@ -132,11 +132,20 @@ class ErrorSystem {
       return false;
     }
 
+    // SAFEGUARD: Ensure input fields are never hidden
+    if (field.tagName === 'INPUT' || field.tagName === 'SELECT' || field.tagName === 'TEXTAREA') {
+      // Remove any display:none that might have been accidentally set
+      if (field.style.display === 'none') {
+        field.style.display = '';
+        console.warn('ErrorSystem: Removed display:none from input field:', fieldId);
+      }
+    }
+
     // Get translated message
     const message = this.getMessage(messageKey, params);
 
-    // Add field-error class to field
-    field.classList.add('field-error');
+    // Add 'error' class to field (NOT 'field-error' - that's for error message divs only)
+    field.classList.add('error');
     
     // Set ARIA attributes
     field.setAttribute('aria-invalid', 'true');
@@ -223,10 +232,19 @@ class ErrorSystem {
     
     const { field, errorDiv } = errorData;
     
-    // Remove field-error class
+    // Remove 'error' class from field (NOT 'field-error' - that's for error message divs only)
     if (field) {
-      field.classList.remove('field-error');
+      field.classList.remove('error', 'field-error');
       field.removeAttribute('aria-invalid');
+      
+      // SAFEGUARD: Ensure input fields are never hidden
+      if (field.tagName === 'INPUT' || field.tagName === 'SELECT' || field.tagName === 'TEXTAREA') {
+        // Remove any display:none that might have been accidentally set
+        if (field.style.display === 'none') {
+          field.style.display = '';
+          console.warn('ErrorSystem: Removed display:none from input field:', fieldId);
+        }
+      }
       
       // Remove aria-describedby reference
       const describedBy = field.getAttribute('aria-describedby');
@@ -509,7 +527,16 @@ class ErrorSystem {
       
       const field = document.getElementById(fieldId);
       if (field) {
+        // Remove 'error' class from field (NOT 'field-error' - that's for error message divs only)
         field.classList.remove('error', 'field-error');
+        // SAFEGUARD: Ensure input fields are never hidden
+        if (field.tagName === 'INPUT' || field.tagName === 'SELECT' || field.tagName === 'TEXTAREA') {
+          // Remove any display:none that might have been accidentally set
+          if (field.style.display === 'none') {
+            field.style.display = '';
+            console.warn('ErrorSystem: Removed display:none from input field:', fieldId);
+          }
+        }
       }
       
       // Use clearFieldError for proper cleanup if error exists in system
@@ -521,13 +548,28 @@ class ErrorSystem {
     } else {
       // Clear all errors
       document.querySelectorAll('[id^="error-"]').forEach(el => {
-        el.textContent = '';
-        el.style.display = 'none';
-        el.classList.remove('show');
+        // SAFEGUARD: Only set display:none on error message elements, never on input fields
+        const isInputField = el.tagName === 'INPUT' || 
+                            el.tagName === 'SELECT' || 
+                            el.tagName === 'TEXTAREA';
+        
+        if (!isInputField) {
+          el.textContent = '';
+          el.style.display = 'none';
+          el.classList.remove('show');
+        }
       });
       
       document.querySelectorAll('.error, .field-error').forEach(el => {
         el.classList.remove('error', 'field-error');
+        // SAFEGUARD: Ensure input fields are never hidden
+        if (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') {
+          // Remove any display:none that might have been accidentally set
+          if (el.style.display === 'none') {
+            el.style.display = '';
+            console.warn('ErrorSystem: Removed display:none from input field:', el.id);
+          }
+        }
       });
       
       // Use clearFormErrors for proper cleanup

@@ -42,9 +42,11 @@ class I18n {
     // Storage key for language preference
     this.storageKey = 'sdba_lang';
     
-    // Get saved language from localStorage, fallback to 'en'
-    const savedLang = this._getFromStorage();
-    this.currentLang = savedLang || 'en';
+    // Clear any saved language preference to ensure fresh start with English
+    this._saveToStorage('en');
+    
+    // Always default to English, ignore saved preferences
+    this.currentLang = 'en';
     
     // Validate that the language exists in translations
     if (!this.translations[this.currentLang]) {

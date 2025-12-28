@@ -252,8 +252,8 @@ const translations = {
     // Steersman & Coach options
     steersmanCoachNone: "None",
     steersmanCoachS: "Steersman (S)",
-    steersmanCoachT: "Tender (T)",
-    steersmanCoachST: "Steersman & Tender (ST)",
+    steersmanCoachT: "Trainer (T)",
+    steersmanCoachST: "Steersman & Trainer (ST)",
     
     // DEPRECATED: Keep for backward compatibility - Use steersmanCoach* keys instead
     helperNone: "NONE",  // DEPRECATED: Use steersmanCoachNone

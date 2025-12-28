@@ -114,8 +114,9 @@ body[data-event="sc"] h2 {
   margin: 1rem 0;
 }
 
-/* Field error styling */
-.field-error {
+/* Field error styling - ERROR MESSAGE DIVS ONLY */
+/* This class should ONLY be used for error message divs, not input fields */
+div.field-error {
   display: none;
   color: #dc2626;
   font-size: 0.875rem;
@@ -128,8 +129,18 @@ body[data-event="sc"] h2 {
   animation: slideDown 0.2s ease-out;
 }
 
-.field-error:empty {
+div.field-error:empty {
   display: none !important;
+}
+
+/* Input fields with errors - keep visible but styled */
+/* Input fields should use 'error' class, not 'field-error' */
+input.error,
+select.error,
+textarea.error {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+  /* DO NOT set display: none - fields must remain visible */
 }
 
 @keyframes slideDown {
@@ -148,5 +159,16 @@ select.error,
 textarea.error {
   border-color: #dc2626 !important;
   background-color: #fef2f2 !important;
+}
+
+/* Application Deadline Styling */
+.deadline-label {
+  color: #dc2626; /* Red */
+  font-weight: 600;
+}
+
+.deadline-date {
+  color: #000000; /* Black */
+  font-weight: 400;
 }
 

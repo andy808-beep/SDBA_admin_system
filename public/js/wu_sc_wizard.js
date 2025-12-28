@@ -648,10 +648,6 @@ function createRaceInfoContent() {
         color: #333;
         flex: 1;
       }
-      #wuScContainer .info-value.deadline {
-        color: #dc3545;
-        font-weight: 600;
-      }
       #wuScContainer .appendix-row {
         padding-top: 1rem;
       }
@@ -669,18 +665,40 @@ function createRaceInfoContent() {
         background: ${primaryColor} !important;
       }
       #wuScContainer .race-info-actions {
-        text-align: center;
+        margin-top: 2rem;
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
         padding-top: 1rem;
       }
-      #wuScContainer #raceInfoNextBtn {
-        background: ${primaryColor} !important;
+      
+      #wuScContainer #eventsBtn {
+        background: var(--theme-primary-dark, ${primaryDark}) !important;
         color: white !important;
-        padding: 0.875rem 2.5rem !important;
-        font-size: 1.1rem !important;
+        padding: 0.75rem 2rem !important;
+        font-size: 1rem !important;
         border: none !important;
         border-radius: 6px !important;
         cursor: pointer !important;
-        font-weight: 600 !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease !important;
+      }
+      
+      #wuScContainer #eventsBtn:hover {
+        background: var(--theme-primary, ${primaryColor}) !important;
+        opacity: 0.9;
+      }
+      
+      #wuScContainer #raceInfoNextBtn {
+        background: ${primaryColor} !important;
+        color: white !important;
+        padding: 0.75rem 2rem !important;
+        font-size: 1rem !important;
+        border: none !important;
+        border-radius: 6px !important;
+        cursor: pointer !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease !important;
       }
       #wuScContainer #raceInfoNextBtn:hover {
         background: ${primaryDark} !important;
@@ -735,8 +753,8 @@ function createRaceInfoContent() {
         </div>
         
         <div class="info-row">
-          <span class="info-label" data-i18n="raceInfoDeadline">${t('raceInfoDeadline', 'Application Deadline')}:</span>
-          <span class="info-value deadline">${deadline}</span>
+          <span class="info-label"><span class="deadline-label" data-i18n="raceInfoDeadline">${t('raceInfoDeadline', 'Application Deadline')}</span>:</span>
+          <span class="info-value"><span class="deadline-date">${deadline}</span></span>
         </div>
         
         <div class="info-row appendix-row">
@@ -745,10 +763,13 @@ function createRaceInfoContent() {
         </div>
       </div>
       
-      <!-- Next Button -->
+      <!-- Navigation Buttons -->
       <div class="race-info-actions">
-        <button type="button" id="raceInfoNextBtn">
-          <span data-i18n="raceInfoNext">${t('raceInfoNext', 'Next')}</span> →
+        <button type="button" id="eventsBtn" class="btn-back">
+          ← Events
+        </button>
+        <button type="button" id="raceInfoNextBtn" class="btn-next">
+          ${t('raceInfoNext', 'Next')} →
         </button>
       </div>
     </div>
@@ -772,6 +793,15 @@ function initStep0() {
       currentStep = 1;
       initStepper();
       loadStep(1);
+    });
+  }
+  
+  // Events button - go back to event selection
+  const eventsBtn = document.getElementById('eventsBtn');
+  if (eventsBtn) {
+    eventsBtn.addEventListener('click', () => {
+      Logger.debug('🎯 initStep0: Events button clicked, going back to event selection');
+      window.location.href = '/register.html'; // Or your event selection page URL
     });
   }
 }
@@ -839,6 +869,16 @@ function initStep1() {
   };
   
   teamCountSelect.addEventListener('change', handleTeamCountChange);
+  
+  // Back button handler
+  const backButton = document.getElementById('backToRaceInfo');
+  if (backButton) {
+    backButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      console.log('🔙 Step 1: Back button clicked, returning to Race Info');
+      loadStep(0); // Go back to Race Info page
+    });
+  }
   
   // Restore team count from session storage if available (e.g., when navigating back)
   const savedTeamCount = sessionStorage.getItem(`${eventType}_team_count`);
