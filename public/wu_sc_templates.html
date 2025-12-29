@@ -3,7 +3,7 @@
 <template id="wu-sc-step-1">
   <div class="card">
     <form id="categoryForm">
-      <h2 data-i18n="selectTeamDetails">Select Team Details</h2>
+      <h2 data-i18n="selectTeamDetails">Team Details</h2>
 
       <label for="teamCount" data-i18n="howManyTeamsQuestion">How many teams do you want to register?</label>
       <select id="teamCount" name="teamCount" required>
@@ -22,8 +22,8 @@
       <input type="text" name="website" id="website_hp" autocomplete="off" tabindex="-1" style="position:absolute;left:-9999px;" />
 
       <p class="msg" id="formMsg"></p>
-      <!-- 🔄 Navigation -->
-      <div class="nav-buttons" id="step1Actions" style="display: none;">
+      <!-- Navigation -->
+      <div class="nav-buttons" id="step1Actions" style="display: flex; justify-content: space-between; gap: 1rem; visibility: hidden;">
         <button type="button" id="backToRaceInfo" data-i18n="backButton">← Back</button>
         <button type="submit" id="nextBtn" data-i18n="nextButton">Next →</button>
       </div>
@@ -49,8 +49,8 @@
       <div id="managerFields"></div>
 
       <p class="msg" id="formMsg"></p>
-      <!-- 🔄 Navigation -->
-      <div class="nav-buttons">
+      <!-- Navigation -->
+      <div class="nav-buttons" style="display: flex; justify-content: space-between; gap: 1rem;">
         <button type="button" id="backBtn" data-i18n="backButton">← Back</button>
         <button type="submit" id="nextBtn" data-i18n="nextButton">Next →</button>
       </div>
@@ -106,8 +106,8 @@
       </div>
 
       <p class="msg" id="formMsg"></p>
-      <!-- 🔄 Navigation -->
-      <div class="nav-buttons">
+      <!-- Navigation -->
+      <div class="nav-buttons" style="display: flex; justify-content: space-between; gap: 1rem;">
         <button type="button" id="backBtn" data-i18n="backButton">← Back</button>
         <button type="submit" id="nextBtn" data-i18n="nextButton">Next →</button>
       </div>
@@ -172,7 +172,7 @@
 
     <p class="msg" id="formMsg"></p>
     <!-- 🔄 Navigation -->
-    <div class="nav-buttons">
+    <div class="nav-buttons" style="display: flex; justify-content: space-between; gap: 1rem;">
       <button type="button" id="backBtn" data-i18n="backButton">← Back</button>
       <button type="submit" id="submitBtn" data-i18n="submitButton">Submit Application</button>
     </div>

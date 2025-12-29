@@ -116,13 +116,11 @@ async function loadTNTemplates() {
   try {
     Logger.debug('🎯 loadTNTemplates: Starting template loading');
     
-    // IMPROVED: Check all templates, not just step-1, to prevent duplicates
-    const existingTemplates = ['tn-step-1', 'tn-step-2', 'tn-step-3', 'tn-step-4', 'tn-step-5']
-      .map(id => document.getElementById(id))
-      .filter(el => el !== null);
-    
-    if (existingTemplates.length > 0) {
-      Logger.debug(`🎯 loadTNTemplates: ${existingTemplates.length}/5 templates already loaded, skipping`);
+    // IMPROVED: Check if templates already exist in head OR body (getElementById searches entire document)
+    // This prevents duplicate loading if templates were loaded elsewhere
+    const existingTemplate = document.getElementById('tn-step-1');
+    if (existingTemplate) {
+      Logger.debug('🎯 loadTNTemplates: Templates already loaded (found tn-step-1), skipping');
       return;
     }
     

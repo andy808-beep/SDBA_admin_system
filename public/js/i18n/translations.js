@@ -45,19 +45,19 @@ const translations = {
     backPractice: "← Back: Practice",
     
     // Action buttons
-    copyDetails: "📋 Copy Details",
-    copyFromTeam1: "📋 Copy from Team 1",
+    copyDetails: "Copy Details",
+    copyFromTeam1: "Copy from Team 1",
     clearCacheReload: "Clear Cache & Reload",
     clickToSelect: "Click to select",
     selected: "Selected",
-    copiedSuccess: "✓ Copied!",
+    copiedSuccess: "Copied!",
 
     // ============================================
     // STEPPER STEPS (TN Wizard - 5 steps)
     // ============================================
     
     tnStep1: "1. Teams",
-    tnStep2: "2. Organization",
+    tnStep2: "2. Contacts",
     tnStep3: "3. Race Day",
     tnStep4: "4. Practice",
     tnStep5: "5. Summary",
@@ -67,7 +67,7 @@ const translations = {
     // ============================================
     
     wuScStep1: "1. Teams",
-    wuScStep2: "2. Team Information",
+    wuScStep2: "2. Contacts",
     wuScStep3: "3. Race Day",
     wuScStep4: "4. Summary",
 
@@ -103,12 +103,12 @@ const translations = {
     selectRaceCategory: "Select Race Category",
     teamInformation: "Team Information",
     raceDayArrangement: "Race Day Arrangement",
-    practiceBookingTitle: "🛶 Practice Booking ({startMonth}–{endMonth})",
-    practiceBookingTitleFallback: "🛶 Practice Booking",
+    practiceBookingTitle: "Practice Booking ({startMonth}–{endMonth})",
+    practiceBookingTitleFallback: "Practice Booking",
     applicationSummary: "Application Summary",
     
     // Step headings (WU/SC)
-    selectTeamDetails: "Select Team Details",
+    selectTeamDetails: "Team Details",
     
     // Section headings
     organizationManagerInfo: "Organization & Team Manager Information",
@@ -127,34 +127,34 @@ const translations = {
     
     // Team selection
     chooseCategory: "Choose category:",
-    howManyTeams: "How many teams will you register?",
+    howManyTeams: "How many teams will you register?*",
     howManyTeamsQuestion: "How many teams do you want to register?",
     oneTeam: "1 team",
     nTeams: "{count} teams",
     teamLabel: "Team {num}",
-    teamNameLabel: "Team Name *",
-    teamNameEnLabel: "Team Name (English)",
+    teamNameLabel: "Team Name*",
+    teamNameEnLabel: "Team Name (English)*",
     teamNameTcLabel: "Team Name (Chinese)",
-    teamNameEnPlaceholder: "Please enter 'N/A' if not applicable",
-    teamNameTcPlaceholder: "Please enter 'N/A' if not applicable",
-    raceCategoryLabel: "Race Category *",
-    entryOptionLabel: "Entry Option *",
+    teamNameEnPlaceholder: "Please provide team name",
+    teamNameTcPlaceholder: "Optional",
+    raceCategoryLabel: "Race Category*",
+    entryOptionLabel: "Entry Option*",
     selectTeamLabel: "Select Team:",
     nowScheduling: "Now scheduling: {teamName}",
     
     // Organization
     organizationGroupName: "Organization / Group Name",
-    organizationGroupNameShort: "Organization/Group Name *",
+    organizationGroupNameShort: "Organization/Group Name*",
     mailingAddress: "Mailing Address",
-    addressLabel: "Address *",
+    addressLabel: "Address*",
     teamManagerContact: "Team Manager Contact",
     
     // Manager fields
-    nameLabel: "Name *",
+    nameLabel: "Name*",
     nameLabelOptional: "Name",
-    phoneLabel: "Phone *",
+    phoneLabel: "Phone*",
     phoneLabelOptional: "Phone",
-    emailLabel: "Email *",
+    emailLabel: "Email*",
     emailLabelOptional: "Email",
     
     // Race day items
@@ -349,10 +349,10 @@ const translations = {
     
     // Configuration errors
     configNotLoaded: "Configuration not loaded. Please refresh the page.",
-    noBoatTypesConfigured: "⚠️ Configuration Issue: No boat types are configured in the database.",
+    noBoatTypesConfigured: "Configuration Issue: No boat types are configured in the database.",
     pleaseContactAdmin: "Please contact the administrator to set up packages and divisions for this event.",
     noEntryGroupsAvailable: "No entry groups available for {boatType}. Please contact support.",
-    noPackagesConfigured: "⚠️ No boat types configured.",
+    noPackagesConfigured: "No boat types configured.",
     noPackagesConfiguredDetail: "The database may not have packages set up for this event. Please contact the administrator.",
 
     // ============================================
@@ -408,7 +408,7 @@ const translations = {
     // ============================================
     
     // General error messages
-    pleaseCorrectErrors: "⚠️ Please correct the following errors:",
+    pleaseCorrectErrors: "Please correct the following errors:",
     dismissErrors: "Dismiss errors",
     close: "Close",
     closeError: "Close error",
@@ -509,19 +509,19 @@ const translations = {
     backPractice: "← 返回：練習",
     
     // Action buttons
-    copyDetails: "📋 複製詳情",
-    copyFromTeam1: "📋 從第1隊複製",
+    copyDetails: "複製詳情",
+    copyFromTeam1: "從第1隊複製",
     clearCacheReload: "清除緩存並重新載入",
     clickToSelect: "點擊選擇",
     selected: "已選擇",
-    copiedSuccess: "✓ 已複製！",
+    copiedSuccess: "已複製！",
 
     // ============================================
     // STEPPER STEPS (TN Wizard - 5 steps)
     // ============================================
     
     tnStep1: "1. 隊伍",
-    tnStep2: "2. 機構",
+    tnStep2: "2. 聯絡人",
     tnStep3: "3. 賽事日",
     tnStep4: "4. 練習",
     tnStep5: "5. 摘要",
@@ -531,7 +531,7 @@ const translations = {
     // ============================================
     
     wuScStep1: "1. 隊伍",
-    wuScStep2: "2. 隊伍資料",
+    wuScStep2: "2. 聯絡人",
     wuScStep3: "3. 賽事日",
     wuScStep4: "4. 摘要",
 
@@ -567,12 +567,12 @@ const translations = {
     selectRaceCategory: "選擇賽事組別",
     teamInformation: "隊伍資料",
     raceDayArrangement: "賽事日安排",
-    practiceBookingTitle: "🛶 練習預約（{startMonth}–{endMonth}）",
-    practiceBookingTitleFallback: "🛶 練習預約",
+    practiceBookingTitle: "練習預約（{startMonth}–{endMonth}）",
+    practiceBookingTitleFallback: "練習預約",
     applicationSummary: "申請摘要",
     
     // Step headings (WU/SC)
-    selectTeamDetails: "選擇隊伍詳情",
+    selectTeamDetails: "隊伍詳情",
     
     // Section headings
     organizationManagerInfo: "機構及隊伍管理員資料",
@@ -599,8 +599,8 @@ const translations = {
     teamNameLabel: "隊名 *",
     teamNameEnLabel: "隊伍名稱(英文)",
     teamNameTcLabel: "隊伍名稱(中文)",
-    teamNameEnPlaceholder: "如不適用，請輸入「N/A」",
-    teamNameTcPlaceholder: "如不適用，請輸入「N/A」",
+    teamNameEnPlaceholder: "請提供隊名",
+    teamNameTcPlaceholder: "選填",
     raceCategoryLabel: "賽事組別 *",
     entryOptionLabel: "報名選項 *",
     selectTeamLabel: "選擇隊伍：",
@@ -813,10 +813,10 @@ const translations = {
     
     // Configuration errors
     configNotLoaded: "配置未載入。請重新整理頁面。",
-    noBoatTypesConfigured: "⚠️ 配置問題：資料庫中沒有配置船隻類型。",
+    noBoatTypesConfigured: "配置問題：資料庫中沒有配置船隻類型。",
     pleaseContactAdmin: "請聯絡管理員為此賽事設置套餐及組別。",
     noEntryGroupsAvailable: "沒有可用的 {boatType} 參賽組別。請聯絡支援。",
-    noPackagesConfigured: "⚠️ 沒有配置船隻類型。",
+    noPackagesConfigured: "沒有配置船隻類型。",
     noPackagesConfiguredDetail: "資料庫可能沒有為此賽事設置套餐。請聯絡管理員。",
 
     // ============================================
@@ -872,7 +872,7 @@ const translations = {
     // ============================================
     
     // General error messages
-    pleaseCorrectErrors: "⚠️ 請更正以下錯誤：",
+    pleaseCorrectErrors: "請更正以下錯誤：",
     dismissErrors: "關閉錯誤",
     close: "關閉",
     closeError: "關閉錯誤",

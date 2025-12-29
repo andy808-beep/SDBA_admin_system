@@ -111,6 +111,77 @@ let totalSteps = 5;
 let tnScope = null;
 let wizardMount = null;
 let stepper = null;
+let isLoadingStep = false; // Guard flag to prevent concurrent loadStepContent() calls
+
+// Expose wizard state globally for debugging
+// CRITICAL: Use Object.defineProperty to ensure getters reference the correct variable
+window.tnWizard = {};
+Object.defineProperty(window.tnWizard, 'currentStep', {
+  get: function() { 
+    // Explicitly reference the module-scoped variable
+    return currentStep;
+  },
+  set: function(value) {
+    console.log(`🔧 window.tnWizard.currentStep setter: ${currentStep} → ${value}`);
+    currentStep = value;
+  },
+  configurable: true,
+  enumerable: true
+});
+
+Object.defineProperty(window.tnWizard, 'totalSteps', {
+  get: function() { return totalSteps; },
+  configurable: true,
+  enumerable: true
+});
+
+Object.defineProperty(window.tnWizard, 'isLoadingStep', {
+  get: function() { return isLoadingStep; },
+  configurable: true,
+  enumerable: true
+});
+
+Object.defineProperty(window.tnWizard, 'tnScope', {
+  get: function() { return tnScope; },
+  configurable: true,
+  enumerable: true
+});
+
+Object.defineProperty(window.tnWizard, 'wizardMount', {
+  get: function() { return wizardMount; },
+  configurable: true,
+  enumerable: true
+});
+
+Object.defineProperty(window.tnWizard, 'stepper', {
+  get: function() { return stepper; },
+  configurable: true,
+  enumerable: true
+});
+
+// Expose setter for debugging (use with caution)
+window.tnWizard.setCurrentStep = (step) => {
+  console.log(`🔧 window.tnWizard.setCurrentStep(${step}) called - previous: ${currentStep}`);
+  currentStep = step;
+  console.log(`🔧 window.tnWizard.setCurrentStep: currentStep is now ${currentStep}`);
+  // Also update the direct reference
+  if (window.tnCurrentStep !== undefined) {
+    window.tnCurrentStep = step;
+  }
+};
+
+// Expose currentStep directly for console debugging
+Object.defineProperty(window, 'tnCurrentStep', {
+  get: () => currentStep,
+  set: (value) => {
+    console.log(`🔧 window.tnCurrentStep set to ${value} (previous: ${currentStep})`);
+    currentStep = value;
+  },
+  configurable: true
+});
+
+// Expose isLoadingStep globally for button handlers
+window.isLoadingStep = () => isLoadingStep;
 
 /**
  * Get event short ref for auto-save
@@ -270,7 +341,7 @@ function initStepNavigation() {
   // Get step labels from i18n (with fallbacks)
   const t = (key, fallback) => window.i18n ? window.i18n.t(key) : fallback;
   const step1 = t('tnStep1', '1. Teams');
-  const step2 = t('tnStep2', '2. Organization');
+  const step2 = t('tnStep2', '2. Contacts');
   const step3 = t('tnStep3', '3. Race Day');
   const step4 = t('tnStep4', '4. Practice');
   const step5 = t('tnStep5', '5. Summary');
@@ -555,14 +626,32 @@ async function loadStep(step) {
     return;
   }
   
+  // CRITICAL: Set currentStep BEFORE any other operations
+  // This ensures restoration and other code can check the correct step
+  const previousStep = currentStep;
+  currentStep = step;
+  console.log(`🔧 loadStep: Set currentStep to ${currentStep} (step: ${step}, previous: ${previousStep})`);
+  
+  // Force update window.tnCurrentStep for debugging (direct reference)
+  if (window.tnCurrentStep !== undefined) {
+    window.tnCurrentStep = step;
+  }
+  
+  // Update window.tnWizard for debugging (getter will reflect new value)
+  if (window.tnWizard) {
+    const getterValue = window.tnWizard.currentStep;
+    console.log(`🔧 loadStep: window.tnWizard.currentStep getter = ${getterValue} (expected: ${step})`);
+    if (getterValue !== step) {
+      console.error(`❌ BUG: Getter mismatch in loadStep! currentStep=${currentStep}, getter=${getterValue}`);
+    }
+  }
+  
   // Add breadcrumb for step navigation
   addBreadcrumb(`Navigating to step ${step}`, 'navigation', 'info', {
     step,
-    previousStep: currentStep,
+    previousStep: previousStep,
     wizard: 'tn'
   });
-  
-  currentStep = step;
   
   // Update stepper
   updateStepper();
@@ -604,67 +693,81 @@ function updateStepper() {
  */
 async function loadStepContent(step) {
 	Logger.debug(`loadStepContent: Loading step ${step}`);
-  if (!wizardMount) {
-	Logger.error('loadStepContent: wizardMount not found');
+  
+  // Prevent concurrent calls - if already loading, skip this call
+  if (isLoadingStep) {
+    Logger.debug(`⏳ loadStepContent: Already loading, skipping step ${step}`);
+    console.warn(`🚫 loadStepContent: BLOCKED - Already loading step ${isLoadingStep ? 'unknown' : currentStep}, requested step ${step}`);
     return;
   }
   
-  // Force parent container (tnScope) visibility
-  if (tnScope) {
-    tnScope.style.display = 'block';
-    tnScope.style.visibility = 'visible';
-    tnScope.style.opacity = '1';
-  }
+  isLoadingStep = true;
   
-  // Force wizardMount visibility (ensure content is always visible)
-  wizardMount.style.display = 'block';
-  wizardMount.style.visibility = 'visible';
-  wizardMount.style.opacity = '1';
-  Logger.debug(`✅ loadStepContent: Container visibility forced for step ${step}`);
-  
-  // Handle step 0 (Race Info) specially - no template, generated content
-  if (step === 0) {
-    wizardMount.innerHTML = '';
-    wizardMount.appendChild(createRaceInfoContent());
-    initStep0();
-    // Update stepper (will hide it for step 0)
-    initStepNavigation();
-    // Update i18n translations
-    if (window.i18n && typeof window.i18n.updateUI === 'function') {
-      Logger.debug('loadStepContent: Updating i18n translations for step 0');
-      window.i18n.updateUI();
+  try {
+    if (!wizardMount) {
+      Logger.error('loadStepContent: wizardMount not found');
+      return;
     }
-    return;
-  }
-  
-  // For step 1, check if we're already on step 1 with existing fields
-  // If so, preserve the fields by saving data first
-  if (step === 1) {
-    const existingTeamFieldsContainer = document.getElementById('teamFieldsContainer');
-    if (existingTeamFieldsContainer && existingTeamFieldsContainer.children.length > 0) {
-      Logger.debug('loadStepContent: Step 1 already loaded with fields, saving data before reload');
-      // Save current field values before clearing
-      const savedTeamCount = sessionStorage.getItem('tn_team_count');
-      if (savedTeamCount) {
-        saveTeamData();
+    
+    // CRITICAL: Clear container BEFORE any other operations to prevent duplication
+    wizardMount.innerHTML = '';
+    Logger.debug(`🧹 loadStepContent: Cleared wizardMount container before loading step ${step}`);
+    
+    // Force parent container (tnScope) visibility
+    if (tnScope) {
+      tnScope.style.display = 'block';
+      tnScope.style.visibility = 'visible';
+      tnScope.style.opacity = '1';
+    }
+    
+    // Force wizardMount visibility (ensure content is always visible)
+    wizardMount.style.display = 'block';
+    wizardMount.style.visibility = 'visible';
+    wizardMount.style.opacity = '1';
+    Logger.debug(`✅ loadStepContent: Container visibility forced for step ${step}`);
+    
+    // Handle step 0 (Race Info) specially - no template, generated content
+    if (step === 0) {
+      wizardMount.appendChild(createRaceInfoContent());
+      initStep0();
+      // Update stepper (will hide it for step 0)
+      initStepNavigation();
+      // Update i18n translations
+      if (window.i18n && typeof window.i18n.updateUI === 'function') {
+        Logger.debug('loadStepContent: Updating i18n translations for step 0');
+        window.i18n.updateUI();
+      }
+      return;
+    }
+    
+    // For step 1, check if we're already on step 1 with existing fields
+    // If so, preserve the fields by saving data first
+    if (step === 1) {
+      const existingTeamFieldsContainer = document.getElementById('teamFieldsContainer');
+      if (existingTeamFieldsContainer && existingTeamFieldsContainer.children.length > 0) {
+        Logger.debug('loadStepContent: Step 1 already loaded with fields, saving data before reload');
+        // Save current field values before clearing
+        const savedTeamCount = sessionStorage.getItem('tn_team_count');
+        if (savedTeamCount) {
+          saveTeamData();
+        }
       }
     }
-  }
-  
-  const templateId = `tn-step-${step}`;
-  const template = document.getElementById(templateId);
-  
-	Logger.debug(`loadStepContent: Template ${templateId} found:`, !!template);
-  
-  if (!template) {
-	Logger.error(`Template not found: ${templateId}`);
-    return;
-  }
-  
-  // Clone template content
-  const content = template.content.cloneNode(true);
-  wizardMount.innerHTML = '';
-  wizardMount.appendChild(content);
+    
+    const templateId = `tn-step-${step}`;
+    const template = document.getElementById(templateId);
+    
+    Logger.debug(`loadStepContent: Template ${templateId} found:`, !!template);
+    
+    if (!template) {
+      Logger.error(`Template not found: ${templateId}`);
+      return;
+    }
+    
+    // Clone template content (container already cleared above)
+    const content = template.content.cloneNode(true);
+    wizardMount.appendChild(content);
+    Logger.debug(`📦 loadStepContent: Cloned and appended template content for step ${step}`);
   
   // Ensure content is properly scoped within #tnScope
 	Logger.debug('loadStepContent: Content loaded into #tnScope container');
@@ -703,11 +806,15 @@ async function loadStepContent(step) {
     wizardMount.style.display = 'block';
   }
   
-  // IMPORTANT: Update i18n translations for the newly loaded template content
-  // This ensures all data-i18n elements are translated after template is cloned
-  if (window.i18n && typeof window.i18n.updateUI === 'function') {
-    Logger.debug('loadStepContent: Updating i18n translations for step', step);
-    window.i18n.updateUI();
+    // IMPORTANT: Update i18n translations for the newly loaded template content
+    // This ensures all data-i18n elements are translated after template is cloned
+    if (window.i18n && typeof window.i18n.updateUI === 'function') {
+      Logger.debug('loadStepContent: Updating i18n translations for step', step);
+      window.i18n.updateUI();
+    }
+  } finally {
+    // Always reset loading flag, even if error occurs
+    isLoadingStep = false;
   }
 }
 
@@ -726,23 +833,21 @@ function createRaceInfoContent() {
   const primaryColor = '#f7b500'; // TN Gold
   const primaryDark = '#c79100';  // TN Dark Gold
   
-  // Helper to get bilingual display (both languages shown)
-  const getBilingual = (en, tc) => {
-    const enVal = en || '';
-    const tcVal = tc || '';
-    if (enVal && tcVal && enVal !== tcVal) {
-      return `${tcVal} ${enVal}`;
-    }
-    return enVal || tcVal || '—';
+  // Helper to get language-aware display (single language based on current i18n setting)
+  const getLocalized = (en, tc) => {
+    const currentLang = window.i18n ? (window.i18n.currentLang || window.i18n.getCurrentLanguage?.() || 'en') : 'en';
+    // Select value based on current language (zh → tc, otherwise → en)
+    const value = currentLang === 'zh' ? (tc || en || '') : (en || tc || '');
+    return value || '—';
   };
   
-  // Extract event data with placeholders for missing fields
-  const eventName = getBilingual(event.event_long_name_en, event.event_long_name_tc);
-  const eventDate = getBilingual(event.event_date_en, event.event_date_tc);
-  const eventTime = getBilingual(event.event_time_en || 'TBA', event.event_time_tc || '待定');
-  const eventVenue = getBilingual(event.event_location_en, event.event_location_tc);
-  const raceCourse = getBilingual(event.course_length_en || 'Standard Course', event.course_length_tc || '標準賽道');
-  const deadline = getBilingual(event.reg_deadline_date_en || 'TBA', event.reg_deadline_date_tc || '待定');
+  // Extract event data with placeholders for missing fields (language-aware)
+  const eventName = getLocalized(event.event_long_name_en, event.event_long_name_tc);
+  const eventDate = getLocalized(event.event_date_en, event.event_date_tc);
+  const eventTime = getLocalized(event.event_time_en || 'TBA', event.event_time_tc || '待定');
+  const eventVenue = getLocalized(event.event_location_en, event.event_location_tc);
+  const raceCourse = getLocalized(event.course_length_en || 'Standard Course', event.course_length_tc || '標準賽道');
+  const deadline = getLocalized(event.reg_deadline_date_en || 'TBA', event.reg_deadline_date_tc || '待定');
   const appendixLink = event.appendix_hyperlink || '#';
   
   const container = document.createElement('div');
@@ -995,6 +1100,10 @@ async function initStep1() {
   // CHECKPOINT 1: Check if we're even loading Step 1
   console.log('\n[CHECKPOINT 1] initStep1() called');
   
+  // CRITICAL: Inject Step 1 styles FIRST (package options, etc.)
+  // This ensures styles are available when Step 1 loads, not when Step 4 loads
+  addStep1Styles();
+  
 	Logger.debug('🎯 initStep1: Starting team count selection');
   
   // Force parent container visibility
@@ -1011,8 +1120,28 @@ async function initStep1() {
     wizardMount.style.opacity = '1';
   }
   
-  // Create team count selection UI (will replace template content)
-  createTeamCountSelector();
+  // Find the teamCountSection from the template (or create fallback)
+  let teamCountContainer = document.getElementById('teamCountSection');
+  
+  if (!teamCountContainer) {
+    // Fallback: create if template didn't provide it
+    Logger.warn('🎯 initStep1: teamCountSection not found in template, creating fallback');
+    teamCountContainer = document.createElement('div');
+    teamCountContainer.id = 'teamCountSection';
+    const mount = document.getElementById('wizardMount');
+    if (mount) {
+      // Try to find the card container from template, or append to mount
+      const cardContainer = mount.querySelector('.card');
+      if (cardContainer) {
+        cardContainer.appendChild(teamCountContainer);
+      } else {
+        mount.appendChild(teamCountContainer);
+      }
+    }
+  }
+  
+  // Populate the container with team count selector
+  createTeamCountSelector(teamCountContainer);
   
   // Set up team count change handler
   setupTeamCountHandler();
@@ -1153,15 +1282,48 @@ async function initStep1() {
     FieldRestoreUtility.debugStorage('tn_');
   }
   
-  // Restore team fields after they're generated (wait a bit for DOM to settle)
+  // Restore team fields after they're generated
+  // CRITICAL: Wait for fields to actually exist (not just a fixed timeout)
+  // Fields take ~800ms to generate due to DB calls for categories/packages
   const savedCount = sessionStorage.getItem('tn_team_count');
   if (savedCount) {
     const teamCount = parseInt(savedCount, 10);
     if (teamCount > 0) {
-      // Wait for team fields to render and any async operations to complete
-      setTimeout(() => {
+      // Wait for generateTeamFields to complete by checking if fields exist
+      // This prevents race condition where restoration runs before fields are created
+      const waitForFields = async () => {
+        const maxWait = 2000; // Maximum 2 seconds wait
+        const checkInterval = 50; // Check every 50ms
+        const startTime = Date.now();
+        
+        return new Promise((resolve) => {
+          const checkFields = () => {
+            // Check if first team field exists (indicates fields are generated)
+            const firstField = document.getElementById('teamNameEn1');
+            const elapsed = Date.now() - startTime;
+            
+            if (firstField) {
+              Logger.debug(`🎯 initStep1: Team fields found after ${elapsed}ms, proceeding with restoration`);
+              resolve();
+            } else if (elapsed >= maxWait) {
+              Logger.warn(`🎯 initStep1: Timeout waiting for team fields after ${elapsed}ms, proceeding anyway`);
+              resolve(); // Resolve anyway to prevent hanging
+            } else {
+              setTimeout(checkFields, checkInterval);
+            }
+          };
+          checkFields();
+        });
+      };
+      
+      // Wait for fields, then restore
+      waitForFields().then(() => {
         restoreTNStep1Teams(teamCount);
-      }, 400);
+      }).catch((error) => {
+        Logger.error('🎯 initStep1: Error waiting for fields:', error);
+        // Still try to restore even if wait failed
+        restoreTNStep1Teams(teamCount);
+      });
     }
   }
 }
@@ -1169,15 +1331,21 @@ async function initStep1() {
 /**
  * Create team count selector
  */
-function createTeamCountSelector() {
-  const container = document.getElementById('wizardMount');
-  if (!container) return;
+function createTeamCountSelector(container) {
+  // Use provided container (from template) or find existing one
+  if (!container) {
+    container = document.getElementById('teamCountSection');
+  }
+  
+  if (!container) {
+    Logger.error('🎯 createTeamCountSelector: No container provided and teamCountSection not found');
+    return;
+  }
   
   // Check if team count section already exists with fields - if so, don't recreate it
-  const existingTeamCountSection = document.getElementById('teamCountSection');
   const existingTeamFieldsContainer = document.getElementById('teamFieldsContainer');
-  if (existingTeamCountSection && existingTeamFieldsContainer && existingTeamFieldsContainer.children.length > 0) {
-    Logger.debug('🎯 createTeamCountSelector: Team count section already exists with fields, skipping recreation');
+  if (existingTeamFieldsContainer && existingTeamFieldsContainer.children.length > 0) {
+    Logger.debug('🎯 createTeamCountSelector: Team fields already exist, skipping recreation');
     return;
   }
   
@@ -1213,17 +1381,17 @@ function createTeamCountSelector() {
     teamOptions.push(`<option value="${i}">${displayLabel}</option>`);
   }
   
-  // Create team count question
-  const teamCountSection = document.createElement('div');
-  teamCountSection.id = 'teamCountSection';
-  teamCountSection.innerHTML = `
-    <div class="form-group">
-      <label for="teamCount" data-i18n="howManyTeamsQuestion">${t('howManyTeamsQuestion')}</label>
-      <select id="teamCount" name="teamCount" required>
-        <option value="" data-i18n="selectNumberOfTeams">${t('selectNumberOfTeams')}</option>
-        ${teamOptions.join('')}
-      </select>
-    </div>
+  // Populate the container (don't clear - it's from the template)
+  container.innerHTML = `
+    <h2 data-i18n="selectTeamDetails" style="color: var(--theme-primary-dark, #c79100); margin-bottom: 1rem;">${t('selectTeamDetails')}</h2>
+    <label for="teamCount" data-i18n="howManyTeamsQuestion" 
+           style="display: inline-block; margin-bottom: 0; vertical-align: middle;">${t('howManyTeamsQuestion')}</label>
+    <select id="teamCount" name="teamCount" required 
+            style="display: inline-block; width: auto; min-width: 200px; padding: 0.5rem 0.75rem; vertical-align: middle; margin-left: 1rem;">
+      <option value="" data-i18n="selectNumberOfTeams">${t('selectNumberOfTeams')}</option>
+      ${teamOptions.join('')}
+    </select>
+    
     <div id="teamFieldsContainer" style="display: none;">
       <!-- Team fields will be generated here -->
     </div>
@@ -1234,11 +1402,7 @@ function createTeamCountSelector() {
     </div>
   `;
   
-  // Clear existing content and add team count section
-  container.innerHTML = '';
-  container.appendChild(teamCountSection);
-  
-	Logger.debug('🎯 initStep1: Team count selector created');
+	Logger.debug('🎯 createTeamCountSelector: Team count selector populated in template container');
 }
 
 /**
@@ -1304,7 +1468,7 @@ function setupTeamCountHandler() {
         if (validateStep1()) {
           console.log('✅ Step 1: Validation passed, saving data and proceeding to step 2');
           saveStep1Data();
-          showStep(2);
+          showStep(2); // Fire and forget - forward navigation less critical
         } else {
           console.log('⚠️ Step 1: Validation failed, staying on step 1');
         }
@@ -1319,10 +1483,46 @@ function setupTeamCountHandler() {
     if (backButton.dataset.handlerAttached === 'true') {
       Logger.debug('🎯 setupTeamCountHandler: Back button handler already attached, skipping');
     } else {
-      backButton.addEventListener('click', function(e) {
+      backButton.addEventListener('click', async function(e) {
         e.preventDefault();
-        console.log('🔙 Step 1: Back button clicked, returning to Race Info');
-        showStep(0); // Go back to Race Info page
+        e.stopPropagation();
+        
+        // Prevent double-clicks while loading - check global flag
+        const isCurrentlyLoading = window.isLoadingStep ? window.isLoadingStep() : isLoadingStep;
+        if (this.disabled || isCurrentlyLoading) {
+          console.log('⏳ Step 1: Back button disabled or loading in progress, skipping');
+          console.log(`   - Button disabled: ${this.disabled}`);
+          console.log(`   - Currently loading: ${isCurrentlyLoading}`);
+          return;
+        }
+        
+        // Debounce: Add minimum delay to prevent rapid clicks
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Double-check after debounce delay
+        const stillLoading = window.isLoadingStep ? window.isLoadingStep() : isLoadingStep;
+        if (stillLoading) {
+          console.log('⏳ Step 1: Loading started during debounce, skipping');
+          return;
+        }
+        
+        this.disabled = true;
+        console.log('🔒 Step 1: Back button disabled, starting navigation');
+        
+        try {
+          console.log('🔙 Step 1: Back button clicked, returning to Race Info');
+          await showStep(0); // Go back to Race Info page
+          console.log('✅ Step 1: Navigation to step 0 completed');
+        } catch (error) {
+          console.error('❌ Step 1: Navigation error:', error);
+          throw error;
+        } finally {
+          // Ensure button is re-enabled after a short delay
+          setTimeout(() => {
+            this.disabled = false;
+            console.log('🔓 Step 1: Back button re-enabled');
+          }, 200);
+        }
       });
       backButton.dataset.handlerAttached = 'true';
     }
@@ -1885,6 +2085,10 @@ function setupPackageBoxHandlers(teamIndex) {
 async function initStep2() {
 	Logger.debug('🎯 initStep2: Starting team information step');
   
+  // CRITICAL: Inject Step 2 styles FIRST (organization form, manager grid, etc.)
+  // This ensures styles are available when Step 2 loads, not when Step 4 loads
+  addStep2Styles();
+  
   // Force parent container visibility
   if (tnScope) {
     tnScope.style.display = 'block';
@@ -2044,14 +2248,10 @@ function createOrganizationForm() {
         </div>
       </div>
       
-      <!-- Form Actions -->
-      <div class="form-actions">
-        <button type="button" id="backToStep1" class="btn btn-secondary" data-i18n="backTeamSelection">
-          ${t('backTeamSelection')}
-        </button>
-        <button type="button" id="nextToStep3" class="btn btn-primary" data-i18n="nextRaceDay">
-          ${t('nextRaceDay')}
-        </button>
+      <!-- Navigation -->
+      <div class="nav-buttons" style="display: flex; justify-content: space-between; gap: 1rem;">
+        <button type="button" id="backToStep1" data-i18n="backButton">← Back</button>
+        <button type="button" id="nextToStep3" data-i18n="nextButton">Next →</button>
       </div>
     </div>
   `;
@@ -2159,11 +2359,47 @@ function setupStep2Navigation() {
     const newBackBtn = backToStep1.cloneNode(true);
     backToStep1.parentNode.replaceChild(newBackBtn, backToStep1);
     
-    newBackBtn.addEventListener('click', function(e) {
+    newBackBtn.addEventListener('click', async function(e) {
       e.preventDefault();
-      console.log('🔙 Step 2: Back button clicked, going to step 1');
-      saveStep2Data(); // Save current step data
-      showStep(1);
+      e.stopPropagation();
+      
+      // Prevent double-clicks while loading - check global flag
+      const isCurrentlyLoading = window.isLoadingStep ? window.isLoadingStep() : isLoadingStep;
+      if (this.disabled || isCurrentlyLoading) {
+        console.log('⏳ Step 2: Back button disabled or loading in progress, skipping');
+        console.log(`   - Button disabled: ${this.disabled}`);
+        console.log(`   - Currently loading: ${isCurrentlyLoading}`);
+        return;
+      }
+      
+      // Debounce: Add minimum delay to prevent rapid clicks
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Double-check after debounce delay
+      const stillLoading = window.isLoadingStep ? window.isLoadingStep() : isLoadingStep;
+      if (stillLoading) {
+        console.log('⏳ Step 2: Loading started during debounce, skipping');
+        return;
+      }
+      
+      this.disabled = true;
+      console.log('🔒 Step 2: Back button disabled, starting navigation');
+      
+      try {
+        console.log('🔙 Step 2: Back button clicked, going to step 1');
+        saveStep2Data(); // Save current step data
+        await showStep(1); // Await to ensure loading completes
+        console.log('✅ Step 2: Navigation to step 1 completed');
+      } catch (error) {
+        console.error('❌ Step 2: Navigation error:', error);
+        throw error;
+      } finally {
+        // Ensure button is re-enabled after a short delay
+        setTimeout(() => {
+          this.disabled = false;
+          console.log('🔓 Step 2: Back button re-enabled');
+        }, 200);
+      }
     });
   }
   
@@ -2172,14 +2408,27 @@ function setupStep2Navigation() {
     const newNextBtn = nextToStep3.cloneNode(true);
     nextToStep3.parentNode.replaceChild(newNextBtn, nextToStep3);
     
-    newNextBtn.addEventListener('click', function(e) {
+    newNextBtn.addEventListener('click', async function(e) {
       e.preventDefault();
-      console.log('🔜 Step 2: Next button clicked, validating step 2');
-      if (validateStep2()) { // Validate before proceeding
-        saveStep2Data();
-        showStep(3);
-      } else {
-        console.log('⚠️ Step 2: Validation failed, staying on step 2');
+      
+      // Prevent double-clicks while loading
+      if (this.disabled || isLoadingStep) {
+        console.log('⏳ Step 2: Next button disabled, skipping');
+        return;
+      }
+      
+      this.disabled = true;
+      
+      try {
+        console.log('🔜 Step 2: Next button clicked, validating step 2');
+        if (validateStep2()) { // Validate before proceeding
+          saveStep2Data();
+          await showStep(3);
+        } else {
+          console.log('⚠️ Step 2: Validation failed, staying on step 2');
+        }
+      } finally {
+        this.disabled = false;
       }
     });
   }
@@ -2532,6 +2781,10 @@ function saveTeamData() {
 async function initStep3() {
 	Logger.debug('🎯 initStep3: Starting race day arrangements step');
   console.log('🎯 Initializing Step 3 - Race Day');
+  
+  // CRITICAL: Inject Step 3 styles FIRST (race day form, item rows, etc.)
+  // This ensures styles are available when Step 3 loads, not when Step 4 loads
+  addStep3Styles();
   
   // Force parent container visibility
   if (tnScope) {
@@ -2947,12 +3200,47 @@ function setupStep3Navigation() {
     if (backBtn.dataset.navHandlerAttached === 'true') {
       console.log('⚠️ Step 3: Back button handler already attached, skipping');
     } else {
-      backBtn.addEventListener('click', function(e) {
+      backBtn.addEventListener('click', async function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🔙 Step 3: Back button clicked, going to step 2');
-        saveStep3Data(); // Save current step data
-        showStep(2);
+        
+        // Prevent double-clicks while loading - check global flag
+        const isCurrentlyLoading = window.isLoadingStep ? window.isLoadingStep() : isLoadingStep;
+        if (this.disabled || isCurrentlyLoading) {
+          console.log('⏳ Step 3: Back button disabled or loading in progress, skipping');
+          console.log(`   - Button disabled: ${this.disabled}`);
+          console.log(`   - Currently loading: ${isCurrentlyLoading}`);
+          return;
+        }
+        
+        // Debounce: Add minimum delay to prevent rapid clicks
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Double-check after debounce delay
+        const stillLoading = window.isLoadingStep ? window.isLoadingStep() : isLoadingStep;
+        if (stillLoading) {
+          console.log('⏳ Step 3: Loading started during debounce, skipping');
+          return;
+        }
+        
+        this.disabled = true;
+        console.log('🔒 Step 3: Back button disabled, starting navigation');
+        
+        try {
+          console.log('🔙 Step 3: Back button clicked, going to step 2');
+          saveStep3Data(); // Save current step data
+          await showStep(2); // Await to ensure loading completes
+          console.log('✅ Step 3: Navigation to step 2 completed');
+        } catch (error) {
+          console.error('❌ Step 3: Navigation error:', error);
+          throw error;
+        } finally {
+          // Ensure button is re-enabled after a short delay
+          setTimeout(() => {
+            this.disabled = false;
+            console.log('🔓 Step 3: Back button re-enabled');
+          }, 200);
+        }
       });
       backBtn.dataset.navHandlerAttached = 'true';
       console.log('✅ Step 3: Back button handler attached');
@@ -2968,13 +3256,20 @@ function setupStep3Navigation() {
       console.log('⚠️ Step 3: Form navigation handler already attached, skipping');
     } else {
       // Handle form submission
-      raceDayForm.addEventListener('submit', function(e) {
+      raceDayForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         e.stopPropagation();
+        
+        // Prevent double-submission while loading
+        if (isLoadingStep) {
+          console.log('⏳ Step 3: Form submission disabled, skipping');
+          return false;
+        }
+        
         console.log('🔜 Step 3: Form submitted, validating step 3');
         if (validateStep3()) {
           saveStep3Data();
-          showStep(4);
+          await showStep(4);
         } else {
           console.log('⚠️ Step 3: Validation failed, staying on step 3');
         }
@@ -2993,15 +3288,28 @@ function setupStep3Navigation() {
     if (nextBtn.dataset.navHandlerAttached === 'true') {
       console.log('⚠️ Step 3: Next button handler already attached, skipping');
     } else {
-      nextBtn.addEventListener('click', function(e) {
+      nextBtn.addEventListener('click', async function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🔜 Step 3: Next button clicked, validating step 3');
-        if (validateStep3()) {
-          saveStep3Data();
-          showStep(4);
-        } else {
-          console.log('⚠️ Step 3: Validation failed, staying on step 3');
+        
+        // Prevent double-clicks while loading
+        if (this.disabled || isLoadingStep) {
+          console.log('⏳ Step 3: Next button disabled, skipping');
+          return false;
+        }
+        
+        this.disabled = true;
+        
+        try {
+          console.log('🔜 Step 3: Next button clicked, validating step 3');
+          if (validateStep3()) {
+            saveStep3Data();
+            await showStep(4);
+          } else {
+            console.log('⚠️ Step 3: Validation failed, staying on step 3');
+          }
+        } finally {
+          this.disabled = false;
         }
         return false;
       });
@@ -3910,6 +4218,467 @@ function updatePracticeSummary() {
 }
 
 /**
+ * Add Step 1 package option styles
+ * These styles are needed for Step 1's entry option selection
+ */
+function addStep1Styles() {
+  // Prevent duplicate injection
+  if (document.getElementById('tn-step1-styles')) {
+    Logger.debug('✅ Step 1 styles already loaded, skipping');
+    return;
+  }
+  
+  const style = document.createElement('style');
+  style.id = 'tn-step1-styles';
+  style.textContent = `
+    /* Package Options Styles */
+    #tnScope .package-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-top: 1rem;
+    }
+    
+    #tnScope .package-option {
+      position: relative;
+      cursor: pointer;
+    }
+    
+    #tnScope .package-option input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    #tnScope .package-box {
+      border: 2px solid #e9ecef;
+      border-radius: 12px;
+      padding: 2rem;
+      transition: all 0.3s ease;
+      background: white;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      outline: none;
+    }
+    
+    #tnScope .package-box:focus {
+      outline: none;
+    }
+    
+    
+    #tnScope .package-box:hover {
+      border-color: var(--theme-primary, #f7b500);
+      box-shadow: 0 2px 8px rgba(247, 181, 0, 0.1);
+    }
+    
+    #tnScope .package-option.selected .package-box {
+      background: var(--theme-primary-light, #fff8e6) !important;
+      border: 2px solid var(--theme-primary, #f7b500) !important;
+      box-shadow: 0 2px 8px rgba(247, 181, 0, 0.2) !important;
+      border-radius: 12px !important;
+    }
+    
+    #tnScope .package-option.selected .package-selection-indicator {
+      opacity: 1;
+    }
+    
+    #tnScope .package-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    #tnScope .package-header h4 {
+      margin-top: 2px;
+      margin-bottom: 2px;
+      padding-top: 2px;
+      padding-bottom: 2px;
+      color: #333;
+      font-size: 1.3rem;
+      font-weight: 600;
+    }
+    
+    #tnScope .package-price {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #000;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+    }
+    
+    #tnScope .package-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      margin-bottom: 1rem;
+    }
+    
+    #tnScope .package-item {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      font-size: 0.95rem;
+      color: #555;
+      padding: 0.3rem 0;
+    }
+    
+    #tnScope .package-icon {
+      font-size: 1.1rem;
+      width: 20px;
+      text-align: center;
+    }
+    
+    #tnScope .package-selection-indicator {
+      text-align: center;
+      margin-top: 1rem;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    #tnScope .package-option.selected .package-selection-indicator {
+      opacity: 1;
+    }
+    
+    #tnScope .selection-text,
+    #tnScope .package-selection-indicator .selection-text,
+    #tnScope .package-option.selected .package-selection-indicator .selection-text {
+      color: #666;
+      font-size: 0.9rem;
+      font-weight: bold !important;
+    }
+    
+    @media (max-width: 768px) {
+      #tnScope .package-options {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      
+      #tnScope .package-label {
+        padding: 1.5rem;
+      }
+    }
+    
+    /* Team Fields Styles */
+    #tnScope .team-field {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      background: #f9f9f9;
+    }
+    
+    #tnScope .team-header h3 {
+      margin: 0 0 -0.25rem 0;  /* Negative margin brings heading closer to fields */
+      color: var(--theme-primary-dark, #c79100) !important;
+      font-size: 1.2rem;
+    }
+    
+    #tnScope .team-inputs {
+      display: block;
+      /* Single column - fields stacked vertically */
+    }
+    
+    #tnScope .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    #tnScope .form-group label {
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      color: #333;
+    }
+    
+    #tnScope .form-group input,
+    #tnScope .form-group select {
+      padding: 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    
+    #tnScope .form-group input:focus,
+    #tnScope .form-group select:focus {
+      outline: none;
+      border-color: #0f6ec7;
+      box-shadow: 0 0 0 2px rgba(15, 110, 199, 0.2);
+    }
+    
+    /* Team Count Selector - Compact inline layout matching WU/SC */
+    #tnScope #teamCount {
+      padding: 0.5rem 0.75rem !important;  /* Compact like WU/SC */
+      width: auto !important;
+      min-width: 200px;
+      display: inline-block !important;
+      vertical-align: middle;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 1rem;
+      transition: border-color 0.2s ease;
+    }
+    
+    #tnScope #teamCount:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    }
+    
+    #tnScope label[for="teamCount"] {
+      display: inline-block !important;
+      margin-bottom: 0 !important;
+      vertical-align: middle;
+      font-weight: 500;
+      color: #495057;
+    }
+  `;
+  document.head.appendChild(style);
+  Logger.debug('✅ Step 1 package option and team field styles injected');
+}
+
+/**
+ * Add Step 2 organization and manager form styles
+ * These styles are needed for Step 2's organization and manager contact forms
+ */
+function addStep2Styles() {
+  // Prevent duplicate injection
+  if (document.getElementById('tn-step2-styles')) {
+    Logger.debug('✅ Step 2 styles already loaded, skipping');
+    return;
+  }
+  
+  const style = document.createElement('style');
+  style.id = 'tn-step2-styles';
+  style.textContent = `
+    /* Organization Form Styles */
+    #tnScope .organization-form {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    #tnScope .organization-form h2 {
+      color: #333;
+      margin-bottom: 2rem;
+      text-align: center;
+      font-size: 1.8rem;
+    }
+    
+    #tnScope .form-section {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      border: 1px solid #e9ecef;
+    }
+    
+    #tnScope .form-section h3 {
+      color: var(--theme-primary-dark, #c79100) !important;
+      margin-bottom: 0.5rem;  /* Reduced from 1.5rem to bring content closer */
+      font-size: 1.2rem;
+      border-bottom: 2px solid var(--theme-primary, #f7b500);
+      padding-bottom: 0.5rem;
+    }
+    
+    #tnScope .manager-grid {
+      display: block;
+      /* Single column - fields stacked vertically for full-width */
+    }
+    
+    #tnScope .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    #tnScope .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: #495057;
+    }
+    
+    #tnScope .form-group input,
+    #tnScope .form-group textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.2s ease;
+    }
+    
+    #tnScope .form-group input:focus,
+    #tnScope .form-group textarea:focus {
+      outline: none;
+      border-color: #007acc;
+      box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+    }
+    
+    #tnScope .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+    
+    #tnScope .btn-secondary,
+    #tnScope .form-actions .btn-secondary,
+    #tnScope .form-actions button.btn-secondary,
+    #tnScope #backToStep1,
+    #tnScope #backToStep2 {
+      background: var(--theme-primary-dark, #c79100) !important;
+      color: white !important;
+      border: none;
+      padding: 0.75rem 2rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    #tnScope .btn-secondary:hover,
+    #tnScope .form-actions .btn-secondary:hover,
+    #tnScope .form-actions button.btn-secondary:hover,
+    #tnScope #backToStep1:hover,
+    #tnScope #backToStep2:hover {
+      background: var(--theme-primary, #f7b500) !important;
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+    
+    @media (max-width: 768px) {
+      #tnScope .organization-form {
+        padding: 1rem;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+  Logger.debug('✅ Step 2 organization and manager form styles injected');
+}
+
+/**
+ * Add Step 3 race day form styles
+ * These styles are needed for Step 3's race day arrangements form
+ */
+function addStep3Styles() {
+  // Prevent duplicate injection
+  if (document.getElementById('tn-step3-styles')) {
+    Logger.debug('✅ Step 3 styles already loaded, skipping');
+    return;
+  }
+  
+  const style = document.createElement('style');
+  style.id = 'tn-step3-styles';
+  style.textContent = `
+    /* Race Day Form Styles */
+    #tnScope .race-day-form {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    #tnScope .race-day-form h2 {
+      color: #333;
+      margin-bottom: 2rem;
+      text-align: center;
+      font-size: 1.8rem;
+    }
+    
+    #tnScope .race-day-form .form-section {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      border: 1px solid #e9ecef;
+    }
+    
+    #tnScope .race-day-form .form-section h3 {
+      color: var(--theme-primary-dark, #c79100) !important;
+      margin-bottom: 1.5rem;
+      font-size: 1.2rem;
+      border-bottom: 2px solid var(--theme-primary, #f7b500);
+      padding-bottom: 0.5rem;
+    }
+    
+    #tnScope .item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      border: 1px solid #e9ecef;
+      transition: box-shadow 0.2s ease;
+    }
+    
+    #tnScope .item-row:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    #tnScope .item-info {
+      flex: 1;
+    }
+    
+    #tnScope .item-title {
+      display: block;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 0.25rem;
+    }
+    
+    #tnScope .item-price {
+      display: block;
+      color: #007acc;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    
+    #tnScope .item-controls {
+      margin-left: 1rem;
+    }
+    
+    #tnScope .qty-input {
+      width: 80px;
+      padding: 0.5rem;
+      border: 2px solid #e9ecef;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 1rem;
+      transition: border-color 0.2s ease;
+    }
+    
+    #tnScope .qty-input:focus {
+      outline: none;
+      border-color: #007acc;
+      box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+    }
+    
+    #tnScope .qty-input:invalid {
+      border-color: #dc3545;
+    }
+    
+    @media (max-width: 768px) {
+      #tnScope .item-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      #tnScope .item-controls {
+        margin-left: 0;
+        margin-top: 1rem;
+        text-align: center;
+      }
+      
+      #tnScope .race-day-form {
+        padding: 1rem;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+  Logger.debug('✅ Step 3 race day form styles injected');
+}
+
+/**
  * Add calendar styles
  */
 function addCalendarStyles() {
@@ -4040,186 +4809,6 @@ function addCalendarStyles() {
       display: none;
     }
     
-    /* Team Fields Styles */
-    #tnScope .team-field {
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
-      background: #f9f9f9;
-    }
-    
-    #tnScope .team-header h3 {
-      margin: 0 0 1rem 0;
-      color: var(--theme-primary-dark, #c79100) !important;
-      font-size: 1.2rem;
-    }
-    
-    #tnScope .team-inputs {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 1rem;
-    }
-    
-    #tnScope .form-group {
-      display: flex;
-      flex-direction: column;
-    }
-    
-    #tnScope .form-group label {
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-      color: #333;
-    }
-    
-    #tnScope .form-group input,
-    #tnScope .form-group select {
-      padding: 0.75rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 1rem;
-    }
-    
-    #tnScope .form-group input:focus,
-    #tnScope .form-group select:focus {
-      outline: none;
-      border-color: #0f6ec7;
-      box-shadow: 0 0 0 2px rgba(15, 110, 199, 0.2);
-    }
-    
-    @media (max-width: 768px) {
-      #tnScope .team-inputs {
-        grid-template-columns: 1fr;
-      }
-    }
-    
-    /* Package Options Styles */
-    #tnScope .package-options {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
-      margin-top: 1rem;
-    }
-    
-    #tnScope .package-option {
-      position: relative;
-      cursor: pointer;
-    }
-    
-    #tnScope .package-option input[type="radio"] {
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
-    }
-    
-    #tnScope .package-box {
-      border: 2px solid #e9ecef;
-      border-radius: 12px;
-      padding: 2rem;
-      transition: all 0.3s ease;
-      background: white;
-      position: relative;
-      overflow: hidden;
-      cursor: pointer;
-      outline: none;
-    }
-    
-    #tnScope .package-box:focus {
-      outline: none;
-    }
-    
-    
-    #tnScope .package-box:hover {
-      border-color: #007acc;
-      box-shadow: 0 2px 8px rgba(0, 122, 204, 0.1);
-    }
-    
-    #tnScope .package-option.selected .package-box {
-      background: var(--theme-primary-light, #fff8e6) !important;
-      border: 2px solid var(--theme-primary, #f7b500) !important;
-      box-shadow: 0 2px 8px rgba(247, 181, 0, 0.2) !important;
-      border-radius: 12px !important;
-    }
-    
-    #tnScope .package-option.selected .package-selection-indicator {
-      opacity: 1;
-    }
-    
-    #tnScope .package-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
-    
-    #tnScope .package-header h4 {
-      margin: 0;
-      color: #333;
-      font-size: 1.3rem;
-      font-weight: 600;
-    }
-    
-    #tnScope .package-price {
-      font-size: 1.4rem;
-      font-weight: bold;
-      color: #007acc;
-      background: rgba(0, 122, 204, 0.1);
-      padding: 0.5rem 1rem;
-      border-radius: 20px;
-    }
-    
-    #tnScope .package-details {
-      display: flex;
-      flex-direction: column;
-      gap: 0.8rem;
-      margin-bottom: 1rem;
-    }
-    
-    #tnScope .package-item {
-      display: flex;
-      align-items: center;
-      gap: 0.8rem;
-      font-size: 0.95rem;
-      color: #555;
-      padding: 0.3rem 0;
-    }
-    
-    #tnScope .package-icon {
-      font-size: 1.1rem;
-      width: 20px;
-      text-align: center;
-    }
-    
-    #tnScope .package-selection-indicator {
-      text-align: center;
-      margin-top: 1rem;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    
-    #tnScope .package-option.selected .package-selection-indicator {
-      opacity: 1;
-    }
-    
-    #tnScope .selection-text,
-    #tnScope .package-selection-indicator .selection-text,
-    #tnScope .package-option.selected .package-selection-indicator .selection-text {
-      color: #666;
-      font-size: 0.9rem;
-      font-weight: bold !important;
-    }
-    
-    @media (max-width: 768px) {
-      #tnScope .package-options {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-      }
-      
-      #tnScope .package-label {
-        padding: 1.5rem;
-      }
-    }
-    
     /* Form Actions Styles */
     #tnScope .form-actions {
       margin-top: 2rem;
@@ -4274,216 +4863,6 @@ function addCalendarStyles() {
     #tnScope #nextToStep4:active {
       transform: translateY(0);
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    }
-    
-    /* Organization Form Styles */
-    #tnScope .organization-form {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-    
-    #tnScope .organization-form h2 {
-      color: #333;
-      margin-bottom: 2rem;
-      text-align: center;
-      font-size: 1.8rem;
-    }
-    
-    #tnScope .form-section {
-      background: #f8f9fa;
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 2rem;
-      border: 1px solid #e9ecef;
-    }
-    
-    #tnScope .form-section h3 {
-      color: var(--theme-primary-dark, #c79100) !important;
-      margin-bottom: 1.5rem;
-      font-size: 1.2rem;
-      border-bottom: 2px solid var(--theme-primary, #f7b500);
-      padding-bottom: 0.5rem;
-    }
-    
-    #tnScope .manager-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 1rem;
-    }
-    
-    #tnScope .form-group {
-      margin-bottom: 1rem;
-    }
-    
-    #tnScope .form-group label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-weight: 500;
-      color: #495057;
-    }
-    
-    #tnScope .form-group input,
-    #tnScope .form-group textarea {
-      width: 100%;
-      padding: 0.75rem;
-      border: 2px solid #e9ecef;
-      border-radius: 8px;
-      font-size: 1rem;
-      transition: border-color 0.2s ease;
-    }
-    
-    #tnScope .form-group input:focus,
-    #tnScope .form-group textarea:focus {
-      outline: none;
-      border-color: #007acc;
-      box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
-    }
-    
-    #tnScope .form-group textarea {
-      resize: vertical;
-      min-height: 80px;
-    }
-    
-    #tnScope .btn-secondary,
-    #tnScope .form-actions .btn-secondary,
-    #tnScope .form-actions button.btn-secondary,
-    #tnScope #backToStep1,
-    #tnScope #backToStep2 {
-      background: var(--theme-primary-dark, #c79100) !important;
-      color: white !important;
-      border: none;
-      padding: 0.75rem 2rem;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    
-    #tnScope .btn-secondary:hover,
-    #tnScope .form-actions .btn-secondary:hover,
-    #tnScope .form-actions button.btn-secondary:hover,
-    #tnScope #backToStep1:hover,
-    #tnScope #backToStep2:hover {
-      background: var(--theme-primary, #f7b500) !important;
-      opacity: 0.9;
-      transform: translateY(-1px);
-    }
-    
-    @media (max-width: 768px) {
-      #tnScope .manager-grid {
-        grid-template-columns: 1fr;
-      }
-      
-      #tnScope .organization-form {
-        padding: 1rem;
-      }
-    }
-    
-    /* Race Day Form Styles */
-    #tnScope .race-day-form {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-    
-    #tnScope .race-day-form h2 {
-      color: #333;
-      margin-bottom: 2rem;
-      text-align: center;
-      font-size: 1.8rem;
-    }
-    
-    #tnScope .race-day-form .form-section {
-      background: #f8f9fa;
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 2rem;
-      border: 1px solid #e9ecef;
-    }
-    
-    #tnScope .race-day-form .form-section h3 {
-      color: var(--theme-primary-dark, #c79100) !important;
-      margin-bottom: 1.5rem;
-      font-size: 1.2rem;
-      border-bottom: 2px solid var(--theme-primary, #f7b500);
-      padding-bottom: 0.5rem;
-    }
-    
-    #tnScope .item-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem;
-      background: white;
-      border-radius: 8px;
-      margin-bottom: 1rem;
-      border: 1px solid #e9ecef;
-      transition: box-shadow 0.2s ease;
-    }
-    
-    #tnScope .item-row:hover {
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    
-    #tnScope .item-info {
-      flex: 1;
-    }
-    
-    #tnScope .item-title {
-      display: block;
-      font-weight: 500;
-      color: #333;
-      margin-bottom: 0.25rem;
-    }
-    
-    #tnScope .item-price {
-      display: block;
-      color: #007acc;
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
-    
-    #tnScope .item-controls {
-      margin-left: 1rem;
-    }
-    
-    #tnScope .qty-input {
-      width: 80px;
-      padding: 0.5rem;
-      border: 2px solid #e9ecef;
-      border-radius: 6px;
-      text-align: center;
-      font-size: 1rem;
-      transition: border-color 0.2s ease;
-    }
-    
-    #tnScope .qty-input:focus {
-      outline: none;
-      border-color: #007acc;
-      box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
-    }
-    
-    #tnScope .qty-input:invalid {
-      border-color: #dc3545;
-    }
-    
-    @media (max-width: 768px) {
-      #tnScope .item-row {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      
-      #tnScope .item-controls {
-        margin-left: 0;
-        margin-top: 1rem;
-        text-align: center;
-      }
-      
-      #tnScope .race-day-form {
-        padding: 1rem;
-      }
     }
     
     /* Error Message Styles */
@@ -5712,12 +6091,47 @@ function setupStep4Navigation() {
     if (backBtn.dataset.navHandlerAttached === 'true') {
       console.log('⚠️ Step 4: Back button handler already attached, skipping');
     } else {
-      backBtn.addEventListener('click', function(e) {
+      backBtn.addEventListener('click', async function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🔙 Step 4: Back button clicked, going to step 3');
-        saveStep4Data(); // Save current step data
-        showStep(3);
+        
+        // Prevent double-clicks while loading - check global flag
+        const isCurrentlyLoading = window.isLoadingStep ? window.isLoadingStep() : isLoadingStep;
+        if (this.disabled || isCurrentlyLoading) {
+          console.log('⏳ Step 4: Back button disabled or loading in progress, skipping');
+          console.log(`   - Button disabled: ${this.disabled}`);
+          console.log(`   - Currently loading: ${isCurrentlyLoading}`);
+          return;
+        }
+        
+        // Debounce: Add minimum delay to prevent rapid clicks
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Double-check after debounce delay
+        const stillLoading = window.isLoadingStep ? window.isLoadingStep() : isLoadingStep;
+        if (stillLoading) {
+          console.log('⏳ Step 4: Loading started during debounce, skipping');
+          return;
+        }
+        
+        this.disabled = true;
+        console.log('🔒 Step 4: Back button disabled, starting navigation');
+        
+        try {
+          console.log('🔙 Step 4: Back button clicked, going to step 3');
+          saveStep4Data(); // Save current step data
+          await showStep(3); // Await to ensure loading completes
+          console.log('✅ Step 4: Navigation to step 3 completed');
+        } catch (error) {
+          console.error('❌ Step 4: Navigation error:', error);
+          throw error;
+        } finally {
+          // Ensure button is re-enabled after a short delay
+          setTimeout(() => {
+            this.disabled = false;
+            console.log('🔓 Step 4: Back button re-enabled');
+          }, 200);
+        }
       });
       backBtn.dataset.navHandlerAttached = 'true';
       console.log('✅ Step 4: Back button handler attached');
@@ -5732,15 +6146,28 @@ function setupStep4Navigation() {
     if (nextBtn.dataset.navHandlerAttached === 'true') {
       console.log('⚠️ Step 4: Next button handler already attached, skipping');
     } else {
-      nextBtn.addEventListener('click', function(e) {
+      nextBtn.addEventListener('click', async function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🔜 Step 4: Next button clicked, validating step 4');
-        if (validateStep4()) {
-          saveStep4Data();
-          showStep(5);
-        } else {
-          console.log('⚠️ Step 4: Validation failed, staying on step 4');
+        
+        // Prevent double-clicks while loading
+        if (this.disabled || isLoadingStep) {
+          console.log('⏳ Step 4: Next button disabled, skipping');
+          return;
+        }
+        
+        this.disabled = true;
+        
+        try {
+          console.log('🔜 Step 4: Next button clicked, validating step 4');
+          if (validateStep4()) {
+            saveStep4Data();
+            await showStep(5);
+          } else {
+            console.log('⚠️ Step 4: Validation failed, staying on step 4');
+          }
+        } finally {
+          this.disabled = false;
         }
       });
       nextBtn.dataset.navHandlerAttached = 'true';
@@ -6476,11 +6903,47 @@ function setupStep5Navigation() {
     const newBackBtn = backBtn.cloneNode(true);
     backBtn.parentNode.replaceChild(newBackBtn, backBtn);
     
-    newBackBtn.addEventListener('click', function(e) {
+    newBackBtn.addEventListener('click', async function(e) {
       e.preventDefault();
-      console.log('🔙 Step 5: Back button clicked, going to step 4');
-      // No data to save on summary step
-      showStep(4);
+      e.stopPropagation();
+      
+      // Prevent double-clicks while loading - check global flag
+      const isCurrentlyLoading = window.isLoadingStep ? window.isLoadingStep() : isLoadingStep;
+      if (this.disabled || isCurrentlyLoading) {
+        console.log('⏳ Step 5: Back button disabled or loading in progress, skipping');
+        console.log(`   - Button disabled: ${this.disabled}`);
+        console.log(`   - Currently loading: ${isCurrentlyLoading}`);
+        return;
+      }
+      
+      // Debounce: Add minimum delay to prevent rapid clicks
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Double-check after debounce delay
+      const stillLoading = window.isLoadingStep ? window.isLoadingStep() : isLoadingStep;
+      if (stillLoading) {
+        console.log('⏳ Step 5: Loading started during debounce, skipping');
+        return;
+      }
+      
+      this.disabled = true;
+      console.log('🔒 Step 5: Back button disabled, starting navigation');
+      
+      try {
+        console.log('🔙 Step 5: Back button clicked, going to step 4');
+        // No data to save on summary step
+        await showStep(4); // Await to ensure loading completes
+        console.log('✅ Step 5: Navigation to step 4 completed');
+      } catch (error) {
+        console.error('❌ Step 5: Navigation error:', error);
+        throw error;
+      } finally {
+        // Ensure button is re-enabled after a short delay
+        setTimeout(() => {
+          this.disabled = false;
+          console.log('🔓 Step 5: Back button re-enabled');
+        }, 200);
+      }
     });
   }
   
@@ -6882,11 +7345,31 @@ function getCurrentStep() {
  * Show a specific step (hides all others and initializes)
  * @param {number} stepNumber - Step number to show (1-5)
  */
-function showStep(stepNumber) {
+async function showStep(stepNumber) {
   console.log(`📍 showStep: Showing step ${stepNumber}`);
   
-  // Validate step number
-  if (stepNumber < 1 || stepNumber > 5) {
+  // CRITICAL: Set currentStep FIRST before any other operations
+  // This ensures restoration code can check the correct step
+  currentStep = stepNumber;
+  console.log(`🔧 showStep: Set currentStep to ${currentStep} (stepNumber: ${stepNumber})`);
+  
+  // Force update window.tnCurrentStep for debugging (direct reference)
+  if (window.tnCurrentStep !== undefined) {
+    window.tnCurrentStep = stepNumber;
+  }
+  
+  // Update window.tnWizard for debugging
+  if (window.tnWizard) {
+    // Verify getter is working
+    const getterValue = window.tnWizard.currentStep;
+    console.log(`🔧 showStep: window.tnWizard.currentStep getter = ${getterValue} (expected: ${stepNumber})`);
+    if (getterValue !== stepNumber) {
+      console.error(`❌ BUG: Getter mismatch! currentStep=${currentStep}, getter=${getterValue}`);
+    }
+  }
+  
+  // Validate step number (allow step 0 for Race Info page)
+  if (stepNumber < 0 || stepNumber > 5) {
     Logger.error(`showStep: Invalid step number ${stepNumber}`);
     return;
   }
@@ -6909,8 +7392,8 @@ function showStep(stepNumber) {
     console.log(`❌ wizardMount element not found`);
   }
   
-  // Load step content (async but we don't await here to match navigation pattern)
-  loadStep(stepNumber);
+  // Load step content - now awaited to prevent race conditions
+  await loadStep(stepNumber);
   
   // Step initialization is handled by loadStep -> loadStepContent -> initStepX()
   // Navigation buttons are set up by setupStepNavigation() after step loads

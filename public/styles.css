@@ -160,7 +160,7 @@ body[data-event="tn"] .nav-buttons button#backBtn:hover {
 
 .card h3 {
   margin-top: 0;
-  margin-bottom: 0.75rem;
+  margin-bottom: 6px;
 }
 
 /* Navigation buttons container - reduce spacing */
@@ -380,15 +380,23 @@ body[data-event="tn"] .nav-buttons button#backBtn:hover {
 /* Form sections */
 .form-section {
   margin-bottom: 2rem;
+  padding-top: 2px;
 }
 
 .form-section h3 {
-  margin: 0 0 1rem 0;
+  margin: 0 0 8px 0;
   color: #495057;
   font-size: 1.25rem;
   font-weight: 600;
   border-bottom: 2px solid #e9ecef;
   padding-bottom: 0.5rem;
+}
+
+.form-section h4 {
+  margin: 0 0 8px 0;
+  color: #495057;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .text-center {

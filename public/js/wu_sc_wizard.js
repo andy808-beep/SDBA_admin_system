@@ -395,7 +395,7 @@ function initStepper() {
   // Get step labels from i18n (with fallbacks)
   const t = (key, fallback) => window.i18n ? window.i18n.t(key) : fallback;
   const step1 = t('wuScStep1', '1. Teams');
-  const step2 = t('wuScStep2', '2. Team Information');
+  const step2 = t('wuScStep2', '2. Contacts');
   const step3 = t('wuScStep3', '3. Race Day');
   const step4 = t('wuScStep4', '4. Summary');
   
@@ -564,23 +564,21 @@ function createRaceInfoContent() {
   const primaryColor = isWU ? '#0070c0' : '#00a651'; // WU blue or SC green
   const primaryDark = isWU ? '#005090' : '#007a3d';
   
-  // Helper to get bilingual display (both languages shown)
-  const getBilingual = (en, tc) => {
-    const enVal = en || '';
-    const tcVal = tc || '';
-    if (enVal && tcVal && enVal !== tcVal) {
-      return `${tcVal} ${enVal}`;
-    }
-    return enVal || tcVal || '—';
+  // Helper to get language-aware display (single language based on current i18n setting)
+  const getLocalized = (en, tc) => {
+    const currentLang = window.i18n ? (window.i18n.currentLang || window.i18n.getCurrentLanguage?.() || 'en') : 'en';
+    // Select value based on current language (zh → tc, otherwise → en)
+    const value = currentLang === 'zh' ? (tc || en || '') : (en || tc || '');
+    return value || '—';
   };
   
-  // Extract event data with placeholders for missing fields
-  const eventName = getBilingual(event.event_long_name_en, event.event_long_name_tc);
-  const eventDate = getBilingual(event.event_date_en, event.event_date_tc);
-  const eventTime = getBilingual(event.event_time_en || 'TBA', event.event_time_tc || '待定');
-  const eventVenue = getBilingual(event.event_location_en, event.event_location_tc);
-  const raceCourse = getBilingual(event.course_length_en || 'Standard Course', event.course_length_tc || '標準賽道');
-  const deadline = getBilingual(event.reg_deadline_date_en || 'TBA', event.reg_deadline_date_tc || '待定');
+  // Extract event data with placeholders for missing fields (language-aware)
+  const eventName = getLocalized(event.event_long_name_en, event.event_long_name_tc);
+  const eventDate = getLocalized(event.event_date_en, event.event_date_tc);
+  const eventTime = getLocalized(event.event_time_en || 'TBA', event.event_time_tc || '待定');
+  const eventVenue = getLocalized(event.event_location_en, event.event_location_tc);
+  const raceCourse = getLocalized(event.course_length_en || 'Standard Course', event.course_length_tc || '標準賽道');
+  const deadline = getLocalized(event.reg_deadline_date_en || 'TBA', event.reg_deadline_date_tc || '待定');
   const appendixLink = event.appendix_hyperlink || '#';
   
   const container = document.createElement('div');
@@ -856,14 +854,14 @@ function initStep1() {
       await renderTeamDetails(count);
       // Show next button after team details are rendered
       if (step1Actions) {
-        step1Actions.style.display = 'block';
+        step1Actions.style.visibility = 'visible';
       }
     } else {
       teamDetailsContainer.hidden = true;
       teamDetailsList.innerHTML = '';
       // Hide next button when no team count selected
       if (step1Actions) {
-        step1Actions.style.display = 'none';
+        step1Actions.style.visibility = 'hidden';
       }
     }
   };

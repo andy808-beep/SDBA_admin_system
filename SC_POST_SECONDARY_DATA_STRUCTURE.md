@@ -261,3 +261,4 @@ console.log('Post-Secondary packages:',
 
 **Conclusion**: Post-Secondary is designed as a special invitation-only division with its own package, and the current dropdown implementation is not designed to handle this case. It would need special handling logic.
 
+

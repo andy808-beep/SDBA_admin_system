@@ -423,7 +423,6 @@
     <div id="eventPicker" class="event-picker">
       <h1 id="associationName" data-i18n="stanleyDragonBoatAssociation" style="text-align: left; margin-bottom: 1rem; font-size: 1.75rem; color: #333; font-weight: 600;">Stanley Dragon Boat Association</h1>
       <h2 id="formTitle" data-i18n="raceRegistration">Race Registration</h2>
-      <p id="formSubtitle" data-i18n="selectRacePrompt">Please select the race you would like to register for:</p>
       <div id="eventGrid" class="event-grid">
         <!-- Events will be loaded dynamically -->
       </div>
@@ -439,7 +438,7 @@
     <!-- Success Page -->
     <div id="successPage" class="event-picker" style="display: none;">
       <div class="success-container" style="background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
-        <div style="font-size: 4rem; color: #28a745; margin-bottom: 1rem;">✓</div>
+        <div style="font-size: 4rem; color: #28a745; margin-bottom: 1rem;"></div>
         <h2 style="color: #28a745; margin-bottom: 1rem;" data-i18n="applicationSubmittedSuccess">Application Submitted Successfully!</h2>
         <p style="font-size: 1.1rem; color: #495057; margin-bottom: 2rem;" data-i18n="thankYouMessage">
           Thank you for your registration. Your application has been received.
@@ -464,7 +463,7 @@
         
         <div style="margin-bottom: 2rem;">
           <button id="copyReceiptBtn" class="btn" style="margin-right: 0.5rem;" data-i18n="copyDetails">
-            📋 Copy Details
+            Copy Details
           </button>
         </div>
         
@@ -537,6 +536,7 @@
   <script type="module" src="./js/logger.js?v=1.0.0-mj5lf93y"></script>
   <script src="./js/env_verifier.js?v=1.0.0-mj5lf93y"></script>
   <script type="module" src="./supabase_config.js?v=1.0.0-mj5lf93y"></script>
+  <script src="./js/scroll_manager.js?v=1.0.0-mj5lf93y"></script>
   <script type="module" src="./js/config_loader.js?v=1.0.0-mj5lf93y"></script>
   <script type="module" src="./js/ui_bindings.js?v=1.0.0-mj5lf93y"></script>
   <script type="module" src="./js/totals.js?v=1.0.0-mj5lf93y"></script>
@@ -598,9 +598,9 @@
                   const text = `Registration ID: ${receipt.registration_id}\nTeam Codes: ${receipt.team_codes?.join(', ') || 'N/A'}\nEmail: ${receipt.email || 'N/A'}`;
                   try {
                     await navigator.clipboard.writeText(text);
-                    this.textContent = window.i18n ? window.i18n.t('copiedSuccess') : '✓ Copied!';
+                    this.textContent = window.i18n ? window.i18n.t('copiedSuccess') : 'Copied!';
                     setTimeout(() => {
-                      this.textContent = window.i18n ? window.i18n.t('copyDetails') : '📋 Copy Details';
+                      this.textContent = window.i18n ? window.i18n.t('copyDetails') : 'Copy Details';
                     }, 2000);
                   } catch (err) {
                     console.error('Failed to copy:', err);
@@ -683,36 +683,20 @@
   <script src="./js/field-restore-utility.js?v=1.0.0-mj5lf93y"></script>
   <script src="./js/dropdown_options_builder.js?v=1.0.0-mj5lf93y"></script>
   <script type="module" src="./js/event_bootstrap.js?v=1.0.0-mj5lf93y"></script>
-  <script type="module" src="./js/tn_wizard.js?v=1.0.0-mj5lf93y"></script>
+  <script type="module" src="./js/tn_wizard.js?v=1.0.1"></script>
   <script type="module" src="./js/wu_sc_wizard.js?v=1.0.0-mj5lf93y"></script>
+  <script>
+    // Configure scroll manager
+    if (window.location.hostname === 'localhost') {
+      window.ScrollManager?.enableDebug();
+    }
+  </script>
   <script src="./js/tn_verification.js?v=1.0.0-mj5lf93y"></script>
   
   <!-- Load Templates -->
-  <script>
-    // Load TN templates
-    fetch('tn_templates.html?v=1.0.0-mj5lf93y')
-      .then(response => response.text())
-      .then(html => {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const templates = doc.querySelectorAll('template');
-        templates.forEach(template => {
-          document.body.appendChild(template);
-        });
-      });
-    
-    // Load WU/SC templates
-    fetch('wu_sc_templates.html?v=1.0.0-mj5lf93y')
-      .then(response => response.text())
-      .then(html => {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const templates = doc.querySelectorAll('template');
-        templates.forEach(template => {
-          document.body.appendChild(template);
-        });
-      });
-  </script>
+  <!-- REMOVED: Template loading moved to event_bootstrap.js to prevent duplicate loading -->
+  <!-- Templates are now loaded by loadTNTemplates() and loadWUSCTemplates() functions -->
+  <!-- This eliminates the race condition where templates were loaded twice (once here, once in event_bootstrap.js) -->
   
   <!-- TN Legacy CSS Scoping Script -->
   <script>
