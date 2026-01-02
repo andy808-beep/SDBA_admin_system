@@ -996,24 +996,29 @@ async function renderTeamDetails(count) {
   for (let i = 1; i <= count; i++) {
 	Logger.debug(`renderTeamDetails: Creating form for team ${i}`);
     const teamDiv = document.createElement('div');
-    teamDiv.className = 'entry-option';
+    teamDiv.className = 'team-field';
+    teamDiv.id = `teamField${i}`;
     teamDiv.innerHTML = `
-      <strong data-i18n="teamLabel" data-i18n-params='{"num":"${i}"}'>${t('teamLabel', { num: i })}</strong>
-      <div class="form-group">
-        <label for="teamNameEn${i}" data-i18n="teamNameEnLabel">${t('teamNameEnLabel')}</label>
-        <input type="text" id="teamNameEn${i}" name="teamNameEn${i}" required placeholder="${t('teamNameEnPlaceholder')}" data-i18n-placeholder="teamNameEnPlaceholder" />
-        <div class="field-error-message" id="error-teamNameEn${i}"></div>
+      <div class="team-header">
+        <h3 data-i18n="teamLabel" data-i18n-params='{"num":"${i}"}'>${t('teamLabel', { num: i })}</h3>
       </div>
-      <div class="form-group">
-        <label for="teamNameTc${i}" data-i18n="teamNameTcLabel">${t('teamNameTcLabel')}</label>
-        <input type="text" id="teamNameTc${i}" name="teamNameTc${i}" placeholder="${t('teamNameTcPlaceholder')}" data-i18n-placeholder="teamNameTcPlaceholder" />
-      </div>
-      <div class="form-group">
-        <label for="entryGroup${i}" style="font-weight: bold; font-size: 1.05em; color: #0f6ec7;" data-i18n="entryGroupLabel">${t('entryGroupLabel')}</label>
-        <div id="entryGroupContainer${i}">
-          <!-- Dropdown will be rendered here by JavaScript -->
+      <div class="team-inputs">
+        <div class="form-group">
+          <label for="teamNameEn${i}" data-i18n="teamNameEnLabel">${t('teamNameEnLabel')}</label>
+          <input type="text" id="teamNameEn${i}" name="teamNameEn${i}" required placeholder="${t('teamNameEnPlaceholder')}" data-i18n-placeholder="teamNameEnPlaceholder" />
+          <div class="field-error-message" id="error-teamNameEn${i}"></div>
         </div>
-        <div class="field-error-message" id="error-entryGroup${i}"></div>
+        <div class="form-group">
+          <label for="teamNameTc${i}" data-i18n="teamNameTcLabel">${t('teamNameTcLabel')}</label>
+          <input type="text" id="teamNameTc${i}" name="teamNameTc${i}" placeholder="${t('teamNameTcPlaceholder')}" data-i18n-placeholder="teamNameTcPlaceholder" />
+        </div>
+        <div class="form-group">
+          <label for="entryGroup${i}" data-i18n="entryGroupLabel">${t('entryGroupLabel')} *</label>
+          <div id="entryGroupContainer${i}">
+            <!-- Dropdown will be rendered here by JavaScript -->
+          </div>
+          <div class="field-error-message" id="error-entryGroup${i}"></div>
+        </div>
       </div>
     `;
     

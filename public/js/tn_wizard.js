@@ -1383,11 +1383,11 @@ function createTeamCountSelector(container) {
   
   // Populate the container (don't clear - it's from the template)
   container.innerHTML = `
-    <h2 data-i18n="selectTeamDetails" style="color: var(--theme-primary-dark, #c79100); margin-bottom: 1rem;">${t('selectTeamDetails')}</h2>
+    <h2 data-i18n="selectTeamDetails" style="color: var(--theme-primary-dark, #c79100); margin-bottom: 0;">${t('selectTeamDetails')}</h2>
     <label for="teamCount" data-i18n="howManyTeamsQuestion" 
-           style="display: inline-block; margin-bottom: 0; vertical-align: middle;">${t('howManyTeamsQuestion')}</label>
+           style="display: inline-block; margin-bottom: 0; vertical-align: baseline; line-height: 1.5;">${t('howManyTeamsQuestion')}</label>
     <select id="teamCount" name="teamCount" required 
-            style="display: inline-block; width: auto; min-width: 200px; padding: 0.5rem 0.75rem; vertical-align: middle; margin-left: 1rem;">
+            style="display: inline-block; vertical-align: baseline; line-height: 1.5; margin-left: 0.5rem;">
       <option value="" data-i18n="selectNumberOfTeams">${t('selectNumberOfTeams')}</option>
       ${teamOptions.join('')}
     </select>
@@ -4408,14 +4408,14 @@ function addStep1Styles() {
     
     /* Team Count Selector - Compact inline layout matching WU/SC */
     #tnScope #teamCount {
-      padding: 0.5rem 0.75rem !important;  /* Compact like WU/SC */
+      /* No padding - browser default like WU/SC */
       width: auto !important;
-      min-width: 200px;
       display: inline-block !important;
-      vertical-align: middle;
+      vertical-align: baseline;  /* Align with text baseline */
       border: 1px solid #ced4da;
-      border-radius: 4px;
+      border-radius: 0;  /* Sharp corners to match WU/SC */
       font-size: 1rem;
+      line-height: 1.5;  /* Match label line-height */
       transition: border-color 0.2s ease;
     }
     
@@ -4428,9 +4428,20 @@ function addStep1Styles() {
     #tnScope label[for="teamCount"] {
       display: inline-block !important;
       margin-bottom: 0 !important;
-      vertical-align: middle;
+      vertical-align: baseline;  /* Align with text baseline */
       font-weight: 500;
       color: #495057;
+      line-height: 1.5;  /* Match select line-height */
+    }
+    
+    /* Team Count Section Spacing */
+    #tnScope #teamCountSection {
+      margin-bottom: 2rem;  /* Space between question and team fields */
+    }
+    
+    /* Team Details Heading Spacing */
+    #tnScope .card h2 {
+      margin-bottom: 0;  /* Remove gap between heading and question */
     }
   `;
   document.head.appendChild(style);

@@ -25,7 +25,7 @@
   max-width: 1000px;
   width: 90%;
   margin: 2rem auto;
-  padding: 2rem;
+  padding: 1.5rem;  /* Match WU/SC compact padding */
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -46,7 +46,7 @@
 }
 
 #tnScope input, 
-#tnScope select {
+#tnScope select:not(#teamCount) {  /* Exclude #teamCount from general padding rule */
   width: 100%;
   padding: 0.6rem;
   margin-top: 0.4rem;

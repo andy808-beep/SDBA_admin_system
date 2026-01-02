@@ -143,9 +143,9 @@ const translations = {
     nowScheduling: "Now scheduling: {teamName}",
     
     // Organization
-    organizationGroupName: "Organization / Group Name",
+    organizationGroupName: "Organization / Group Name*",
     organizationGroupNameShort: "Organization/Group Name*",
-    mailingAddress: "Mailing Address",
+    mailingAddress: "Mailing Address*",
     addressLabel: "Address*",
     teamManagerContact: "Team Manager Contact",
     
@@ -607,9 +607,9 @@ const translations = {
     nowScheduling: "正在安排：{teamName}",
 
     // Organization
-    organizationGroupName: "機構 / 團體名稱",
+    organizationGroupName: "機構 / 團體名稱*",
     organizationGroupNameShort: "機構/團體名稱 *",
-    mailingAddress: "郵寄地址",
+    mailingAddress: "郵寄地址*",
     addressLabel: "地址 *",
     teamManagerContact: "隊伍管理員聯絡",
     
