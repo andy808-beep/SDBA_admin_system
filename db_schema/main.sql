@@ -571,7 +571,13 @@ create table public.registration_meta (
   event_short_ref text,
 
   -- Race day order quantities (only populated on primary team - first team in registration)
-  race_day_quantities jsonb,
+  marquee_qty INTEGER DEFAULT 0 CHECK (marquee_qty >= 0),
+  steer_with_qty INTEGER DEFAULT 0 CHECK (steer_with_qty >= 0),
+  steer_without_qty INTEGER DEFAULT 0 CHECK (steer_without_qty >= 0),
+  junk_boat_qty INTEGER DEFAULT 0 CHECK (junk_boat_qty >= 0),
+  junk_boat_no TEXT,
+  speed_boat_qty INTEGER DEFAULT 0 CHECK (speed_boat_qty >= 0),
+  speed_boat_no TEXT,
 
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -1066,8 +1072,8 @@ AS $$
 DECLARE
   reg_record public.registration_meta%ROWTYPE;
   new_team_id uuid;
-  v_race_day_quantities jsonb;
   v_primary_reg_id uuid;
+  v_has_race_day_data boolean;
 BEGIN
   -- Get the registration record
   SELECT * INTO reg_record
@@ -1078,28 +1084,38 @@ BEGIN
     RAISE EXCEPTION 'Registration not found or not pending: %', reg_id;
   END IF;
   
-  -- Find primary team's race_day_quantities (first team with matching client_tx_id and event_short_ref)
-  SELECT id, race_day_quantities INTO v_primary_reg_id, v_race_day_quantities
+  -- Find primary team (first team with matching client_tx_id and event_short_ref)
+  -- Check if primary team has race day data (any of the race day columns > 0)
+  SELECT id INTO v_primary_reg_id
   FROM public.registration_meta
   WHERE client_tx_id = reg_record.client_tx_id
     AND event_short_ref = reg_record.event_short_ref
-    AND race_day_quantities IS NOT NULL
+    AND (
+      marquee_qty > 0 OR
+      steer_with_qty > 0 OR
+      steer_without_qty > 0 OR
+      junk_boat_qty > 0 OR
+      speed_boat_qty > 0
+    )
   ORDER BY created_at ASC
   LIMIT 1;
+  
+  -- Check if this is the primary team with race day data
+  v_has_race_day_data := (reg_id = v_primary_reg_id);
   
   -- Route to appropriate team table based on event_type
   IF reg_record.event_type = 'tn' THEN
     -- Insert into team_meta for TN
     INSERT INTO public.team_meta (
       user_id, season, category, division_code, option_choice,
-      team_code, team_name_en, team_name_tc, team_name_normalized, org_name, org_address,
+      team_code, team_name_en, team_name_tc, org_name, org_address,
       team_manager_1, mobile_1, email_1,
       team_manager_2, mobile_2, email_2,
       team_manager_3, mobile_3, email_3,
       registration_id
     ) VALUES (
       reg_record.user_id, reg_record.season, reg_record.category, reg_record.division_code, reg_record.option_choice,
-      reg_record.team_code, reg_record.team_name_en, reg_record.team_name_tc, reg_record.team_name_normalized, reg_record.org_name, reg_record.org_address,
+      reg_record.team_code, reg_record.team_name_en, reg_record.team_name_tc, reg_record.org_name, reg_record.org_address,
       reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
       reg_record.team_manager_2, reg_record.mobile_2, reg_record.email_2,
       reg_record.team_manager_3, reg_record.mobile_3, reg_record.email_3,
@@ -1146,9 +1162,9 @@ BEGIN
     RAISE EXCEPTION 'Unknown event_type: %', reg_record.event_type;
   END IF;
   
-  -- Copy race_day_quantities to race_day_requests if this is the primary team
+  -- Copy race day data to race_day_requests if this is the primary team with race day data
   -- Only create race_day_requests for TN events (race_day_requests table links to team_meta)
-  IF reg_record.event_type = 'tn' AND v_race_day_quantities IS NOT NULL AND reg_id = v_primary_reg_id THEN
+  IF reg_record.event_type = 'tn' AND v_has_race_day_data THEN
     INSERT INTO public.race_day_requests (
       team_id,
       marquee_qty,
@@ -1160,13 +1176,13 @@ BEGIN
       speed_boat_qty
     ) VALUES (
       new_team_id,
-      COALESCE((v_race_day_quantities->>'marquee_qty')::int, 0),
-      COALESCE((v_race_day_quantities->>'steer_with_qty')::int, 0),
-      COALESCE((v_race_day_quantities->>'steer_without_qty')::int, 0),
-      NULLIF(v_race_day_quantities->>'junk_boat_no', ''),
-      COALESCE((v_race_day_quantities->>'junk_boat_qty')::int, 0),
-      NULLIF(v_race_day_quantities->>'speed_boat_no', ''),
-      COALESCE((v_race_day_quantities->>'speed_boat_qty')::int, 0)
+      COALESCE(reg_record.marquee_qty, 0),
+      COALESCE(reg_record.steer_with_qty, 0),
+      COALESCE(reg_record.steer_without_qty, 0),
+      NULLIF(reg_record.junk_boat_no, ''),
+      COALESCE(reg_record.junk_boat_qty, 0),
+      NULLIF(reg_record.speed_boat_no, ''),
+      COALESCE(reg_record.speed_boat_qty, 0)
     )
     ON CONFLICT (team_id) DO UPDATE SET
       marquee_qty = EXCLUDED.marquee_qty,
@@ -1220,7 +1236,13 @@ COMMENT ON COLUMN public.registration_meta.approved_by IS 'Admin user who approv
 COMMENT ON COLUMN public.registration_meta.approved_at IS 'When the registration was approved/rejected';
 COMMENT ON COLUMN public.registration_meta.client_tx_id IS 'Client transaction ID for idempotency';
 COMMENT ON COLUMN public.registration_meta.event_short_ref IS 'Event reference for grouping';
-COMMENT ON COLUMN public.registration_meta.race_day_quantities IS 'Race day order quantities for this registration group. Only populated on primary team (first team in registration). Format: { marquee_qty, steer_with_qty, steer_without_qty, junk_boat_qty, junk_boat_no, speed_boat_qty, speed_boat_no }';
+COMMENT ON COLUMN public.registration_meta.marquee_qty IS 'Race day marquee quantity (only populated on primary team - first team in registration)';
+COMMENT ON COLUMN public.registration_meta.steer_with_qty IS 'Race day steerer with practice quantity (only populated on primary team)';
+COMMENT ON COLUMN public.registration_meta.steer_without_qty IS 'Race day steerer without practice quantity (only populated on primary team)';
+COMMENT ON COLUMN public.registration_meta.junk_boat_qty IS 'Race day junk/pleasure boat quantity (only populated on primary team)';
+COMMENT ON COLUMN public.registration_meta.junk_boat_no IS 'Race day junk/pleasure boat license number (only populated on primary team)';
+COMMENT ON COLUMN public.registration_meta.speed_boat_qty IS 'Race day speed boat quantity (only populated on primary team)';
+COMMENT ON COLUMN public.registration_meta.speed_boat_no IS 'Race day speed boat license number (only populated on primary team)';
 
 -- =========================================================
 -- ROW LEVEL SECURITY POLICIES FOR REGISTRATION_META

@@ -1,0 +1,9 @@
+{
+  "/admin/page": "app/admin/page.js",
+  "/api/admin/approve/route": "app/api/admin/approve/route.js",
+  "/api/admin/counters/route": "app/api/admin/counters/route.js",
+  "/api/admin/list/route": "app/api/admin/list/route.js",
+  "/api/auth/signin/route": "app/api/auth/signin/route.js",
+  "/api/csrf-token/route": "app/api/csrf-token/route.js",
+  "/auth/page": "app/auth/page.js"
+}

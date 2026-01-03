@@ -5738,15 +5738,11 @@ async function testSubmissionWithCurrentData() {
       team_names: uniqueTeamNames,
       team_options: teams.map(t => t.option),
       managers: managers,
-      race_day: raceDay.length > 0 ? {
-        marqueeQty: raceDay.find(r => r.code === 'marquee')?.qty || 0,
-        steerWithQty: raceDay.find(r => r.code === 'steer_with')?.qty || 0,
-        steerWithoutQty: raceDay.find(r => r.code === 'steer_without')?.qty || 0,
-        junkBoatQty: raceDay.find(r => r.code === 'junk_boat')?.qty || 0,
-        junkBoatNo: raceDay.find(r => r.code === 'junk_boat')?.boat_no || '',
-        speedboatQty: raceDay.find(r => r.code === 'speed_boat')?.qty || 0,
-        speedBoatNo: raceDay.find(r => r.code === 'speed_boat')?.boat_no || ''
-      } : null,
+      race_day: raceDay.length > 0 ? raceDay.map(item => ({
+        item_code: item.code,
+        qty: item.qty,
+        ...(item.boat_no && { boat_no: item.boat_no })
+      })).filter(item => item.qty > 0) : null,
       practice: practice
     };
     
@@ -8358,15 +8354,11 @@ async function submitTNForm() {
       team_names_tc: teams.map(t => t.name_tc || ''),
       team_options: teams.map(t => t.option),
       managers: managers,
-      race_day: raceDay.length > 0 ? {
-        marqueeQty: raceDay.find(r => r.code === 'marquee')?.qty || 0,
-        steerWithQty: raceDay.find(r => r.code === 'steer_with')?.qty || 0,
-        steerWithoutQty: raceDay.find(r => r.code === 'steer_without')?.qty || 0,
-        junkBoatQty: raceDay.find(r => r.code === 'junk_boat')?.qty || 0,
-        junkBoatNo: raceDay.find(r => r.code === 'junk_boat')?.boat_no || '',
-        speedboatQty: raceDay.find(r => r.code === 'speed_boat')?.qty || 0,
-        speedBoatNo: raceDay.find(r => r.code === 'speed_boat')?.boat_no || ''
-      } : null,
+      race_day: raceDay.length > 0 ? raceDay.map(item => ({
+        item_code: item.code,
+        qty: item.qty,
+        ...(item.boat_no && { boat_no: item.boat_no })
+      })).filter(item => item.qty > 0) : null,
       practice: practice
     };
     
@@ -8910,15 +8902,11 @@ if (window.__DEV__) {
         team_names: teams.map(t => t.name),
         team_options: teams.map(t => t.option),
         managers: managers,
-        race_day: raceDay.length > 0 ? {
-          marqueeQty: raceDay.find(r => r.code === 'marquee')?.qty || 0,
-          steerWithQty: raceDay.find(r => r.code === 'steer_with')?.qty || 0,
-          steerWithoutQty: raceDay.find(r => r.code === 'steer_without')?.qty || 0,
-          junkBoatQty: raceDay.find(r => r.code === 'junk_boat')?.qty || 0,
-          junkBoatNo: raceDay.find(r => r.code === 'junk_boat')?.boat_no || '',
-          speedboatQty: raceDay.find(r => r.code === 'speed_boat')?.qty || 0,
-          speedBoatNo: raceDay.find(r => r.code === 'speed_boat')?.boat_no || ''
-        } : null,
+        race_day: raceDay.length > 0 ? raceDay.map(item => ({
+          item_code: item.code,
+          qty: item.qty,
+          ...(item.boat_no && { boat_no: item.boat_no })
+        })).filter(item => item.qty > 0) : null,
         practice: practice
       };
       
@@ -8960,15 +8948,11 @@ if (window.__DEV__) {
         team_names: teams.map(t => t.name),
         team_options: teams.map(t => t.option),
         managers: managers,
-        race_day: raceDay.length > 0 ? {
-          marqueeQty: raceDay.find(r => r.code === 'marquee')?.qty || 0,
-          steerWithQty: raceDay.find(r => r.code === 'steer_with')?.qty || 0,
-          steerWithoutQty: raceDay.find(r => r.code === 'steer_without')?.qty || 0,
-          junkBoatQty: raceDay.find(r => r.code === 'junk_boat')?.qty || 0,
-          junkBoatNo: raceDay.find(r => r.code === 'junk_boat')?.boat_no || '',
-          speedboatQty: raceDay.find(r => r.code === 'speed_boat')?.qty || 0,
-          speedBoatNo: raceDay.find(r => r.code === 'speed_boat')?.boat_no || ''
-        } : null,
+        race_day: raceDay.length > 0 ? raceDay.map(item => ({
+          item_code: item.code,
+          qty: item.qty,
+          ...(item.boat_no && { boat_no: item.boat_no })
+        })).filter(item => item.qty > 0) : null,
         practice: practice
       };
       

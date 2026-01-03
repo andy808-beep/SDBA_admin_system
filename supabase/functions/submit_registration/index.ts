@@ -185,40 +185,62 @@ function derivePackageCode(eventRef: string, category: string, opt: "opt1" | "op
   return isCorp ? `${tier}_corp` : `${tier}_non_corp`;
 }
 
-// Transform race_day array to JSONB object for primary team
-function transformRaceDayToQuantities(raceDay: Array<{ item_code: string; qty: number; boat_no?: string }> | null): Record<string, any> | null {
+// Transform race_day array to individual column values for primary team
+function transformRaceDayToColumns(raceDay: Array<{ item_code: string; qty: number; boat_no?: string }> | null): {
+  marquee_qty: number;
+  steer_with_qty: number;
+  steer_without_qty: number;
+  junk_boat_qty: number;
+  junk_boat_no: string | null;
+  speed_boat_qty: number;
+  speed_boat_no: string | null;
+} | null {
   if (!raceDay || !Array.isArray(raceDay) || raceDay.length === 0) return null;
   
-  const quantities: Record<string, any> = {};
+  const columns = {
+    marquee_qty: 0,
+    steer_with_qty: 0,
+    steer_without_qty: 0,
+    junk_boat_qty: 0,
+    junk_boat_no: null as string | null,
+    speed_boat_qty: 0,
+    speed_boat_no: null as string | null,
+  };
   
   for (const item of raceDay) {
     switch (item.item_code) {
       case 'rd_marquee':
       case 'marquee':
-        quantities.marquee_qty = item.qty;
+        columns.marquee_qty = item.qty;
         break;
       case 'rd_steerer':
       case 'steer_with':
-        quantities.steer_with_qty = item.qty;
+        columns.steer_with_qty = item.qty;
         break;
       case 'rd_steerer_no_practice':
       case 'steer_without':
-        quantities.steer_without_qty = item.qty;
+        columns.steer_without_qty = item.qty;
         break;
       case 'rd_junk':
       case 'junk_boat':
-        quantities.junk_boat_qty = item.qty;
-        if (item.boat_no) quantities.junk_boat_no = item.boat_no;
+        columns.junk_boat_qty = item.qty;
+        if (item.boat_no) columns.junk_boat_no = item.boat_no;
         break;
       case 'rd_speedboat':
       case 'speed_boat':
-        quantities.speed_boat_qty = item.qty;
-        if (item.boat_no) quantities.speed_boat_no = item.boat_no;
+        columns.speed_boat_qty = item.qty;
+        if (item.boat_no) columns.speed_boat_no = item.boat_no;
         break;
     }
   }
   
-  return Object.keys(quantities).length > 0 ? quantities : null;
+  // Return null if all quantities are 0 (no race day data)
+  if (columns.marquee_qty === 0 && columns.steer_with_qty === 0 && columns.steer_without_qty === 0 &&
+      columns.junk_boat_qty === 0 && columns.speed_boat_qty === 0) {
+    return null;
+  }
+  
+  return columns;
 }
 
 // ---------------- Handler ----------------
@@ -544,8 +566,8 @@ Deno.serve(async (req) => {
     // 5) registration_meta (now stores individual team registrations for admin approval)
     const optionText = (o: "opt1" | "opt2") => (o === "opt1" ? "Option 1" : "Option 2");
     
-    // Transform race_day array to JSONB object for primary team
-    const raceDayQuantities = transformRaceDayToQuantities(race_day);
+    // Transform race_day array to individual column values for primary team
+    const raceDayColumns = transformRaceDayToColumns(race_day);
     
     // Handle different event types
     let registrationsToInsert: any[];
@@ -577,7 +599,14 @@ Deno.serve(async (req) => {
         team_manager_3: mgrs[2]?.name || "",
         mobile_3:       mgrs[2]?.mobile || "",
         email_3:        mgrs[2]?.email  || "",
-        race_day_quantities: idx === 0 ? raceDayQuantities : null,  // Only primary team (index 0)
+        // Only populate race day columns for primary team (index 0)
+        marquee_qty: idx === 0 ? (raceDayColumns?.marquee_qty ?? 0) : 0,
+        steer_with_qty: idx === 0 ? (raceDayColumns?.steer_with_qty ?? 0) : 0,
+        steer_without_qty: idx === 0 ? (raceDayColumns?.steer_without_qty ?? 0) : 0,
+        junk_boat_qty: idx === 0 ? (raceDayColumns?.junk_boat_qty ?? 0) : 0,
+        junk_boat_no: idx === 0 ? (raceDayColumns?.junk_boat_no ?? null) : null,
+        speed_boat_qty: idx === 0 ? (raceDayColumns?.speed_boat_qty ?? 0) : 0,
+        speed_boat_no: idx === 0 ? (raceDayColumns?.speed_boat_no ?? null) : null,
         status: 'pending'
       }));
     } else {
@@ -652,7 +681,14 @@ Deno.serve(async (req) => {
         team_manager_3: mgrs[2]?.name || "",
         mobile_3:       mgrs[2]?.mobile || "",
         email_3:        mgrs[2]?.email  || "",
-        race_day_quantities: idx === 0 ? raceDayQuantities : null,  // Only primary team (index 0)
+        // Only populate race day columns for primary team (index 0)
+        marquee_qty: idx === 0 ? (raceDayColumns?.marquee_qty ?? 0) : 0,
+        steer_with_qty: idx === 0 ? (raceDayColumns?.steer_with_qty ?? 0) : 0,
+        steer_without_qty: idx === 0 ? (raceDayColumns?.steer_without_qty ?? 0) : 0,
+        junk_boat_qty: idx === 0 ? (raceDayColumns?.junk_boat_qty ?? 0) : 0,
+        junk_boat_no: idx === 0 ? (raceDayColumns?.junk_boat_no ?? null) : null,
+        speed_boat_qty: idx === 0 ? (raceDayColumns?.speed_boat_qty ?? 0) : 0,
+        speed_boat_no: idx === 0 ? (raceDayColumns?.speed_boat_no ?? null) : null,
         status: 'pending'
       }));
     }
@@ -663,7 +699,7 @@ Deno.serve(async (req) => {
       event_short_ref: eventShortRef,
       first_team_en: registrationsToInsert[0]?.team_name_en,
       first_team_tc: registrationsToInsert[0]?.team_name_tc,
-      race_day_quantities: registrationsToInsert[0]?.race_day_quantities || null
+      race_day_data: raceDayColumns || null
     });
     
     const { data: insertedRegistrations, error: regError } = await admin
@@ -675,7 +711,7 @@ Deno.serve(async (req) => {
     const registration_ids: string[] = insertedRegistrations.map((r: any) => r.id);
     const team_codes: string[] = insertedRegistrations.map((r: any) => r.team_code);
 
-    // Note: race_day_quantities are stored on primary team (index 0) in registration_meta
+    // Note: race_day columns (marquee_qty, steer_with_qty, etc.) are stored on primary team (index 0) in registration_meta
     // race_day_requests will be created after admin approval when teams are moved to team_meta
 
     return respond(req, { registration_ids, team_codes }, 200);
