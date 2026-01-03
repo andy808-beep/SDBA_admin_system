@@ -2,7 +2,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isAdminUser, checkAdmin } from "@/lib/auth";
-import { env } from "@/lib/env";
 import {
   checkPublicApiLimit,
   checkAdminApiLimit,
@@ -36,6 +35,75 @@ function getRequestSize(req: NextRequest): number {
     size += key.length + value.length;
   });
   return size;
+}
+
+/**
+ * Get Supabase environment variables for Edge Runtime
+ * Validates at runtime (not module load time) to ensure .env.local is loaded
+ * @throws Error if required environment variables are missing or invalid
+ */
+function getSupabaseEnv(): { url: string; anonKey: string } {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Debug: Log what we're actually reading (first 50 chars only for security)
+  console.log('[Middleware Debug] Reading env vars:', {
+    urlExists: !!url,
+    urlPreview: url ? url.substring(0, 50) + '...' : 'undefined',
+    anonKeyExists: !!anonKey,
+    anonKeyLength: anonKey?.length || 0,
+  });
+
+  // Check if variables are missing
+  if (!url || !anonKey) {
+    logger.error('Missing Supabase environment variables in Edge Runtime', {
+      hasUrl: !!url,
+      hasAnonKey: !!anonKey,
+      urlLength: url?.length || 0,
+      anonKeyLength: anonKey?.length || 0,
+    });
+
+    throw new Error(
+      'Supabase environment variables are required but not available in Edge Runtime. ' +
+      'Please ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in your .env.local file ' +
+      'and restart your development server.'
+    );
+  }
+
+  // Check if placeholder values are still present
+  if (url.includes('your-supabase-url-here') || url.includes('placeholder') || 
+      anonKey.includes('your-supabase-anon-key-here') || anonKey.includes('placeholder')) {
+    logger.error('Supabase environment variables contain placeholder values', {
+      url: url.substring(0, 30) + '...',
+      anonKeyLength: anonKey.length,
+    });
+
+    throw new Error(
+      'Supabase environment variables contain placeholder values. ' +
+      'Please replace NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file ' +
+      'with your actual Supabase project URL and anon key from https://supabase.com/dashboard/project/_/settings/api'
+    );
+  }
+
+  // Validate URL format (must be HTTP or HTTPS)
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+      throw new Error('URL must use http or https protocol');
+    }
+  } catch (err) {
+    logger.error('Invalid Supabase URL format', {
+      url: url.substring(0, 50) + '...',
+      error: err instanceof Error ? err.message : String(err),
+    });
+
+    throw new Error(
+      `Invalid NEXT_PUBLIC_SUPABASE_URL format: "${url.substring(0, 50)}...". ` +
+      'Must be a valid HTTP or HTTPS URL (e.g., https://xxxxx.supabase.co)'
+    );
+  }
+
+  return { url, anonKey };
 }
 
 export async function middleware(req: NextRequest) {
@@ -289,9 +357,12 @@ export async function middleware(req: NextRequest) {
 
   // Existing admin page protection logic
   if (url.pathname.startsWith("/admin")) {
+    // Get Supabase env vars with runtime validation
+    const { url: supabaseUrl, anonKey: supabaseAnonKey } = getSupabaseEnv();
+    
     const supabase = createServerClient(
-      env.NEXT_PUBLIC_SUPABASE_URL,
-      env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      supabaseUrl,
+      supabaseAnonKey,
       {
         cookies: {
           getAll() {
@@ -323,9 +394,12 @@ export async function middleware(req: NextRequest) {
 
   // Existing auth page logic
   if (url.pathname === "/auth") {
+    // Get Supabase env vars with runtime validation
+    const { url: supabaseUrl, anonKey: supabaseAnonKey } = getSupabaseEnv();
+    
     const supabase = createServerClient(
-      env.NEXT_PUBLIC_SUPABASE_URL,
-      env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      supabaseUrl,
+      supabaseAnonKey,
       {
         cookies: {
           getAll() {

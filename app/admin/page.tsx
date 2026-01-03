@@ -292,6 +292,7 @@ export default function AdminPage() {
       const response = await fetch("/api/admin/approve", {
         method: "POST",
         headers,
+        credentials: "include", // Required to send cookies (including CSRF token cookie)
         body: JSON.stringify({
           registration_id: registrationId,
           notes: notes || undefined,
@@ -338,6 +339,7 @@ export default function AdminPage() {
       const response = await fetch("/api/admin/export", {
         method: "POST",
         headers,
+        credentials: "include", // Required to send cookies (including CSRF token cookie)
         body: JSON.stringify({
           mode,
           category,

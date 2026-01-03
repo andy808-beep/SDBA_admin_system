@@ -27,6 +27,7 @@
     "openapi-typescript": "^7.10.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "resend": "^6.6.0",
     "sonner": "^2.0.7",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-react": "^5.31.0",

@@ -6,6 +6,8 @@ import { z } from "zod";
 import { trackRpcCall, trackRegistrationEvent } from "@/lib/instrumentation/server";
 import { setSentryUser } from "@/lib/sentry-context";
 import { sanitizeNotes } from "@/lib/sanitize";
+import { sendRegistrationConfirmation } from "@/lib/email";
+import { logger } from "@/lib/logger";
 
 const ApprovePayload = z.object({
   registration_id: z.string().uuid(),
@@ -123,6 +125,11 @@ export async function POST(req: NextRequest) {
     // Track successful approval (fire and forget)
     trackRegistrationEvent("approve", payload.registration_id, user.id, true).catch(() => {});
 
+    // Send confirmation email (fire and forget - don't block response)
+    sendConfirmationEmail(payload.registration_id).catch((err) => {
+      logger.error('Background email send failed:', err);
+    });
+
     // Success: return team_meta_id
     return NextResponse.json({
       ok: true,
@@ -130,6 +137,53 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     return handleApiError(error);
+  }
+}
+
+/**
+ * Fetch registration details and send confirmation email
+ * Runs in background - errors are logged but don't affect response
+ */
+async function sendConfirmationEmail(registrationId: string): Promise<void> {
+  // Fetch registration details
+  const { data: registration, error: fetchError } = await supabaseServer
+    .from('registration_meta')
+    .select('*')
+    .eq('id', registrationId)
+    .single();
+
+  if (fetchError || !registration) {
+    logger.error('Failed to fetch registration for email:', fetchError?.message);
+    return;
+  }
+
+  // Collect emails (filter out empty/null)
+  const emails = [
+    registration.email_1,
+    registration.email_2,
+    registration.email_3,
+  ].filter((e): e is string => Boolean(e));
+
+  if (emails.length === 0) {
+    logger.warn('No emails found for registration:', registrationId);
+    return;
+  }
+
+  // Send email
+  const result = await sendRegistrationConfirmation({
+    emails,
+    managerName: registration.team_manager_1 || 'Team Manager',
+    teamName: registration.team_name,
+    eventType: registration.event_type,
+    category: registration.category || '',
+    referenceNumber: registration.reference_number || registrationId.slice(0, 8).toUpperCase(),
+    totalAmount: registration.total_amount,
+  });
+
+  if (!result.success) {
+    logger.error('Email send failed for registration:', registrationId, result.error);
+  } else {
+    logger.debug('Confirmation email sent for registration:', registrationId);
   }
 }
 

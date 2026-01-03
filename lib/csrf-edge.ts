@@ -4,8 +4,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const CSRF_COOKIE_NAME = "__Host-csrf-token";
+// __Host- prefix requires secure: true, but in development we use http://
+// So we use different cookie names for dev vs production
+const CSRF_COOKIE_NAME_PROD = "__Host-csrf-token";
+const CSRF_COOKIE_NAME_DEV = "csrf-token";
 const CSRF_HEADER_NAME = "X-CSRF-Token";
+
+function getCsrfCookieName(): string {
+  return process.env.NODE_ENV === "production" ? CSRF_COOKIE_NAME_PROD : CSRF_COOKIE_NAME_DEV;
+}
 
 /**
  * Get CSRF token from cookie (Edge Runtime compatible)
@@ -13,7 +20,8 @@ const CSRF_HEADER_NAME = "X-CSRF-Token";
  * @returns CSRF token from cookie or null
  */
 export function getCsrfTokenFromCookie(req: NextRequest): string | null {
-  const cookie = req.cookies.get(CSRF_COOKIE_NAME);
+  const cookieName = getCsrfCookieName();
+  const cookie = req.cookies.get(cookieName);
   return cookie?.value || null;
 }
 
@@ -40,6 +48,18 @@ export function getCsrfTokenFromHeader(req: NextRequest): string | null {
 export function verifyCsrfRequest(req: NextRequest): boolean {
   const cookieToken = getCsrfTokenFromCookie(req);
   const headerToken = getCsrfTokenFromHeader(req);
+
+  // Debug logging in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[CSRF Debug]', {
+      hasCookieToken: !!cookieToken,
+      hasHeaderToken: !!headerToken,
+      cookieTokenPreview: cookieToken ? cookieToken.substring(0, 20) + '...' : 'missing',
+      headerTokenPreview: headerToken ? headerToken.substring(0, 20) + '...' : 'missing',
+      tokensMatch: cookieToken === headerToken,
+      allCookies: req.cookies.getAll().map(c => c.name),
+    });
+  }
 
   // Both cookie and header must be present
   if (!cookieToken || !headerToken) {

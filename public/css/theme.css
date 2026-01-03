@@ -1,0 +1,429 @@
+/* Theme-specific styling for form elements */
+
+/* Stepper theming */
+.stepper-steps .step.active {
+  background: var(--theme-primary) !important;
+  color: white !important;
+}
+
+.stepper-steps .step.completed {
+  background: var(--theme-primary-light) !important;
+  color: var(--theme-primary-dark) !important;
+  border-color: var(--theme-primary) !important;
+}
+
+/* Package/option selection theming */
+.package-option.selected,
+.radio-option input[type="radio"]:checked + label {
+  border-color: var(--theme-primary) !important;
+  background-color: var(--theme-primary-light) !important;
+}
+
+.package-box.selected {
+  border: 2px solid var(--theme-primary) !important;
+  box-shadow: 0 0 0 1px var(--theme-primary) !important;
+}
+
+/* Form input focus states */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--theme-primary) !important;
+  box-shadow: 0 0 0 3px var(--theme-primary-light) !important;
+}
+
+/* Links */
+a {
+  color: var(--theme-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--theme-primary-dark);
+  text-decoration: underline;
+}
+
+/* Radio buttons and checkboxes */
+input[type="radio"]:checked {
+  accent-color: var(--theme-primary);
+}
+
+input[type="checkbox"]:checked {
+  accent-color: var(--theme-primary);
+}
+
+/* Progress indicators */
+.progress-bar {
+  background-color: var(--theme-primary) !important;
+}
+
+/* Headers with theme color */
+h1, h2 {
+  color: #2c3e50;
+}
+
+h3 {
+  color: var(--theme-primary-dark);
+}
+
+/* Event-specific header colors */
+body[data-event="tn"] h1,
+body[data-event="tn"] h2 {
+  color: #c79100;
+}
+
+body[data-event="wu"] h1,
+body[data-event="wu"] h2 {
+  color: #005090;
+}
+
+body[data-event="sc"] h1,
+body[data-event="sc"] h2 {
+  color: #007a3d;
+}
+
+/* Team section borders */
+.team-section {
+  border-left: 4px solid var(--theme-primary);
+}
+
+/* Selected items highlight */
+.selected-item,
+.active-item {
+  background-color: var(--theme-primary-light) !important;
+  border-color: var(--theme-primary) !important;
+}
+
+/* Badge/tag colors */
+.badge, .tag {
+  background-color: var(--theme-primary);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Alert/info boxes */
+.info-box {
+  background-color: var(--theme-primary-light);
+  border-left: 4px solid var(--theme-primary);
+  padding: 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+/* Field error styling - ERROR MESSAGE DIVS ONLY */
+/* This class should ONLY be used for error message divs, not input fields */
+div.field-error {
+  display: none;
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background-color: #fee2e2;
+  border-left: 3px solid #dc2626;
+  border-radius: 0.25rem;
+  animation: slideDown 0.2s ease-out;
+}
+
+div.field-error:empty {
+  display: none !important;
+}
+
+/* Input fields with errors - keep visible but styled */
+/* Input fields should use 'error' class, not 'field-error' */
+input.error,
+select.error,
+textarea.error {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+  /* DO NOT set display: none - fields must remain visible */
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+input.error,
+select.error,
+textarea.error {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+}
+
+/* Application Deadline Styling */
+.deadline-label {
+  color: #dc2626; /* Red */
+  font-weight: 600;
+}
+
+.deadline-date {
+  color: #000000; /* Black */
+  font-weight: 400;
+}
+
+/**
+ * SCROLL BEHAVIOR ENHANCEMENTS
+ * Add to theme.css or create scroll.css
+ */
+
+/* ===================================================================
+   SMOOTH SCROLLING BASELINE
+   =================================================================== */
+
+   html {
+    /* Enable smooth scrolling for anchor links */
+    scroll-behavior: smooth;
+  }
+  
+  /* Disable smooth scroll for users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+  
+  body {
+    /* Ensure no top padding interferes with scroll position */
+    scroll-padding-top: 0;
+  }
+  
+  /* ===================================================================
+     WIZARD STEPS - SCROLL POSITIONING
+     =================================================================== */
+  
+  .wizard-step {
+    /* Ensure steps start from top when scrolling */
+    scroll-margin-top: 0;
+    
+    /* Prevent content shift during transitions */
+    min-height: 100vh;
+  }
+  
+  /* For sticky headers (if you have them) */
+  .sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: white;
+  }
+  
+  /* Adjust scroll position when sticky header is present */
+  .has-sticky-header .wizard-step {
+    scroll-margin-top: 80px; /* Match header height */
+  }
+  
+  /* ===================================================================
+     ERROR MESSAGES - ENSURE VISIBILITY
+     =================================================================== */
+  
+  .error-message,
+  .validation-error,
+  .alert-danger {
+    /* Offset scroll to show error message with padding */
+    scroll-margin-top: 20px;
+    scroll-margin-bottom: 20px;
+  }
+  
+  /* Scroll to first error smoothly */
+  .field-error {
+    scroll-margin-top: 100px; /* Room for error message above field */
+  }
+  
+  /* ===================================================================
+     FORM SECTIONS - SCROLL ANCHORS
+     =================================================================== */
+  
+  /* For forms with section anchors */
+  .form-section[id] {
+    scroll-margin-top: 80px;
+  }
+  
+  /* ===================================================================
+     LOADING STATES - PREVENT SCROLL JUMP
+     =================================================================== */
+  
+  .loading-overlay {
+    /* Keep scroll position when showing loading */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+  }
+  
+  /* Prevent body scroll when modal/loading is open */
+  body.scroll-locked {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+  
+  /* ===================================================================
+     MODAL FORMS - SCROLL BEHAVIOR
+     =================================================================== */
+  
+  .modal-content {
+    /* Enable smooth scrolling inside modals */
+    scroll-behavior: smooth;
+    overflow-y: auto;
+    max-height: 90vh;
+  }
+  
+  /* Ensure modal content starts at top */
+  .modal-body {
+    scroll-margin-top: 0;
+  }
+  
+  /* ===================================================================
+     MOBILE OPTIMIZATION
+     =================================================================== */
+  
+  @media (max-width: 768px) {
+    /* Adjust scroll margins for mobile */
+    .wizard-step {
+      scroll-margin-top: 0;
+    }
+    
+    .error-message {
+      scroll-margin-top: 10px;
+    }
+    
+    .field-error {
+      scroll-margin-top: 60px;
+    }
+  }
+  
+  /* Prevent iOS Safari bounce scroll at top/bottom */
+  @supports (-webkit-touch-callout: none) {
+    body {
+      overscroll-behavior-y: none;
+    }
+  }
+  
+  /* ===================================================================
+     FOCUS MANAGEMENT - ACCESSIBILITY
+     =================================================================== */
+  
+  /* Ensure focused elements are visible when scrolling */
+  :focus {
+    scroll-margin: 20px;
+  }
+  
+  /* Skip to content link (accessibility) */
+  .skip-to-content {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #000;
+    color: white;
+    padding: 8px;
+    z-index: 10000;
+    text-decoration: none;
+  }
+  
+  .skip-to-content:focus {
+    top: 0;
+  }
+  
+  /* ===================================================================
+     SMOOTH TRANSITIONS
+     =================================================================== */
+  
+  /* Smooth fade-in for step changes */
+  .wizard-step {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Prevent animation on initial page load */
+  .wizard-step.no-animation {
+    animation: none;
+  }
+  
+  /* ===================================================================
+     SCROLL INDICATORS
+     =================================================================== */
+  
+  /* Optional: Show scroll indicator if content is long */
+  .scroll-indicator {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 1000;
+  }
+  
+  .scroll-indicator.visible {
+    opacity: 1;
+  }
+  
+  .scroll-indicator:hover {
+    background: rgba(0, 0, 0, 0.9);
+  }
+  
+  /* ===================================================================
+     PRINT STYLES - DISABLE SMOOTH SCROLL
+     =================================================================== */
+  
+  @media print {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+  
+  /* ===================================================================
+     DEBUG MODE
+     =================================================================== */
+  
+  /* Add visual indicator when scroll-to-top fires (development only) */
+  body[data-debug-scroll="true"]::before {
+    content: "Scroll Event";
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: #4CAF50;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-size: 12px;
+    z-index: 10000;
+    animation: flashScroll 0.5s ease-out;
+  }
+  
+  @keyframes flashScroll {
+    0% { opacity: 0; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.1); }
+    100% { opacity: 0; transform: scale(1); }
+  }

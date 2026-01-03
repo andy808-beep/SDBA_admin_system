@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 import { createHmac, randomBytes } from "crypto";
 
 const CSRF_COOKIE_NAME = "__Host-csrf-token";
+const CSRF_COOKIE_NAME_DEV = "csrf-token";
 const CSRF_HEADER_NAME = "X-CSRF-Token";
 
 /**
@@ -94,8 +95,10 @@ function timingSafeEqual(a: string, b: string): boolean {
  * @returns CSRF token from cookie or null
  */
 export function getCsrfTokenFromCookie(req: NextRequest): string | null {
-  const cookie = req.cookies.get(CSRF_COOKIE_NAME);
-  return cookie?.value || null;
+  // Try both cookie names (dev and prod) for compatibility
+  const prodCookie = req.cookies.get(CSRF_COOKIE_NAME);
+  const devCookie = req.cookies.get(CSRF_COOKIE_NAME_DEV);
+  return prodCookie?.value || devCookie?.value || null;
 }
 
 /**
@@ -113,13 +116,17 @@ export function getCsrfTokenFromHeader(req: NextRequest): string | null {
  * @param token - CSRF token to set
  */
 export function setCsrfTokenCookie(res: NextResponse, token: string): void {
-  res.cookies.set(CSRF_COOKIE_NAME, token, {
+  // __Host- prefix requires secure: true, but in development we use http://
+  // So we need to use a different cookie name in development
+  const cookieName = process.env.NODE_ENV === "production" 
+    ? CSRF_COOKIE_NAME  // __Host-csrf-token (requires secure: true)
+    : "csrf-token";     // Regular cookie name for development
+  
+  res.cookies.set(cookieName, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
-    // Use __Host- prefix requires secure and path=/
-    // This prevents subdomain cookie attacks
   });
 }
 
