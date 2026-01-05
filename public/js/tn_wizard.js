@@ -2776,6 +2776,78 @@ function saveTeamData() {
 }
 
 /**
+ * Render per-team steersman selection cards for TN
+ */
+function renderSteersmanCards() {
+  const container = document.getElementById('steersmanCardsContainer');
+  if (!container) {
+    console.warn('⚠️ steersmanCardsContainer not found');
+    return;
+  }
+  
+  // Get team data from sessionStorage
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  if (teamCount === 0) {
+    console.warn('⚠️ No teams found, cannot render steersman cards');
+    return;
+  }
+  
+  // Get current language for team name display
+  const currentLang = window.i18n?.currentLang || 'en';
+  
+  // Translation keys
+  const translations = {
+    withPractice: currentLang === 'zh' 
+      ? '練習時已聘用舵手 – HK$800' 
+      : 'Hired steersman during practice – HK$800',
+    noPractice: currentLang === 'zh'
+      ? '練習時沒有聘用舵手 – HK$1,500'
+      : 'Did not hire steersman during practice – HK$1,500',
+    notRequired: currentLang === 'zh' ? '不需要' : 'Not required'
+  };
+  
+  container.innerHTML = '';
+  
+  // Render a card for each team
+  for (let i = 0; i < teamCount; i++) {
+    const teamIndex = i + 1;
+    const teamNameEn = sessionStorage.getItem(`tn_team_name_en_${teamIndex}`) || '';
+    const teamNameTc = sessionStorage.getItem(`tn_team_name_tc_${teamIndex}`) || '';
+    const teamName = currentLang === 'zh' && teamNameTc ? teamNameTc : teamNameEn;
+    
+    // Get saved selection (if any)
+    const savedOption = sessionStorage.getItem(`tn_team_${teamIndex}_steersman_option`) || 'not_required';
+    
+    const card = document.createElement('div');
+    card.className = 'team-steersman-card';
+    card.setAttribute('data-team-index', i);
+    
+    card.innerHTML = `
+      <div class="team-steersman-header">Team ${teamIndex}: ${teamName || `Team ${teamIndex}`}</div>
+      <div class="team-steersman-options">
+        <select name="steersman_team_${i}" id="steersman_team_${i}" class="steersman-select">
+          <option value="not_required" ${savedOption === 'not_required' || savedOption === '' ? 'selected' : ''}>${translations.notRequired}</option>
+          <option value="with_practice" ${savedOption === 'with_practice' ? 'selected' : ''}>${translations.withPractice}</option>
+          <option value="no_practice" ${savedOption === 'no_practice' ? 'selected' : ''}>${translations.noPractice}</option>
+        </select>
+      </div>
+    `;
+    
+    container.appendChild(card);
+    
+    // Add change listener to save selection
+    const select = card.querySelector('select.steersman-select');
+    if (select) {
+      select.addEventListener('change', () => {
+        sessionStorage.setItem(`tn_team_${teamIndex}_steersman_option`, select.value);
+      });
+    }
+  }
+  
+  console.log(`✅ Rendered ${teamCount} steersman selection cards`);
+}
+
+/**
  * Initialize Step 3 - Race Day Arrangement
  */
 async function initStep3() {
@@ -2830,12 +2902,13 @@ async function initStep3() {
   // Wait a tick for DOM to fully settle after template cloning
   await new Promise(resolve => setTimeout(resolve, 50));
   
+  // Render per-team steersman selection cards
+  renderSteersmanCards();
+  
   // Diagnostic: Check if all expected fields exist
   console.log('\n🎯 initStep3: Checking Step 3 fields:');
   const expectedFields = [
     'marqueeQty',
-    'steerWithQty', 
-    'steerWithoutQty',
     'junkBoatNo',      // ← Boat license number
     'junkBoatQty',     // ← Boat quantity
     'speedBoatNo',     // ← Boat license number
@@ -2876,6 +2949,10 @@ async function initStep3() {
   // Wait a bit more to ensure DOM is fully ready
   setTimeout(() => {
     setupStep3Navigation();
+    // Set up license field listeners for dynamic license fields
+    setupLicenseFieldListeners();
+    // Set up max limit enforcement for quantity inputs
+    setupQuantityLimitEnforcement();
   }, 100);
   
   // Load saved data if available (legacy function)
@@ -2976,24 +3053,17 @@ async function createRaceDayForm() {
                   <span class="item-price"><span data-i18n="unitPrice">${t('unitPrice')}</span> ${t('hkDollar')}${item.listed_unit_price}</span>
                 </div>
                 <div class="item-controls">
-                  ${needsBoatNumber ? `
-                    <div class="boat-number-row" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
-                      <label for="${boatNoFieldId}" style="white-space: nowrap;" data-i18n="${isJunkBoat ? 'pleasureBoatNo' : 'speedBoatNo'}">
-                        ${isJunkBoat ? t('pleasureBoatNo') : t('speedBoatNo')}:
-                      </label>
-                      <input type="text" 
-                             id="${boatNoFieldId}" 
-                             name="${boatNoFieldId}" 
-                             style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" />
-                    </div>
-                  ` : ''}
                   <input type="number" 
                          id="${item.item_code}Qty" 
                          name="${item.item_code}Qty" 
                          min="${item.min_qty || 0}" 
                          max="${item.max_qty || ''}"
                          value="0" 
-                         class="qty-input" />
+                         class="qty-input" 
+                         data-license-type="${isJunkBoat ? 'junk' : isSpeedBoat ? 'speed' : ''}" />
+                  ${needsBoatNumber ? `
+                    <div id="${isJunkBoat ? 'junkBoatLicenseContainer' : 'speedBoatLicenseContainer'}" class="license-fields-container" style="margin-top: 0.5rem; margin-bottom: 0.5rem;"></div>
+                  ` : ''}
                   <div class="field-error-message" id="error-${item.item_code}Qty"></div>
                 </div>
               </div>
@@ -3029,21 +3099,14 @@ async function createRaceDayForm() {
                     <span class="item-price"><span data-i18n="unitPrice">${t('unitPrice')}</span> ${t('hkDollar')}2,500</span>
                   </div>
                   <div class="item-controls">
-                    <div class="boat-number-row" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
-                      <label for="junkBoatNo" style="white-space: nowrap;" data-i18n="pleasureBoatNo">
-                        ${t('pleasureBoatNo')}:
-                      </label>
-                      <input type="text" 
-                             id="junkBoatNo" 
-                             name="junkBoatNo" 
-                             style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" />
-                    </div>
                     <input type="number" 
                            id="junkBoatQty" 
                            name="junkBoatQty" 
                            min="0" 
                            value="0" 
-                           class="qty-input" />
+                           class="qty-input"
+                           data-license-type="junk" />
+                    <div id="junkBoatLicenseContainer" class="license-fields-container" style="margin-top: 0.5rem; margin-bottom: 0.5rem;"></div>
                   </div>
                 </div>
               </div>
@@ -3062,21 +3125,14 @@ async function createRaceDayForm() {
                     <span class="item-price"><span data-i18n="unitPrice">${t('unitPrice')}</span> ${t('hkDollar')}1,500</span>
                   </div>
                   <div class="item-controls">
-                    <div class="boat-number-row" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
-                      <label for="speedBoatNo" style="white-space: nowrap;" data-i18n="speedBoatNo">
-                        ${t('speedBoatNo')}:
-                      </label>
-                      <input type="text" 
-                             id="speedBoatNo" 
-                             name="speedBoatNo" 
-                             style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" />
-                    </div>
                     <input type="number" 
                            id="speedboatQty" 
                            name="speedboatQty" 
                            min="0" 
                            value="0" 
-                           class="qty-input" />
+                           class="qty-input"
+                           data-license-type="speed" />
+                    <div id="speedBoatLicenseContainer" class="license-fields-container" style="margin-top: 0.5rem; margin-bottom: 0.5rem;"></div>
                   </div>
                 </div>
               </div>
@@ -3100,6 +3156,9 @@ async function createRaceDayForm() {
     
     // Set up navigation handlers
     setupStep3Navigation();
+    
+    // Set up quantity change listeners for license fields
+    setupLicenseFieldListeners();
     
 	Logger.debug('🎯 createRaceDayForm: Race day form created successfully');
     
@@ -3321,6 +3380,153 @@ function setupStep3Navigation() {
   }
   
   Logger.debug('🎯 setupStep3Navigation: Step 3 navigation handlers attached');
+}
+
+/**
+ * Render license number input fields based on quantity
+ */
+function renderLicenseFields(type, qty) {
+  // type = 'junk' or 'speed'
+  const container = document.getElementById(`${type}BoatLicenseContainer`);
+  if (!container) return;
+  
+  container.innerHTML = ''; // Clear existing
+  
+  const t = (key) => window.i18n ? window.i18n.t(key) : key;
+  const labelText = type === 'junk' ? t('pleasureBoatNo') : t('speedBoatNo');
+  
+  for (let i = 1; i <= qty; i++) {
+    const div = document.createElement('div');
+    div.className = 'license-field';
+    div.style.cssText = 'margin-bottom: 0.5rem; display: flex; align-items: center; gap: 1rem;';
+    div.innerHTML = `
+      <label for="${type}BoatLicense${i}" style="white-space: nowrap; min-width: 120px;">License #${i}:</label>
+      <input type="text" 
+             id="${type}BoatLicense${i}" 
+             name="${type}BoatLicense${i}"
+             placeholder="Enter license number"
+             style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" />
+    `;
+    container.appendChild(div);
+  }
+  
+  // Restore saved license values if available
+  const savedLicenses = JSON.parse(sessionStorage.getItem(`tn_${type}BoatLicenses`) || '[]');
+  savedLicenses.forEach((license, index) => {
+    const input = document.getElementById(`${type}BoatLicense${index + 1}`);
+    if (input) input.value = license;
+  });
+}
+
+/**
+ * Set up event listeners for quantity inputs to render license fields
+ */
+function setupLicenseFieldListeners() {
+  // Find all quantity inputs with data-license-type attribute
+  const qtyInputs = document.querySelectorAll('.qty-input[data-license-type]');
+  
+  qtyInputs.forEach(input => {
+    if (input.dataset.licenseListenerAttached === 'true') return;
+    
+    const licenseType = input.dataset.licenseType;
+    if (!licenseType || (licenseType !== 'junk' && licenseType !== 'speed')) return;
+    
+    const handler = function() {
+      const qty = parseInt(this.value || '0', 10);
+      renderLicenseFields(licenseType, qty);
+    };
+    
+    input.addEventListener('change', handler);
+    input.addEventListener('input', handler);
+    input.dataset.licenseListenerAttached = 'true';
+    
+    // Initial render if value exists
+    const initialQty = parseInt(input.value || '0', 10);
+    if (initialQty > 0) {
+      renderLicenseFields(licenseType, initialQty);
+    }
+  });
+  
+  // Also handle specific IDs for fallback fields
+  const junkBoatQty = document.getElementById('junkBoatQty');
+  if (junkBoatQty && !junkBoatQty.dataset.licenseListenerAttached) {
+    const handler = function() {
+      const qty = parseInt(this.value || '0', 10);
+      renderLicenseFields('junk', qty);
+    };
+    junkBoatQty.addEventListener('change', handler);
+    junkBoatQty.addEventListener('input', handler);
+    junkBoatQty.dataset.licenseListenerAttached = 'true';
+    
+    const initialQty = parseInt(junkBoatQty.value || '0', 10);
+    if (initialQty > 0) {
+      renderLicenseFields('junk', initialQty);
+    }
+  }
+  
+  const speedboatQty = document.getElementById('speedboatQty');
+  if (speedboatQty && !speedboatQty.dataset.licenseListenerAttached) {
+    const handler = function() {
+      const qty = parseInt(this.value || '0', 10);
+      renderLicenseFields('speed', qty);
+    };
+    speedboatQty.addEventListener('change', handler);
+    speedboatQty.addEventListener('input', handler);
+    speedboatQty.dataset.licenseListenerAttached = 'true';
+    
+    const initialQty = parseInt(speedboatQty.value || '0', 10);
+    if (initialQty > 0) {
+      renderLicenseFields('speed', initialQty);
+    }
+  }
+}
+
+/**
+ * Set up quantity limit enforcement for race day quantity inputs
+ * Enforces max limit of 25 when users type values manually
+ */
+function setupQuantityLimitEnforcement() {
+  const MAX_QTY = 25;
+  const quantityInputIds = ['marqueeQty', 'junkBoatQty', 'speedboatQty'];
+  
+  quantityInputIds.forEach(inputId => {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    
+    // Check if listener already attached
+    if (input.dataset.limitEnforcementAttached === 'true') return;
+    
+    // Add input event listener to enforce max limit
+    input.addEventListener('input', function() {
+      const value = parseInt(this.value, 10);
+      
+      // If value is greater than max, clamp it to max
+      if (!isNaN(value) && value > MAX_QTY) {
+        this.value = MAX_QTY;
+        // Trigger change event to update any dependent fields
+        this.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    
+    // Also enforce on blur (when user leaves the field)
+    input.addEventListener('blur', function() {
+      const value = parseInt(this.value, 10);
+      
+      if (!isNaN(value)) {
+        if (value < 0) {
+          this.value = 0;
+        } else if (value > MAX_QTY) {
+          this.value = MAX_QTY;
+        }
+        // Trigger change event to update any dependent fields
+        this.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    
+    input.dataset.limitEnforcementAttached = 'true';
+  });
+  
+  console.log('✅ Quantity limit enforcement set up for race day inputs');
 }
 
 /**
@@ -4644,6 +4850,18 @@ function addStep3Styles() {
       font-size: 0.9rem;
     }
     
+    /* Marquee price should be black */
+    #tnScope #marqueePrice {
+      color: #000 !important;
+    }
+    
+    /* Athlete Marquee label - theme color */
+    #tnScope label[for="marqueeQty"] {
+      color: var(--theme-primary-dark, #c79100) !important;
+      font-weight: 600;
+      font-size: 1.2rem;
+    }
+    
     #tnScope .item-controls {
       margin-left: 1rem;
     }
@@ -4666,6 +4884,48 @@ function addStep3Styles() {
     
     #tnScope .qty-input:invalid {
       border-color: #dc3545;
+    }
+    
+    /* Per-team Steersman Selection Cards */
+    #tnScope .steersman-per-team-section {
+      margin: 2rem 0;
+    }
+    
+    #tnScope .steersman-per-team-section h4 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--theme-primary-dark, #c79100) !important;
+    }
+    
+    #tnScope .team-steersman-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      background: #fafafa;
+    }
+    
+    #tnScope .team-steersman-header {
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #333;
+    }
+    
+    #tnScope .team-steersman-options .steersman-select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      background: white;
+      cursor: pointer;
+    }
+    
+    #tnScope .team-steersman-options .steersman-select:focus {
+      outline: none;
+      border-color: #007acc;
+      box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
     }
     
     @media (max-width: 768px) {
@@ -5741,7 +6001,7 @@ async function testSubmissionWithCurrentData() {
       race_day: raceDay.length > 0 ? raceDay.map(item => ({
         item_code: item.code,
         qty: item.qty,
-        ...(item.boat_no && { boat_no: item.boat_no })
+        ...(item.boat_nos && { boat_nos: item.boat_nos })
       })).filter(item => item.qty > 0) : null,
       practice: practice
     };
@@ -8077,22 +8337,33 @@ function saveStep3Data() {
     console.log(`  Saved ${input.id}: ${value}`);
   });
 
-  // TEXT fields for boat numbers
-  const junkBoatNo = document.getElementById('junkBoatNo');
-  const speedBoatNo = document.getElementById('speedBoatNo');
-  
-  if (junkBoatNo) {
-    raceDayData.junkBoatNo = junkBoatNo.value || '';
-    console.log('  ✓ Saved junkBoatNo:', junkBoatNo.value || '(empty)');
-  } else {
-    console.warn('  ⚠️  junkBoatNo field not found in DOM');
+  // Collect junk boat licenses as array
+  const junkLicenses = [];
+  const junkQty = parseInt(document.getElementById('junkBoatQty')?.value || '0');
+  for (let i = 1; i <= junkQty; i++) {
+    const license = document.getElementById(`junkBoatLicense${i}`)?.value?.trim();
+    if (license) junkLicenses.push(license);
   }
+  sessionStorage.setItem('tn_junkBoatLicenses', JSON.stringify(junkLicenses));
+  console.log('  ✓ Saved junkBoatLicenses:', junkLicenses.length, 'license(s)');
   
-  if (speedBoatNo) {
-    raceDayData.speedBoatNo = speedBoatNo.value || '';
-    console.log('  ✓ Saved speedBoatNo:', speedBoatNo.value || '(empty)');
-  } else {
-    console.warn('  ⚠️  speedBoatNo field not found in DOM');
+  // Collect speed boat licenses as array
+  const speedLicenses = [];
+  const speedQty = parseInt(document.getElementById('speedboatQty')?.value || '0');
+  for (let i = 1; i <= speedQty; i++) {
+    const license = document.getElementById(`speedBoatLicense${i}`)?.value?.trim();
+    if (license) speedLicenses.push(license);
+  }
+  sessionStorage.setItem('tn_speedBoatLicenses', JSON.stringify(speedLicenses));
+  console.log('  ✓ Saved speedBoatLicenses:', speedLicenses.length, 'license(s)');
+
+  // Save steersman options for each team
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  for (let i = 0; i < teamCount; i++) {
+    const select = document.querySelector(`select[name="steersman_team_${i}"]`);
+    if (select) {
+      sessionStorage.setItem(`tn_team_${i+1}_steersman_option`, select.value);
+    }
   }
 
   // Save to sessionStorage
@@ -8198,6 +8469,10 @@ function collectTeamData() {
     const teamCategory = sessionStorage.getItem(`tn_team_category_${i+1}`);
     const teamOption = sessionStorage.getItem(`tn_team_option_${i+1}`);
     
+    // Get steersman option from dropdown or sessionStorage
+    const select = document.querySelector(`select[name="steersman_team_${i}"]`);
+    const steersmanOption = select ? select.value : (sessionStorage.getItem(`tn_team_${i+1}_steersman_option`) || 'not_required');
+    
     if (teamNameEn) {
       teams.push({
         name: teamNameEn, // Keep 'name' for backward compatibility, but it's now name_en
@@ -8205,6 +8480,7 @@ function collectTeamData() {
         name_tc: teamNameTc || '',
         category: teamCategory,
         option: teamOption,
+        race_day_steersman_option: steersmanOption,
         index: i
       });
     }
@@ -8217,29 +8493,36 @@ function collectRaceDayData() {
   // TN form stores race day data as 'tn_race_day', not 'race_day_arrangement'
   const raceDayData = JSON.parse(sessionStorage.getItem('tn_race_day') || '{}');
   
+  // Get license arrays from sessionStorage
+  const junkLicenses = JSON.parse(sessionStorage.getItem('tn_junkBoatLicenses') || '[]');
+  const speedLicenses = JSON.parse(sessionStorage.getItem('tn_speedBoatLicenses') || '[]');
+  
   const items = [];
   if (raceDayData.marqueeQty > 0) {
     items.push({ code: 'marquee', qty: raceDayData.marqueeQty });
   }
-  if (raceDayData.steerWithQty > 0) {
-    items.push({ code: 'steer_with', qty: raceDayData.steerWithQty });
-  }
-  if (raceDayData.steerWithoutQty > 0) {
-    items.push({ code: 'steer_without', qty: raceDayData.steerWithoutQty });
-  }
+  // Note: Steersman quantities removed - now handled per-team via race_day_steersman_option
   if (raceDayData.junkBoatQty > 0) {
-    items.push({ 
+    const item = { 
       code: 'junk_boat', 
-      qty: raceDayData.junkBoatQty,
-      boat_no: raceDayData.junkBoatNo 
-    });
+      qty: raceDayData.junkBoatQty
+    };
+    // Send all licenses as boat_nos array
+    if (junkLicenses.length > 0) {
+      item.boat_nos = junkLicenses;
+    }
+    items.push(item);
   }
   if (raceDayData.speedboatQty > 0) {
-    items.push({ 
+    const item = { 
       code: 'speed_boat', 
-      qty: raceDayData.speedboatQty,
-      boat_no: raceDayData.speedBoatNo 
-    });
+      qty: raceDayData.speedboatQty
+    };
+    // Send all licenses as boat_nos array
+    if (speedLicenses.length > 0) {
+      item.boat_nos = speedLicenses;
+    }
+    items.push(item);
   }
   
   return items;
@@ -8353,11 +8636,12 @@ async function submitTNForm() {
       team_names_en: teams.map(t => t.name_en || t.name),
       team_names_tc: teams.map(t => t.name_tc || ''),
       team_options: teams.map(t => t.option),
+      team_race_day_steersman_options: teams.map(t => t.race_day_steersman_option || 'not_required'),
       managers: managers,
       race_day: raceDay.length > 0 ? raceDay.map(item => ({
         item_code: item.code,
         qty: item.qty,
-        ...(item.boat_no && { boat_no: item.boat_no })
+        ...(item.boat_nos && { boat_nos: item.boat_nos })
       })).filter(item => item.qty > 0) : null,
       practice: practice
     };
@@ -8905,7 +9189,7 @@ if (window.__DEV__) {
         race_day: raceDay.length > 0 ? raceDay.map(item => ({
           item_code: item.code,
           qty: item.qty,
-          ...(item.boat_no && { boat_no: item.boat_no })
+          ...(item.boat_nos && { boat_nos: item.boat_nos })
         })).filter(item => item.qty > 0) : null,
         practice: practice
       };
@@ -8951,7 +9235,7 @@ if (window.__DEV__) {
         race_day: raceDay.length > 0 ? raceDay.map(item => ({
           item_code: item.code,
           qty: item.qty,
-          ...(item.boat_no && { boat_no: item.boat_no })
+          ...(item.boat_nos && { boat_nos: item.boat_nos })
         })).filter(item => item.qty > 0) : null,
         practice: practice
       };

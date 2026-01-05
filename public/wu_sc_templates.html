@@ -66,42 +66,32 @@
         <h3 data-i18n="athleteMarquee">Athlete Marquee</h3>
         <div class="line-row">
           <span id="marqueePrice"><span data-i18n="unitPrice">Unit Price:</span> HK$800</span>
-          <input type="number" id="marqueeQty" name="marqueeQty" min="0" value="0" />
+          <input type="number" id="marqueeQty" name="marqueeQty" min="0" max="25" value="0" />
         </div>
       </div>
 
-      <div class="section">
-        <h3 data-i18n="officialSteersman">Official Steersman</h3>
-        <p data-i18n="teamsHiredSteersman">Teams hired Official Steersman during practice</p>
-        <div class="line-row">
-          <span id="steerWithPrice"><span data-i18n="unitPrice">Unit Price:</span> HK$800</span>
-          <input type="number" id="steerWithQty" name="steerWithQty" min="0" value="0" />
-        </div>
-        <p data-i18n="teamsNotHiredSteersman">Teams DID NOT hire Official Steersman during practice</p>
-        <div class="line-row">
-          <span id="steerWithoutPrice"><span data-i18n="unitPrice">Unit Price:</span> HK$1,500</span>
-          <input type="number" id="steerWithoutQty" name="steerWithoutQty" min="0" value="0" />
-        </div>
+      <!-- Per-Team Official Steersman Selection -->
+      <div class="steersman-per-team-section">
+        <h4>Official Steersman For Race Day</h4>
+        <div id="steersmanCardsContainer"></div>
       </div>
 
       <div class="section">
         <h3 data-i18n="junkRegistration">Junk Registration</h3>
         <div class="line-row">
-          <label for="junkBoatNo" data-i18n="pleasureBoatNo">Pleasure Boat No.:</label>
-          <input type="text" id="junkBoatNo" name="junkBoatNo" />
           <span id="junkPrice">HK$2,500</span>
-          <input type="number" id="junkBoatQty" name="junkBoatQty" min="0" value="0"/>
+          <input type="number" id="junkBoatQty" name="junkBoatQty" min="0" max="25" value="0"/>
         </div>
+        <div id="junkBoatLicenseContainer" style="margin-top: 0.5rem;"></div>
       </div>
 
       <div class="section">
         <h3 data-i18n="speedBoatRegistration">Speed Boat Registration</h3>
         <div class="line-row">
-          <label for="speedBoatNo" data-i18n="speedBoatNo">Speed Boat No.:</label>
-          <input type="text" id="speedBoatNo" name="speedBoatNo" />
           <span id="speedPrice">HK$1,500</span>
-          <input type="number" id="speedboatQty" name="speedboatQty" min="0" value="0"/>
+          <input type="number" id="speedboatQty" name="speedboatQty" min="0" max="25" value="0"/>
         </div>
+        <div id="speedBoatLicenseContainer" style="margin-top: 0.5rem;"></div>
       </div>
 
       <p class="msg" id="formMsg"></p>

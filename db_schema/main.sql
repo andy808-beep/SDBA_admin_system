@@ -279,6 +279,14 @@ CREATE TABLE IF NOT EXISTS public.team_meta (
   -- Link back to header registration (optional)
   registration_id uuid,
 
+  -- Race day order quantities (only populated on primary team - first team in registration)
+  marquee_qty INTEGER DEFAULT 0 CHECK (marquee_qty >= 0),
+  race_day_steersman_option TEXT CHECK (race_day_steersman_option IN ('with_practice', 'no_practice', 'not_required')),
+  junk_boat_qty INTEGER DEFAULT 0 CHECK (junk_boat_qty >= 0),
+  junk_boat_license_nos TEXT[],
+  speed_boat_qty INTEGER DEFAULT 0 CHECK (speed_boat_qty >= 0),
+  speed_boat_license_nos TEXT[],
+
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
 
@@ -572,12 +580,11 @@ create table public.registration_meta (
 
   -- Race day order quantities (only populated on primary team - first team in registration)
   marquee_qty INTEGER DEFAULT 0 CHECK (marquee_qty >= 0),
-  steer_with_qty INTEGER DEFAULT 0 CHECK (steer_with_qty >= 0),
-  steer_without_qty INTEGER DEFAULT 0 CHECK (steer_without_qty >= 0),
+  race_day_steersman_option TEXT CHECK (race_day_steersman_option IN ('with_practice', 'no_practice', 'not_required')),
   junk_boat_qty INTEGER DEFAULT 0 CHECK (junk_boat_qty >= 0),
-  junk_boat_no TEXT,
+  junk_boat_license_nos TEXT[],
   speed_boat_qty INTEGER DEFAULT 0 CHECK (speed_boat_qty >= 0),
-  speed_boat_no TEXT,
+  speed_boat_license_nos TEXT[],
 
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -729,6 +736,14 @@ CREATE TABLE IF NOT EXISTS public.wu_team_meta (
   -- Link back to registration
   registration_id uuid REFERENCES public.registration_meta(id),
 
+  -- Race day order quantities (only populated on primary team - first team in registration)
+  marquee_qty INTEGER DEFAULT 0 CHECK (marquee_qty >= 0),
+  race_day_steersman_option TEXT CHECK (race_day_steersman_option IN ('with_practice', 'no_practice', 'not_required')),
+  junk_boat_qty INTEGER DEFAULT 0 CHECK (junk_boat_qty >= 0),
+  junk_boat_license_nos TEXT[],
+  speed_boat_qty INTEGER DEFAULT 0 CHECK (speed_boat_qty >= 0),
+  speed_boat_license_nos TEXT[],
+
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
 
@@ -835,6 +850,14 @@ CREATE TABLE IF NOT EXISTS public.sc_team_meta (
 
   -- Link back to registration
   registration_id uuid REFERENCES public.registration_meta(id),
+
+  -- Race day order quantities (only populated on primary team - first team in registration)
+  marquee_qty INTEGER DEFAULT 0 CHECK (marquee_qty >= 0),
+  race_day_steersman_option TEXT CHECK (race_day_steersman_option IN ('with_practice', 'no_practice', 'not_required')),
+  junk_boat_qty INTEGER DEFAULT 0 CHECK (junk_boat_qty >= 0),
+  junk_boat_license_nos TEXT[],
+  speed_boat_qty INTEGER DEFAULT 0 CHECK (speed_boat_qty >= 0),
+  speed_boat_license_nos TEXT[],
 
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -1092,8 +1115,7 @@ BEGIN
     AND event_short_ref = reg_record.event_short_ref
     AND (
       marquee_qty > 0 OR
-      steer_with_qty > 0 OR
-      steer_without_qty > 0 OR
+      (race_day_steersman_option IS NOT NULL AND race_day_steersman_option != 'not_required') OR
       junk_boat_qty > 0 OR
       speed_boat_qty > 0
     )
@@ -1112,15 +1134,56 @@ BEGIN
       team_manager_1, mobile_1, email_1,
       team_manager_2, mobile_2, email_2,
       team_manager_3, mobile_3, email_3,
-      registration_id
+      registration_id,
+      race_day_steersman_option
     ) VALUES (
       reg_record.user_id, reg_record.season, reg_record.category, reg_record.division_code, reg_record.option_choice,
       reg_record.team_code, reg_record.team_name_en, reg_record.team_name_tc, reg_record.org_name, reg_record.org_address,
       reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
       reg_record.team_manager_2, reg_record.mobile_2, reg_record.email_2,
       reg_record.team_manager_3, reg_record.mobile_3, reg_record.email_3,
-      reg_record.id
+      reg_record.id,
+      reg_record.race_day_steersman_option
     ) RETURNING id INTO new_team_id;
+    
+    -- Copy race day data to team_meta (only if this team has race day data)
+    IF COALESCE(reg_record.marquee_qty, 0) > 0 
+       OR COALESCE(reg_record.junk_boat_qty, 0) > 0
+       OR COALESCE(reg_record.speed_boat_qty, 0) > 0 THEN
+      UPDATE public.team_meta SET
+        marquee_qty = COALESCE(reg_record.marquee_qty, 0),
+        junk_boat_qty = COALESCE(reg_record.junk_boat_qty, 0),
+        junk_boat_license_nos = reg_record.junk_boat_license_nos,
+        speed_boat_qty = COALESCE(reg_record.speed_boat_qty, 0),
+        speed_boat_license_nos = reg_record.speed_boat_license_nos
+      WHERE id = new_team_id;
+    END IF;
+    
+    -- Create race_day_requests row for this team if it has any race day data
+    IF COALESCE(reg_record.marquee_qty, 0) > 0 
+       OR (reg_record.race_day_steersman_option IS NOT NULL AND reg_record.race_day_steersman_option != 'not_required')
+       OR COALESCE(reg_record.junk_boat_qty, 0) > 0
+       OR COALESCE(reg_record.speed_boat_qty, 0) > 0 THEN
+      INSERT INTO public.tn_race_day_requests (
+        team_id, marquee_qty, race_day_steersman_option,
+        junk_boat_qty, junk_boat_license_nos, speed_boat_qty, speed_boat_license_nos
+      ) VALUES (
+        new_team_id,
+        COALESCE(reg_record.marquee_qty, 0),
+        reg_record.race_day_steersman_option,
+        COALESCE(reg_record.junk_boat_qty, 0),
+        reg_record.junk_boat_license_nos,
+        COALESCE(reg_record.speed_boat_qty, 0),
+        reg_record.speed_boat_license_nos
+      )
+      ON CONFLICT (team_id) DO UPDATE SET
+        marquee_qty = EXCLUDED.marquee_qty,
+        race_day_steersman_option = EXCLUDED.race_day_steersman_option,
+        junk_boat_qty = EXCLUDED.junk_boat_qty,
+        junk_boat_license_nos = EXCLUDED.junk_boat_license_nos,
+        speed_boat_qty = EXCLUDED.speed_boat_qty,
+        speed_boat_license_nos = EXCLUDED.speed_boat_license_nos;
+    END IF;
     
   ELSIF reg_record.event_type = 'wu' THEN
     -- Insert into wu_team_meta for WU (team_code will be auto-generated by trigger)
@@ -1130,15 +1193,56 @@ BEGIN
       package_choice, team_size,
       team_manager, mobile, email,
       org_name, org_address,
-      registration_id
+      registration_id,
+      race_day_steersman_option
     ) VALUES (
       reg_record.user_id, reg_record.season, reg_record.division_code,
       '', reg_record.team_name_en, reg_record.team_name_tc,  -- Empty team_code will trigger auto-generation
       reg_record.package_choice, reg_record.team_size,
       reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
       reg_record.org_name, reg_record.org_address,
-      reg_record.id
+      reg_record.id,
+      reg_record.race_day_steersman_option
     ) RETURNING id INTO new_team_id;
+    
+    -- Copy race day data to wu_team_meta (only if this team has race day data)
+    IF COALESCE(reg_record.marquee_qty, 0) > 0 
+       OR COALESCE(reg_record.junk_boat_qty, 0) > 0
+       OR COALESCE(reg_record.speed_boat_qty, 0) > 0 THEN
+      UPDATE public.wu_team_meta SET
+        marquee_qty = COALESCE(reg_record.marquee_qty, 0),
+        junk_boat_qty = COALESCE(reg_record.junk_boat_qty, 0),
+        junk_boat_license_nos = reg_record.junk_boat_license_nos,
+        speed_boat_qty = COALESCE(reg_record.speed_boat_qty, 0),
+        speed_boat_license_nos = reg_record.speed_boat_license_nos
+      WHERE id = new_team_id;
+    END IF;
+    
+    -- Create race_day_requests row for this team if it has any race day data
+    IF COALESCE(reg_record.marquee_qty, 0) > 0 
+       OR (reg_record.race_day_steersman_option IS NOT NULL AND reg_record.race_day_steersman_option != 'not_required')
+       OR COALESCE(reg_record.junk_boat_qty, 0) > 0
+       OR COALESCE(reg_record.speed_boat_qty, 0) > 0 THEN
+      INSERT INTO public.wu_race_day_requests (
+        team_id, marquee_qty, race_day_steersman_option,
+        junk_boat_qty, junk_boat_license_nos, speed_boat_qty, speed_boat_license_nos
+      ) VALUES (
+        new_team_id,
+        COALESCE(reg_record.marquee_qty, 0),
+        reg_record.race_day_steersman_option,
+        COALESCE(reg_record.junk_boat_qty, 0),
+        reg_record.junk_boat_license_nos,
+        COALESCE(reg_record.speed_boat_qty, 0),
+        reg_record.speed_boat_license_nos
+      )
+      ON CONFLICT (team_id) DO UPDATE SET
+        marquee_qty = EXCLUDED.marquee_qty,
+        race_day_steersman_option = EXCLUDED.race_day_steersman_option,
+        junk_boat_qty = EXCLUDED.junk_boat_qty,
+        junk_boat_license_nos = EXCLUDED.junk_boat_license_nos,
+        speed_boat_qty = EXCLUDED.speed_boat_qty,
+        speed_boat_license_nos = EXCLUDED.speed_boat_license_nos;
+    END IF;
     
   ELSIF reg_record.event_type = 'sc' THEN
     -- Insert into sc_team_meta for SC (team_code will be auto-generated by trigger)
@@ -1148,50 +1252,59 @@ BEGIN
       package_choice, team_size,
       team_manager, mobile, email,
       org_name, org_address,
-      registration_id
+      registration_id,
+      race_day_steersman_option
     ) VALUES (
       reg_record.user_id, reg_record.season, reg_record.division_code,
       '', reg_record.team_name_en, reg_record.team_name_tc,  -- Empty team_code will trigger auto-generation
       reg_record.package_choice, reg_record.team_size,
       reg_record.team_manager_1, reg_record.mobile_1, reg_record.email_1,
       reg_record.org_name, reg_record.org_address,
-      reg_record.id
+      reg_record.id,
+      reg_record.race_day_steersman_option
     ) RETURNING id INTO new_team_id;
+    
+    -- Copy race day data to sc_team_meta (only if this team has race day data)
+    IF COALESCE(reg_record.marquee_qty, 0) > 0 
+       OR COALESCE(reg_record.junk_boat_qty, 0) > 0
+       OR COALESCE(reg_record.speed_boat_qty, 0) > 0 THEN
+      UPDATE public.sc_team_meta SET
+        marquee_qty = COALESCE(reg_record.marquee_qty, 0),
+        junk_boat_qty = COALESCE(reg_record.junk_boat_qty, 0),
+        junk_boat_license_nos = reg_record.junk_boat_license_nos,
+        speed_boat_qty = COALESCE(reg_record.speed_boat_qty, 0),
+        speed_boat_license_nos = reg_record.speed_boat_license_nos
+      WHERE id = new_team_id;
+    END IF;
+    
+    -- Create race_day_requests row for this team if it has any race day data
+    IF COALESCE(reg_record.marquee_qty, 0) > 0 
+       OR (reg_record.race_day_steersman_option IS NOT NULL AND reg_record.race_day_steersman_option != 'not_required')
+       OR COALESCE(reg_record.junk_boat_qty, 0) > 0
+       OR COALESCE(reg_record.speed_boat_qty, 0) > 0 THEN
+      INSERT INTO public.sc_race_day_requests (
+        team_id, marquee_qty, race_day_steersman_option,
+        junk_boat_qty, junk_boat_license_nos, speed_boat_qty, speed_boat_license_nos
+      ) VALUES (
+        new_team_id,
+        COALESCE(reg_record.marquee_qty, 0),
+        reg_record.race_day_steersman_option,
+        COALESCE(reg_record.junk_boat_qty, 0),
+        reg_record.junk_boat_license_nos,
+        COALESCE(reg_record.speed_boat_qty, 0),
+        reg_record.speed_boat_license_nos
+      )
+      ON CONFLICT (team_id) DO UPDATE SET
+        marquee_qty = EXCLUDED.marquee_qty,
+        race_day_steersman_option = EXCLUDED.race_day_steersman_option,
+        junk_boat_qty = EXCLUDED.junk_boat_qty,
+        junk_boat_license_nos = EXCLUDED.junk_boat_license_nos,
+        speed_boat_qty = EXCLUDED.speed_boat_qty,
+        speed_boat_license_nos = EXCLUDED.speed_boat_license_nos;
+    END IF;
     
   ELSE
     RAISE EXCEPTION 'Unknown event_type: %', reg_record.event_type;
-  END IF;
-  
-  -- Copy race day data to race_day_requests if this is the primary team with race day data
-  -- Only create race_day_requests for TN events (race_day_requests table links to team_meta)
-  IF reg_record.event_type = 'tn' AND v_has_race_day_data THEN
-    INSERT INTO public.race_day_requests (
-      team_id,
-      marquee_qty,
-      steer_with_qty,
-      steer_without_qty,
-      junk_boat_no,
-      junk_boat_qty,
-      speed_boat_no,
-      speed_boat_qty
-    ) VALUES (
-      new_team_id,
-      COALESCE(reg_record.marquee_qty, 0),
-      COALESCE(reg_record.steer_with_qty, 0),
-      COALESCE(reg_record.steer_without_qty, 0),
-      NULLIF(reg_record.junk_boat_no, ''),
-      COALESCE(reg_record.junk_boat_qty, 0),
-      NULLIF(reg_record.speed_boat_no, ''),
-      COALESCE(reg_record.speed_boat_qty, 0)
-    )
-    ON CONFLICT (team_id) DO UPDATE SET
-      marquee_qty = EXCLUDED.marquee_qty,
-      steer_with_qty = EXCLUDED.steer_with_qty,
-      steer_without_qty = EXCLUDED.steer_without_qty,
-      junk_boat_no = EXCLUDED.junk_boat_no,
-      junk_boat_qty = EXCLUDED.junk_boat_qty,
-      speed_boat_no = EXCLUDED.speed_boat_no,
-      speed_boat_qty = EXCLUDED.speed_boat_qty;
   END IF;
   
   -- Update registration status
@@ -1236,13 +1349,12 @@ COMMENT ON COLUMN public.registration_meta.approved_by IS 'Admin user who approv
 COMMENT ON COLUMN public.registration_meta.approved_at IS 'When the registration was approved/rejected';
 COMMENT ON COLUMN public.registration_meta.client_tx_id IS 'Client transaction ID for idempotency';
 COMMENT ON COLUMN public.registration_meta.event_short_ref IS 'Event reference for grouping';
-COMMENT ON COLUMN public.registration_meta.marquee_qty IS 'Race day marquee quantity (only populated on primary team - first team in registration)';
-COMMENT ON COLUMN public.registration_meta.steer_with_qty IS 'Race day steerer with practice quantity (only populated on primary team)';
-COMMENT ON COLUMN public.registration_meta.steer_without_qty IS 'Race day steerer without practice quantity (only populated on primary team)';
-COMMENT ON COLUMN public.registration_meta.junk_boat_qty IS 'Race day junk/pleasure boat quantity (only populated on primary team)';
-COMMENT ON COLUMN public.registration_meta.junk_boat_no IS 'Race day junk/pleasure boat license number (only populated on primary team)';
-COMMENT ON COLUMN public.registration_meta.speed_boat_qty IS 'Race day speed boat quantity (only populated on primary team)';
-COMMENT ON COLUMN public.registration_meta.speed_boat_no IS 'Race day speed boat license number (only populated on primary team)';
+COMMENT ON COLUMN public.registration_meta.marquee_qty IS 'Race day marquee quantity (only populated on primary team - first team in registration). Display name: "Marquee"';
+COMMENT ON COLUMN public.registration_meta.race_day_steersman_option IS 'Per-team race day steersman: with_practice (HK$800), no_practice (HK$1500), not_required (no charge)';
+COMMENT ON COLUMN public.registration_meta.junk_boat_qty IS 'Race day junk/pleasure boat quantity (only populated on primary team). Display name: "Junk Boat"';
+COMMENT ON COLUMN public.registration_meta.junk_boat_license_nos IS 'Race day junk/pleasure boat license numbers array (only populated on primary team). Display name: "Junk Boat License Numbers"';
+COMMENT ON COLUMN public.registration_meta.speed_boat_qty IS 'Race day speed boat quantity (only populated on primary team). Display name: "Speed Boat"';
+COMMENT ON COLUMN public.registration_meta.speed_boat_license_nos IS 'Race day speed boat license numbers array (only populated on primary team). Display name: "Speed Boat License Numbers"';
 
 -- =========================================================
 -- ROW LEVEL SECURITY POLICIES FOR REGISTRATION_META
@@ -1309,17 +1421,23 @@ create index idx_team_meta_registration on public.team_meta (registration_id);
 -- =========================================================
 -- RACE DAY REQUESTS (Page 3 spec; 1 row per team)
 -- =========================================================
-create table public.race_day_requests (
+-- NOTE: The old race_day_requests table is deprecated.
+-- After migration, drop it with: DROP TABLE IF EXISTS public.race_day_requests CASCADE;
+-- New event-specific tables are created below.
+
+-- =========================================================
+-- TN RACE DAY REQUESTS (for TN events)
+-- =========================================================
+create table if not exists public.tn_race_day_requests (
   id uuid primary key default gen_random_uuid(),
   team_id uuid not null references public.team_meta(id) on delete cascade,
 
   marquee_qty int not null default 0 check (marquee_qty >= 0),
-  steer_with_qty int not null default 0 check (steer_with_qty >= 0),
-  steer_without_qty int not null default 0 check (steer_without_qty >= 0),
-  junk_boat_no text,
+  race_day_steersman_option text check (race_day_steersman_option in ('with_practice', 'no_practice', 'not_required')),
   junk_boat_qty int not null default 0 check (junk_boat_qty >= 0),
-  speed_boat_no text,
+  junk_boat_license_nos text[],
   speed_boat_qty int not null default 0 check (speed_boat_qty >= 0),
+  speed_boat_license_nos text[],
 
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -1327,8 +1445,59 @@ create table public.race_day_requests (
   unique (team_id)
 );
 
-create trigger trg_race_day_requests_updated_at
-before update on public.race_day_requests
+drop trigger if exists trg_tn_race_day_requests_updated_at on public.tn_race_day_requests;
+create trigger trg_tn_race_day_requests_updated_at
+before update on public.tn_race_day_requests
+for each row execute function public.set_updated_at();
+
+-- =========================================================
+-- WU RACE DAY REQUESTS (for WU events)
+-- =========================================================
+create table if not exists public.wu_race_day_requests (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.wu_team_meta(id) on delete cascade,
+
+  marquee_qty int not null default 0 check (marquee_qty >= 0),
+  race_day_steersman_option text check (race_day_steersman_option in ('with_practice', 'no_practice', 'not_required')),
+  junk_boat_qty int not null default 0 check (junk_boat_qty >= 0),
+  junk_boat_license_nos text[],
+  speed_boat_qty int not null default 0 check (speed_boat_qty >= 0),
+  speed_boat_license_nos text[],
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  unique (team_id)
+);
+
+drop trigger if exists trg_wu_race_day_requests_updated_at on public.wu_race_day_requests;
+create trigger trg_wu_race_day_requests_updated_at
+before update on public.wu_race_day_requests
+for each row execute function public.set_updated_at();
+
+-- =========================================================
+-- SC RACE DAY REQUESTS (for SC events)
+-- =========================================================
+create table if not exists public.sc_race_day_requests (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.sc_team_meta(id) on delete cascade,
+
+  marquee_qty int not null default 0 check (marquee_qty >= 0),
+  race_day_steersman_option text check (race_day_steersman_option in ('with_practice', 'no_practice', 'not_required')),
+  junk_boat_qty int not null default 0 check (junk_boat_qty >= 0),
+  junk_boat_license_nos text[],
+  speed_boat_qty int not null default 0 check (speed_boat_qty >= 0),
+  speed_boat_license_nos text[],
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  unique (team_id)
+);
+
+drop trigger if exists trg_sc_race_day_requests_updated_at on public.sc_race_day_requests;
+create trigger trg_sc_race_day_requests_updated_at
+before update on public.sc_race_day_requests
 for each row execute function public.set_updated_at();
 
 -- =========================================================
@@ -1350,7 +1519,57 @@ create policy "Allow public read access to timeslots" on public.timeslot_catalog
 
 alter table public.practice_preferences enable row level security;
 alter table public.registration_meta    enable row level security;
-alter table public.race_day_requests    enable row level security;
+alter table public.tn_race_day_requests enable row level security;
+alter table public.wu_race_day_requests enable row level security;
+alter table public.sc_race_day_requests enable row level security;
 
 -- With RLS on and no policies, anon/auth clients cannot read/write.
 -- Your server code (Edge Functions with service-role) or SECURITY DEFINER RPCs should perform all access.
+
+-- =========================================================
+-- MIGRATION: Replace steersman qty columns with per-team option column
+-- Run this in Supabase SQL Editor if your database still has the old columns
+-- =========================================================
+
+BEGIN;
+
+-- 1. tn_race_day_requests
+ALTER TABLE tn_race_day_requests 
+  DROP COLUMN IF EXISTS steersman_with_practice_qty,
+  DROP COLUMN IF EXISTS steersman_no_practice_qty,
+  ADD COLUMN IF NOT EXISTS race_day_steersman_option TEXT 
+    CHECK (race_day_steersman_option IN ('with_practice', 'no_practice', 'not_required'));
+
+-- 2. wu_race_day_requests
+ALTER TABLE wu_race_day_requests 
+  DROP COLUMN IF EXISTS steersman_with_practice_qty,
+  DROP COLUMN IF EXISTS steersman_no_practice_qty,
+  ADD COLUMN IF NOT EXISTS race_day_steersman_option TEXT 
+    CHECK (race_day_steersman_option IN ('with_practice', 'no_practice', 'not_required'));
+
+-- 3. sc_race_day_requests
+ALTER TABLE sc_race_day_requests 
+  DROP COLUMN IF EXISTS steersman_with_practice_qty,
+  DROP COLUMN IF EXISTS steersman_no_practice_qty,
+  ADD COLUMN IF NOT EXISTS race_day_steersman_option TEXT 
+    CHECK (race_day_steersman_option IN ('with_practice', 'no_practice', 'not_required'));
+
+-- Add comment
+COMMENT ON COLUMN tn_race_day_requests.race_day_steersman_option IS 
+  'Per-team race day steersman: with_practice (HK$800), no_practice (HK$1500), not_required (no charge)';
+COMMENT ON COLUMN wu_race_day_requests.race_day_steersman_option IS 
+  'Per-team race day steersman: with_practice (HK$800), no_practice (HK$1500), not_required (no charge)';
+COMMENT ON COLUMN sc_race_day_requests.race_day_steersman_option IS 
+  'Per-team race day steersman: with_practice (HK$800), no_practice (HK$1500), not_required (no charge)';
+
+COMMIT;
+
+-- Verify the change
+SELECT 
+    table_name,
+    column_name,
+    data_type
+FROM information_schema.columns 
+WHERE table_name IN ('tn_race_day_requests', 'wu_race_day_requests', 'sc_race_day_requests')
+AND column_name LIKE '%steersman%'
+ORDER BY table_name, column_name;

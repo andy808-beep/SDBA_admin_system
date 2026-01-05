@@ -92,7 +92,7 @@ type Payload = {
   team_names_tc?: string[];
   team_options: ("opt1" | "opt2")[];
   managers: Manager[];
-  race_day?: Array<{ item_code: string; qty: number; boat_no?: string }> | null;
+  race_day?: Array<{ item_code: string; qty: number; boat_no?: string; boat_nos?: string[] }> | null;
   practice?: PracticeBlock[] | { teams: TNPracticeTeam[] };
   client_tx_id?: string;
   // New structure for WU/SC
@@ -104,7 +104,10 @@ type Payload = {
     boat_type: string;
     division: string;
     team_size?: number;
+    race_day_steersman_option?: 'with_practice' | 'no_practice' | 'not_required' | null;
   }>;
+  // Per-team race_day_steersman_option for TN (matches team_names array)
+  team_race_day_steersman_options?: Array<'with_practice' | 'no_practice' | 'not_required' | null | undefined>;
 };
 
 // ---------------- Helpers ----------------
@@ -185,26 +188,22 @@ function derivePackageCode(eventRef: string, category: string, opt: "opt1" | "op
   return isCorp ? `${tier}_corp` : `${tier}_non_corp`;
 }
 
-// Transform race_day array to individual column values for primary team
-function transformRaceDayToColumns(raceDay: Array<{ item_code: string; qty: number; boat_no?: string }> | null): {
+// Transform race_day array to individual column values for primary team (marquee, boats only - steersman is now per-team)
+function transformRaceDayToColumns(raceDay: Array<{ item_code: string; qty: number; boat_no?: string; boat_nos?: string[] }> | null): {
   marquee_qty: number;
-  steer_with_qty: number;
-  steer_without_qty: number;
   junk_boat_qty: number;
-  junk_boat_no: string | null;
+  junk_boat_license_nos: string[] | null;
   speed_boat_qty: number;
-  speed_boat_no: string | null;
+  speed_boat_license_nos: string[] | null;
 } | null {
   if (!raceDay || !Array.isArray(raceDay) || raceDay.length === 0) return null;
   
   const columns = {
     marquee_qty: 0,
-    steer_with_qty: 0,
-    steer_without_qty: 0,
     junk_boat_qty: 0,
-    junk_boat_no: null as string | null,
+    junk_boat_license_nos: null as string[] | null,
     speed_boat_qty: 0,
-    speed_boat_no: null as string | null,
+    speed_boat_license_nos: null as string[] | null,
   };
   
   for (const item of raceDay) {
@@ -213,30 +212,31 @@ function transformRaceDayToColumns(raceDay: Array<{ item_code: string; qty: numb
       case 'marquee':
         columns.marquee_qty = item.qty;
         break;
-      case 'rd_steerer':
-      case 'steer_with':
-        columns.steer_with_qty = item.qty;
-        break;
-      case 'rd_steerer_no_practice':
-      case 'steer_without':
-        columns.steer_without_qty = item.qty;
-        break;
       case 'rd_junk':
       case 'junk_boat':
         columns.junk_boat_qty = item.qty;
-        if (item.boat_no) columns.junk_boat_no = item.boat_no;
+        // Handle both old (boat_no) and new (boat_nos) formats
+        if (item.boat_nos && Array.isArray(item.boat_nos) && item.boat_nos.length > 0) {
+          columns.junk_boat_license_nos = item.boat_nos;
+        } else if (item.boat_no) {
+          columns.junk_boat_license_nos = [item.boat_no];
+        }
         break;
       case 'rd_speedboat':
       case 'speed_boat':
         columns.speed_boat_qty = item.qty;
-        if (item.boat_no) columns.speed_boat_no = item.boat_no;
+        // Handle both old (boat_no) and new (boat_nos) formats
+        if (item.boat_nos && Array.isArray(item.boat_nos) && item.boat_nos.length > 0) {
+          columns.speed_boat_license_nos = item.boat_nos;
+        } else if (item.boat_no) {
+          columns.speed_boat_license_nos = [item.boat_no];
+        }
         break;
     }
   }
   
   // Return null if all quantities are 0 (no race day data)
-  if (columns.marquee_qty === 0 && columns.steer_with_qty === 0 && columns.steer_without_qty === 0 &&
-      columns.junk_boat_qty === 0 && columns.speed_boat_qty === 0) {
+  if (columns.marquee_qty === 0 && columns.junk_boat_qty === 0 && columns.speed_boat_qty === 0) {
     return null;
   }
   
@@ -577,38 +577,46 @@ Deno.serve(async (req) => {
       // Use team_names_en if provided, otherwise fall back to team_names for backward compatibility
       const namesEn = (team_names_en && team_names_en.length > 0) ? team_names_en : team_names;
       const namesTc = team_names_tc || [];
+      const teamSteersmanOptions = (payload as any).team_race_day_steersman_options || [];
       
-      registrationsToInsert = namesEn.map((team_name_en, idx) => ({
-        event_type: 'tn',
-        event_short_ref: eventShortRef,
-        client_tx_id: payload.client_tx_id,
-        season: seasonNum,
-        category,
-        division_code: divLetter,
-        option_choice: optionText(team_options[idx]),
-        team_name_en: team_name_en || '',
-        team_name_tc: (namesTc[idx] || '').trim() || null,
-        org_name,
-        org_address: org_address ?? null,
-        team_manager_1: mgrs[0]?.name || "",
-        mobile_1:       mgrs[0]?.mobile || "",
-        email_1:        mgrs[0]?.email  || "",
-        team_manager_2: mgrs[1]?.name || "",
-        mobile_2:       mgrs[1]?.mobile || "",
-        email_2:        mgrs[1]?.email  || "",
-        team_manager_3: mgrs[2]?.name || "",
-        mobile_3:       mgrs[2]?.mobile || "",
-        email_3:        mgrs[2]?.email  || "",
-        // Only populate race day columns for primary team (index 0)
-        marquee_qty: idx === 0 ? (raceDayColumns?.marquee_qty ?? 0) : 0,
-        steer_with_qty: idx === 0 ? (raceDayColumns?.steer_with_qty ?? 0) : 0,
-        steer_without_qty: idx === 0 ? (raceDayColumns?.steer_without_qty ?? 0) : 0,
-        junk_boat_qty: idx === 0 ? (raceDayColumns?.junk_boat_qty ?? 0) : 0,
-        junk_boat_no: idx === 0 ? (raceDayColumns?.junk_boat_no ?? null) : null,
-        speed_boat_qty: idx === 0 ? (raceDayColumns?.speed_boat_qty ?? 0) : 0,
-        speed_boat_no: idx === 0 ? (raceDayColumns?.speed_boat_no ?? null) : null,
-        status: 'pending'
-      }));
+      registrationsToInsert = namesEn.map((team_name_en, idx) => {
+        // Get race_day_steersman_option for this team (validate value)
+        const steersmanOption = teamSteersmanOptions[idx];
+        const validSteersmanOption = (steersmanOption === 'with_practice' || steersmanOption === 'no_practice' || steersmanOption === 'not_required') 
+          ? steersmanOption 
+          : null;
+        
+        return {
+          event_type: 'tn',
+          event_short_ref: eventShortRef,
+          client_tx_id: payload.client_tx_id,
+          season: seasonNum,
+          category,
+          division_code: divLetter,
+          option_choice: optionText(team_options[idx]),
+          team_name_en: team_name_en || '',
+          team_name_tc: (namesTc[idx] || '').trim() || null,
+          org_name,
+          org_address: org_address ?? null,
+          team_manager_1: mgrs[0]?.name || "",
+          mobile_1:       mgrs[0]?.mobile || "",
+          email_1:        mgrs[0]?.email  || "",
+          team_manager_2: mgrs[1]?.name || "",
+          mobile_2:       mgrs[1]?.mobile || "",
+          email_2:        mgrs[1]?.email  || "",
+          team_manager_3: mgrs[2]?.name || "",
+          mobile_3:       mgrs[2]?.mobile || "",
+          email_3:        mgrs[2]?.email  || "",
+          // Only populate race day columns for primary team (index 0)
+          marquee_qty: idx === 0 ? (raceDayColumns?.marquee_qty ?? 0) : 0,
+          race_day_steersman_option: validSteersmanOption,
+          junk_boat_qty: idx === 0 ? (raceDayColumns?.junk_boat_qty ?? 0) : 0,
+          junk_boat_license_nos: idx === 0 ? (raceDayColumns?.junk_boat_license_nos ?? null) : null,
+          speed_boat_qty: idx === 0 ? (raceDayColumns?.speed_boat_qty ?? 0) : 0,
+          speed_boat_license_nos: idx === 0 ? (raceDayColumns?.speed_boat_license_nos ?? null) : null,
+          status: 'pending'
+        };
+      });
     } else {
       // WU/SC: Use new teams structure from payload
       const teams = (payload as any).teams || [];
@@ -658,39 +666,46 @@ Deno.serve(async (req) => {
         }
       }
       
-      registrationsToInsert = teams.map((team: any, idx: number) => ({
-        event_type: eventType,  // Use normalized event type ('wu' or 'sc')
-        event_short_ref: eventShortRef,
-        client_tx_id: payload.client_tx_id,
-        season: seasonNum,
-        category: team.category || team.boat_type || '',
-        division_code: divisionMap.get(team.division) || '', // Use div_code_prefix
-        option_choice: null,  // Not used for WU/SC events
-        team_name_en: team.name_en || team.name || '',
-        team_name_tc: (team.name_tc || '').trim() || null,
-        org_name,
-        org_address: org_address ?? null,
-        package_choice: team.boat_type || '',
-        team_size: team.team_size || null,
-        team_manager_1: mgrs[0]?.name || "",
-        mobile_1:       mgrs[0]?.mobile || "",
-        email_1:        mgrs[0]?.email  || "",
-        team_manager_2: mgrs[1]?.name || "",
-        mobile_2:       mgrs[1]?.mobile || "",
-        email_2:        mgrs[1]?.email  || "",
-        team_manager_3: mgrs[2]?.name || "",
-        mobile_3:       mgrs[2]?.mobile || "",
-        email_3:        mgrs[2]?.email  || "",
-        // Only populate race day columns for primary team (index 0)
-        marquee_qty: idx === 0 ? (raceDayColumns?.marquee_qty ?? 0) : 0,
-        steer_with_qty: idx === 0 ? (raceDayColumns?.steer_with_qty ?? 0) : 0,
-        steer_without_qty: idx === 0 ? (raceDayColumns?.steer_without_qty ?? 0) : 0,
-        junk_boat_qty: idx === 0 ? (raceDayColumns?.junk_boat_qty ?? 0) : 0,
-        junk_boat_no: idx === 0 ? (raceDayColumns?.junk_boat_no ?? null) : null,
-        speed_boat_qty: idx === 0 ? (raceDayColumns?.speed_boat_qty ?? 0) : 0,
-        speed_boat_no: idx === 0 ? (raceDayColumns?.speed_boat_no ?? null) : null,
-        status: 'pending'
-      }));
+      registrationsToInsert = teams.map((team: any, idx: number) => {
+        // Validate race_day_steersman_option value
+        const steersmanOption = team.race_day_steersman_option;
+        const validSteersmanOption = (steersmanOption === 'with_practice' || steersmanOption === 'no_practice' || steersmanOption === 'not_required') 
+          ? steersmanOption 
+          : null;
+        
+        return {
+          event_type: eventType,  // Use normalized event type ('wu' or 'sc')
+          event_short_ref: eventShortRef,
+          client_tx_id: payload.client_tx_id,
+          season: seasonNum,
+          category: team.category || team.boat_type || '',
+          division_code: divisionMap.get(team.division) || '', // Use div_code_prefix
+          option_choice: null,  // Not used for WU/SC events
+          team_name_en: team.name_en || team.name || '',
+          team_name_tc: (team.name_tc || '').trim() || null,
+          org_name,
+          org_address: org_address ?? null,
+          package_choice: team.boat_type || '',
+          team_size: team.team_size || null,
+          team_manager_1: mgrs[0]?.name || "",
+          mobile_1:       mgrs[0]?.mobile || "",
+          email_1:        mgrs[0]?.email  || "",
+          team_manager_2: mgrs[1]?.name || "",
+          mobile_2:       mgrs[1]?.mobile || "",
+          email_2:        mgrs[1]?.email  || "",
+          team_manager_3: mgrs[2]?.name || "",
+          mobile_3:       mgrs[2]?.mobile || "",
+          email_3:        mgrs[2]?.email  || "",
+          // Only populate race day columns for primary team (index 0)
+          marquee_qty: idx === 0 ? (raceDayColumns?.marquee_qty ?? 0) : 0,
+          race_day_steersman_option: validSteersmanOption,
+          junk_boat_qty: idx === 0 ? (raceDayColumns?.junk_boat_qty ?? 0) : 0,
+          junk_boat_license_nos: idx === 0 ? (raceDayColumns?.junk_boat_license_nos ?? null) : null,
+          speed_boat_qty: idx === 0 ? (raceDayColumns?.speed_boat_qty ?? 0) : 0,
+          speed_boat_license_nos: idx === 0 ? (raceDayColumns?.speed_boat_license_nos ?? null) : null,
+          status: 'pending'
+        };
+      });
     }
     
     console.log('🔄 About to insert registrations:', {
@@ -711,7 +726,8 @@ Deno.serve(async (req) => {
     const registration_ids: string[] = insertedRegistrations.map((r: any) => r.id);
     const team_codes: string[] = insertedRegistrations.map((r: any) => r.team_code);
 
-    // Note: race_day columns (marquee_qty, steer_with_qty, etc.) are stored on primary team (index 0) in registration_meta
+    // Note: race_day columns (marquee_qty, junk_boat_qty, speed_boat_qty) are stored on primary team (index 0) in registration_meta
+    // race_day_steersman_option is stored per-team (each team can have its own option)
     // race_day_requests will be created after admin approval when teams are moved to team_meta
 
     return respond(req, { registration_ids, team_codes }, 200);

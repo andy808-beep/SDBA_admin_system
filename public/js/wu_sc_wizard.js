@@ -1921,16 +1921,173 @@ function renderManagerFields() {
 }
 
 /**
+ * Render per-team steersman selection cards for WU/SC
+ */
+function renderSteersmanCards() {
+  const container = document.getElementById('steersmanCardsContainer');
+  if (!container) {
+    console.warn('⚠️ steersmanCardsContainer not found');
+    return;
+  }
+  
+  // Get team data from sessionStorage
+  const teamCount = parseInt(sessionStorage.getItem(`${eventType}_team_count`), 10) || 0;
+  if (teamCount === 0) {
+    console.warn('⚠️ No teams found, cannot render steersman cards');
+    return;
+  }
+  
+  // Get current language for team name display
+  const currentLang = window.i18n?.currentLang || 'en';
+  
+  // Translation keys
+  const translations = {
+    withPractice: currentLang === 'zh' 
+      ? '練習時已聘用舵手 – HK$800' 
+      : 'Hired steersman during practice – HK$800',
+    noPractice: currentLang === 'zh'
+      ? '練習時沒有聘用舵手 – HK$1,500'
+      : 'Did not hire steersman during practice – HK$1,500',
+    notRequired: currentLang === 'zh' ? '不需要' : 'Not required'
+  };
+  
+  container.innerHTML = '';
+  
+  // Render a card for each team
+  for (let i = 1; i <= teamCount; i++) {
+    const teamNameEn = sessionStorage.getItem(`${eventType}_team${i}_name_en`) || '';
+    const teamNameTc = sessionStorage.getItem(`${eventType}_team${i}_name_tc`) || '';
+    const teamName = currentLang === 'zh' && teamNameTc ? teamNameTc : teamNameEn;
+    
+    // Get saved selection (if any)
+    const savedOption = sessionStorage.getItem(`${eventType}_team${i}_steersman_option`) || 'not_required';
+    
+    const card = document.createElement('div');
+    card.className = 'team-steersman-card';
+    card.setAttribute('data-team-index', i - 1);
+    
+    card.innerHTML = `
+      <div class="team-steersman-header">Team ${i}: ${teamName || `Team ${i}`}</div>
+      <div class="team-steersman-options">
+        <select name="steersman_team_${i-1}" id="steersman_team_${i-1}" class="steersman-select">
+          <option value="not_required" ${savedOption === 'not_required' || savedOption === '' ? 'selected' : ''}>${translations.notRequired}</option>
+          <option value="with_practice" ${savedOption === 'with_practice' ? 'selected' : ''}>${translations.withPractice}</option>
+          <option value="no_practice" ${savedOption === 'no_practice' ? 'selected' : ''}>${translations.noPractice}</option>
+        </select>
+      </div>
+    `;
+    
+    container.appendChild(card);
+    
+    // Add change listener to save selection
+    const select = card.querySelector('select.steersman-select');
+    if (select) {
+      select.addEventListener('change', () => {
+        sessionStorage.setItem(`${eventType}_team${i}_steersman_option`, select.value);
+      });
+    }
+  }
+  
+  console.log(`✅ Rendered ${teamCount} steersman selection cards`);
+}
+
+/**
+ * Add CSS styles for steersman cards (WU/SC)
+ */
+function addSteersmanCardStyles() {
+  if (document.getElementById('wu-sc-steersman-card-styles')) {
+    return; // Already added
+  }
+  
+  const style = document.createElement('style');
+  style.id = 'wu-sc-steersman-card-styles';
+  style.textContent = `
+    .steersman-per-team-section {
+      margin: 2rem 0;
+    }
+    
+    .steersman-per-team-section h4 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--theme-primary-dark, #c79100) !important;
+    }
+    
+    /* Athlete Marquee heading - theme color */
+    .section h3[data-i18n="athleteMarquee"],
+    #raceDayForm .section h3:first-of-type {
+      color: var(--theme-primary-dark, #c79100) !important;
+      font-weight: 600;
+      font-size: 1.2rem;
+    }
+    
+    /* Marquee price should be black */
+    #marqueePrice {
+      color: #000 !important;
+    }
+    
+    .team-steersman-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      background: #fafafa;
+    }
+    
+    .team-steersman-header {
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #333;
+    }
+    
+    .team-steersman-options .steersman-select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      background: white;
+      cursor: pointer;
+    }
+    
+    .team-steersman-options .steersman-select:focus {
+      outline: none;
+      border-color: #007acc;
+      box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+/**
  * Initialize Step 3: Race Day Arrangement
  */
 function initStep3() {
 	Logger.debug('🎯 initStep3: Initializing race day step');
+  
+  // Add CSS styles for steersman cards
+  addSteersmanCardStyles();
+  
+  // Render per-team steersman selection cards
+  setTimeout(() => {
+    renderSteersmanCards();
+  }, 50);
   
   // Form fields are already in the HTML template (wu-sc-step-3)
   // Just restore the saved values from sessionStorage (legacy)
   setTimeout(() => {
     restoreRaceDayData();
   }, 100); // Wait for DOM to update
+  
+  // Set up license field listeners
+  setTimeout(() => {
+    setupLicenseFieldListeners();
+  }, 150);
+  
+  // Set up quantity limit enforcement
+  setTimeout(() => {
+    setupQuantityLimitEnforcement();
+  }, 200);
   
   // Debug what we have
   console.log(`\n=== ${eventType.toUpperCase()} STEP 3: RESTORE ===`);
@@ -1952,11 +2109,7 @@ function restoreRaceDayData() {
   
   const fields = [
     'marqueeQty',
-    'steerWithQty', 
-    'steerWithoutQty',
-    'junkBoatNo',
     'junkBoatQty',
-    'speedBoatNo',
     'speedboatQty'
   ];
   
@@ -1974,6 +2127,130 @@ function restoreRaceDayData() {
 }
 
 /**
+ * Render license number input fields based on quantity
+ */
+function renderLicenseFields(type, qty) {
+  // type = 'junk' or 'speed'
+  const container = document.getElementById(`${type}BoatLicenseContainer`);
+  if (!container) return;
+  
+  container.innerHTML = ''; // Clear existing
+  
+  const t = (key) => window.i18n ? window.i18n.t(key) : key;
+  
+  for (let i = 1; i <= qty; i++) {
+    const div = document.createElement('div');
+    div.className = 'license-field';
+    div.style.cssText = 'margin-bottom: 0.5rem; display: flex; align-items: center; gap: 1rem;';
+    div.innerHTML = `
+      <label for="${type}BoatLicense${i}" style="white-space: nowrap; min-width: 120px;">License #${i}:</label>
+      <input type="text" 
+             id="${type}BoatLicense${i}" 
+             name="${type}BoatLicense${i}"
+             placeholder="Enter license number"
+             style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" />
+    `;
+    container.appendChild(div);
+  }
+  
+  // Restore saved license values if available
+  const savedLicenses = JSON.parse(sessionStorage.getItem(`${eventType}_${type}BoatLicenses`) || '[]');
+  savedLicenses.forEach((license, index) => {
+    const input = document.getElementById(`${type}BoatLicense${index + 1}`);
+    if (input) input.value = license;
+  });
+}
+
+/**
+ * Set up event listeners for quantity inputs to render license fields
+ */
+function setupLicenseFieldListeners() {
+  // Junk boat quantity
+  const junkBoatQty = document.getElementById('junkBoatQty');
+  if (junkBoatQty && !junkBoatQty.dataset.licenseListenerAttached) {
+    const handler = function() {
+      const qty = parseInt(this.value || '0', 10);
+      renderLicenseFields('junk', qty);
+    };
+    junkBoatQty.addEventListener('change', handler);
+    junkBoatQty.addEventListener('input', handler);
+    junkBoatQty.dataset.licenseListenerAttached = 'true';
+    
+    // Initial render if value exists
+    const initialQty = parseInt(junkBoatQty.value || '0', 10);
+    if (initialQty > 0) {
+      renderLicenseFields('junk', initialQty);
+    }
+  }
+  
+  // Speed boat quantity
+  const speedboatQty = document.getElementById('speedboatQty');
+  if (speedboatQty && !speedboatQty.dataset.licenseListenerAttached) {
+    const handler = function() {
+      const qty = parseInt(this.value || '0', 10);
+      renderLicenseFields('speed', qty);
+    };
+    speedboatQty.addEventListener('change', handler);
+    speedboatQty.addEventListener('input', handler);
+    speedboatQty.dataset.licenseListenerAttached = 'true';
+    
+    // Initial render if value exists
+    const initialQty = parseInt(speedboatQty.value || '0', 10);
+    if (initialQty > 0) {
+      renderLicenseFields('speed', initialQty);
+    }
+  }
+}
+
+/**
+ * Set up quantity limit enforcement for race day quantity inputs
+ * Enforces max limit of 25 when users type values manually
+ */
+function setupQuantityLimitEnforcement() {
+  const MAX_QTY = 25;
+  const quantityInputIds = ['marqueeQty', 'junkBoatQty', 'speedboatQty'];
+  
+  quantityInputIds.forEach(inputId => {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    
+    // Check if listener already attached
+    if (input.dataset.limitEnforcementAttached === 'true') return;
+    
+    // Add input event listener to enforce max limit
+    input.addEventListener('input', function() {
+      const value = parseInt(this.value, 10);
+      
+      // If value is greater than max, clamp it to max
+      if (!isNaN(value) && value > MAX_QTY) {
+        this.value = MAX_QTY;
+        // Trigger change event to update any dependent fields
+        this.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    
+    // Also enforce on blur (when user leaves the field)
+    input.addEventListener('blur', function() {
+      const value = parseInt(this.value, 10);
+      
+      if (!isNaN(value)) {
+        if (value < 0) {
+          this.value = 0;
+        } else if (value > MAX_QTY) {
+          this.value = MAX_QTY;
+        }
+        // Trigger change event to update any dependent fields
+        this.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    
+    input.dataset.limitEnforcementAttached = 'true';
+  });
+  
+  console.log('✅ Quantity limit enforcement set up for race day inputs');
+}
+
+/**
  * Restore WU/SC Step 3 race day data using FieldRestoreUtility
  */
 function restoreWUSCStep3() {
@@ -1985,8 +2262,9 @@ function restoreWUSCStep3() {
   console.log(`[${eventType.toUpperCase()} Step 3] Restoring race day...`);
   
   const fields = [
-    'marqueeQty', 'steerWithQty', 'steerWithoutQty',
-    'junkBoatNo', 'junkBoatQty', 'speedBoatNo', 'speedboatQty'
+    'marqueeQty',
+    'junkBoatQty', 
+    'speedboatQty'
   ];
   
   fields.forEach(fieldId => {
@@ -2555,26 +2833,95 @@ function validateStep2() {
  * Validate Step 3
  */
 function validateStep3() {
-  // Save Step 3 data to sessionStorage
+  // Clear any previous errors
+  if (window.errorSystem) {
+    window.errorSystem.clearFormErrors();
+  }
+  
+  const errors = [];
+  const MAX_QTY = 25;
+  
+  // Validate marquee quantity
   const marqueeQty = document.getElementById('marqueeQty');
+  if (marqueeQty) {
+    const value = parseInt(marqueeQty.value, 10) || 0;
+    if (value < 0) {
+      errors.push({ field: 'marqueeQty', messageKey: 'quantityMustBePositive' });
+    }
+    if (value > MAX_QTY) {
+      errors.push({ field: 'marqueeQty', messageKey: 'quantityExceedsMax', params: { max: MAX_QTY } });
+    }
+  }
+  
+  // Validate junk boat quantity
+  const junkBoatQty = document.getElementById('junkBoatQty');
+  if (junkBoatQty) {
+    const value = parseInt(junkBoatQty.value, 10) || 0;
+    if (value < 0) {
+      errors.push({ field: 'junkBoatQty', messageKey: 'quantityMustBePositive' });
+    }
+    if (value > MAX_QTY) {
+      errors.push({ field: 'junkBoatQty', messageKey: 'quantityExceedsMax', params: { max: MAX_QTY } });
+    }
+  }
+  
+  // Validate speed boat quantity
+  const speedboatQty = document.getElementById('speedboatQty');
+  if (speedboatQty) {
+    const value = parseInt(speedboatQty.value, 10) || 0;
+    if (value < 0) {
+      errors.push({ field: 'speedboatQty', messageKey: 'quantityMustBePositive' });
+    }
+    if (value > MAX_QTY) {
+      errors.push({ field: 'speedboatQty', messageKey: 'quantityExceedsMax', params: { max: MAX_QTY } });
+    }
+  }
+  
+  // Display errors if any found
+  if (errors.length > 0) {
+    if (window.errorSystem) {
+      window.errorSystem.showFormErrors(errors, {
+        containerId: 'raceDayForm',
+        scrollTo: true
+      });
+    }
+    return false;
+  }
+  
+  // Save Step 3 data to sessionStorage
   if (marqueeQty) sessionStorage.setItem(`${eventType}_marqueeQty`, marqueeQty.value);
   
-  const steerWithQty = document.getElementById('steerWithQty');
-  if (steerWithQty) sessionStorage.setItem(`${eventType}_steerWithQty`, steerWithQty.value);
+  // Note: Steersman quantities removed - now handled per-team via radio buttons
   
-  const steerWithoutQty = document.getElementById('steerWithoutQty');
-  if (steerWithoutQty) sessionStorage.setItem(`${eventType}_steerWithoutQty`, steerWithoutQty.value);
+  // Save steersman options for each team
+  const teamCount = parseInt(sessionStorage.getItem(`${eventType}_team_count`), 10) || 0;
+  for (let i = 0; i < teamCount; i++) {
+    const select = document.querySelector(`select[name="steersman_team_${i}"]`);
+    if (select) {
+      sessionStorage.setItem(`${eventType}_team${i+1}_steersman_option`, select.value);
+    }
+  }
   
-  const junkBoatNo = document.getElementById('junkBoatNo');
-  if (junkBoatNo) sessionStorage.setItem(`${eventType}_junkBoatNo`, junkBoatNo.value);
+  // Collect junk boat licenses as array
+  const junkLicenses = [];
+  const junkQty = parseInt(document.getElementById('junkBoatQty')?.value || '0');
+  for (let i = 1; i <= junkQty; i++) {
+    const license = document.getElementById(`junkBoatLicense${i}`)?.value?.trim();
+    if (license) junkLicenses.push(license);
+  }
+  sessionStorage.setItem(`${eventType}_junkBoatLicenses`, JSON.stringify(junkLicenses));
   
-  const junkBoatQty = document.getElementById('junkBoatQty');
   if (junkBoatQty) sessionStorage.setItem(`${eventType}_junkBoatQty`, junkBoatQty.value);
   
-  const speedBoatNo = document.getElementById('speedBoatNo');
-  if (speedBoatNo) sessionStorage.setItem(`${eventType}_speedBoatNo`, speedBoatNo.value);
+  // Collect speed boat licenses as array
+  const speedLicenses = [];
+  const speedQty = parseInt(document.getElementById('speedboatQty')?.value || '0');
+  for (let i = 1; i <= speedQty; i++) {
+    const license = document.getElementById(`speedBoatLicense${i}`)?.value?.trim();
+    if (license) speedLicenses.push(license);
+  }
+  sessionStorage.setItem(`${eventType}_speedBoatLicenses`, JSON.stringify(speedLicenses));
   
-  const speedboatQty = document.getElementById('speedboatQty');
   if (speedboatQty) sessionStorage.setItem(`${eventType}_speedboatQty`, speedboatQty.value);
   
   return true;
@@ -2713,6 +3060,10 @@ function collectFormData() {
     // Fallback to old division field for backward compatibility
     const division = entryGroupLabel || sessionStorage.getItem(`${eventType}_team${i}_division`) || '';
     
+    // Get steersman option from dropdown or sessionStorage
+    const select = document.querySelector(`select[name="steersman_team_${i-1}"]`);
+    const steersmanOption = select ? select.value : (sessionStorage.getItem(`${eventType}_team${i}_steersman_option`) || 'not_required');
+    
     teams.push({
       name: teamNameEn, // Backward compatibility
       name_en: teamNameEn,
@@ -2720,7 +3071,8 @@ function collectFormData() {
       boat_type: boatType,
       division: division, // e.g., "Standard Boat – Men"
       division_code: entryGroupCode, // e.g., "WM" - for backend
-      category: division // Division already contains "Boat Type – Entry Group"
+      category: division, // Division already contains "Boat Type – Entry Group"
+      race_day_steersman_option: steersmanOption
     });
   }
   
@@ -2752,16 +3104,37 @@ function collectFormData() {
     });
   }
   
-  // Collect race day data
-  const raceDay = {
+  // Collect race day data and convert to array format for edge function
+  const raceDayData = {
     marqueeQty: parseInt(sessionStorage.getItem(`${eventType}_marqueeQty`) || 0),
-    steerWithQty: parseInt(sessionStorage.getItem(`${eventType}_steerWithQty`) || 0),
-    steerWithoutQty: parseInt(sessionStorage.getItem(`${eventType}_steerWithoutQty`) || 0),
-    junkBoatNo: sessionStorage.getItem(`${eventType}_junkBoatNo`) || '',
     junkBoatQty: parseInt(sessionStorage.getItem(`${eventType}_junkBoatQty`) || 0),
-    speedBoatNo: sessionStorage.getItem(`${eventType}_speedBoatNo`) || '',
-    speedboatQty: parseInt(sessionStorage.getItem(`${eventType}_speedboatQty`) || 0)
+    junkBoatLicenses: JSON.parse(sessionStorage.getItem(`${eventType}_junkBoatLicenses`) || '[]'),
+    speedboatQty: parseInt(sessionStorage.getItem(`${eventType}_speedboatQty`) || 0),
+    speedBoatLicenses: JSON.parse(sessionStorage.getItem(`${eventType}_speedBoatLicenses`) || '[]')
   };
+  
+  // Convert object format to array format (only include items with qty > 0)
+  // Note: Steersman quantities removed - now handled per-team via race_day_steersman_option
+  const raceDayArray = [];
+  if (raceDayData.marqueeQty > 0) {
+    raceDayArray.push({ item_code: 'marquee', qty: raceDayData.marqueeQty });
+  }
+  if (raceDayData.junkBoatQty > 0) {
+    const junkLicenses = JSON.parse(sessionStorage.getItem(`${eventType}_junkBoatLicenses`) || '[]');
+    raceDayArray.push({
+      item_code: 'junk_boat',
+      qty: raceDayData.junkBoatQty,
+      boat_nos: junkLicenses.length > 0 ? junkLicenses : null
+    });
+  }
+  if (raceDayData.speedboatQty > 0) {
+    const speedLicenses = JSON.parse(sessionStorage.getItem(`${eventType}_speedBoatLicenses`) || '[]');
+    raceDayArray.push({
+      item_code: 'speed_boat',
+      qty: raceDayData.speedboatQty,
+      boat_nos: speedLicenses.length > 0 ? speedLicenses : null
+    });
+  }
   
   return {
     eventShortRef: eventType.toUpperCase() + '2026', // Convert 'wu' to 'WU2026'
@@ -2771,7 +3144,7 @@ function collectFormData() {
     org_address: orgAddress,
     teams: teams,
     managers: managers,
-    race_day: raceDay
+    race_day: raceDayArray.length > 0 ? raceDayArray : null
   };
 }
 

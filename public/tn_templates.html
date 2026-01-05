@@ -50,49 +50,33 @@
       <div class="form-group">
         <label for="marqueeQty" data-i18n="athleteMarquee">Athlete Marquee</label>
         <div class="qty-input-container">
-          <input type="number" id="marqueeQty" name="marqueeQty" class="qty-input" min="0" value="0" />
+          <input type="number" id="marqueeQty" name="marqueeQty" class="qty-input" min="0" max="25" value="0" />
           <span class="unit-label" data-i18n="unitPrice">Unit Price:</span>
           <span class="price" id="marqueePrice">HK$200</span>
         </div>
       </div>
 
-      <!-- Official Steersman (With Practice) -->
-      <div class="form-group">
-        <label for="steerWithQty" data-i18n="teamsHiredSteersman">Teams hired Official Steersman during practice</label>
-        <div class="qty-input-container">
-          <input type="number" id="steerWithQty" name="steerWithQty" class="qty-input" min="0" value="0" />
-          <span class="unit-label" data-i18n="unitPrice">Unit Price:</span>
-          <span class="price" id="steerWithPrice">HK$1500</span>
-        </div>
-      </div>
-
-      <!-- Official Steersman (Without Practice) -->
-      <div class="form-group">
-        <label for="steerWithoutQty" data-i18n="teamsNotHiredSteersman">Teams DID NOT hire Official Steersman during practice</label>
-        <div class="qty-input-container">
-          <input type="number" id="steerWithoutQty" name="steerWithoutQty" class="qty-input" min="0" value="0" />
-          <span class="unit-label" data-i18n="unitPrice">Unit Price:</span>
-          <span class="price" id="steerWithoutPrice">HK$2000</span>
-        </div>
+      <!-- Per-Team Official Steersman Selection -->
+      <div class="steersman-per-team-section">
+        <h4>Official Steersman For Race Day</h4>
+        <div id="steersmanCardsContainer"></div>
       </div>
 
       <div class="section">
         <h3 data-i18n="junkRegistration">Junk Registration</h3>
         <div class="line-row">
-          <label for="junkBoatNo" data-i18n="pleasureBoatNo">Pleasure Boat No.:</label>
-          <input type="text" id="junkBoatNo" name="junkBoatNo" />
           <span id="junkPrice">HK$2,500</span> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-          <input type="number" id="junkBoatQty" name="junkBoatQty" min="0" value="0"/>
+          <input type="number" id="junkBoatQty" name="junkBoatQty" class="qty-input" min="0" max="25" value="0"/>
+          <div id="junkBoatLicenseContainer" class="license-fields-container"></div>
         </div>
       </div>
 
       <div class="section">
         <h3 data-i18n="speedBoatRegistration">Speed Boat Registration</h3>
         <div class="line-row">
-          <label for="speedBoatNo" data-i18n="speedBoatNo">Speed Boat No.:</label>
-          <input type="text" id="speedBoatNo" name="speedBoatNo" />
           <span id="speedPrice">HK$1,500</span> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-          <input type="number" id="speedboatQty" name="speedboatQty" min="0" value="0"/>
+          <input type="number" id="speedboatQty" name="speedboatQty" class="qty-input" min="0" max="25" value="0"/>
+          <div id="speedBoatLicenseContainer" class="license-fields-container"></div>
         </div>
       </div>
 
