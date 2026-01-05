@@ -886,3 +886,145 @@ button[type="submit"]:focus-visible {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
   border: none !important;
 }
+
+/* ========================================== */
+/* SUMMARY PAGE STYLES (WU/SC Step 4)         */
+/* Matches TN Step 5 layout                   */
+/* ========================================== */
+
+/* Main container */
+.wrap { 
+  max-width: 900px; 
+  margin: 24px auto; 
+  padding: 16px; 
+}
+
+/* Section cards */
+.section { 
+  background: #fff; 
+  border: 1px solid #e5e7eb; 
+  border-radius: 8px; 
+  padding: 16px; 
+  margin-bottom: 16px; 
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.section h2 { 
+  margin: 0 0 12px; 
+  font-size: 1.1rem; 
+  color: var(--theme-primary-dark, #333);
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 8px;
+}
+
+/* Two-column grid layout */
+.grid-2 { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 12px; 
+}
+
+@media (max-width: 600px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Key-value pairs */
+.kv { 
+  display: flex; 
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.kv .k { 
+  min-width: 140px;
+  max-width: 160px;
+  color: #555; 
+  font-weight: 500;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.kv .v { 
+  color: #333;
+  flex: 1;
+  word-break: break-word;
+}
+
+/* Summary tables */
+table.summary { 
+  width: 100%; 
+  border-collapse: collapse; 
+  margin-top: 8px;
+}
+
+table.summary th { 
+  border-bottom: 2px solid #e5e7eb; 
+  padding: 10px 8px; 
+  text-align: left;
+  font-weight: 600;
+  color: var(--theme-primary-dark, #333);
+  background-color: #f9fafb;
+  font-size: 0.9rem;
+}
+
+table.summary td { 
+  border-bottom: 1px solid #eee; 
+  padding: 10px 8px; 
+  text-align: left;
+  color: #333;
+}
+
+table.summary tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+/* Muted text */
+.muted { 
+  color: #777; 
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* Total cost section - make it prominent */
+.total-cost {
+  margin-top: 8px;
+  padding: 12px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 6px;
+}
+
+.total-cost .kv .k {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.total-cost .kv .v {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--theme-primary-dark, #333);
+}
+
+/* Message area */
+.msg {
+  padding: 12px;
+  border-radius: 6px;
+  margin: 16px 0;
+}
+
+.msg:empty {
+  display: none;
+}
+
+/* Navigation buttons - ensure consistent styling */
+.nav-buttons,
+.actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}

@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node scripts/inject-env.js && node scripts/inject-version.js",
+  "buildCommand": "mv middleware.ts middleware.ts.bak 2>/dev/null || true && node scripts/inject-env.js && node scripts/inject-version.js && mv middleware.ts.bak middleware.ts 2>/dev/null || true",
   "outputDirectory": "public",
   "installCommand": "echo 'No dependencies to install'",
   "framework": null,

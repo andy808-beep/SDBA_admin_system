@@ -1,0 +1,834 @@
+/* ========== TN CALENDAR MODERN CSS - SCOPED TO #tnScope ========== */
+/* Modern practice calendar styles matching TN theme */
+
+/* TN Form Theme - Gold - Override global variables */
+body[data-event="tn"] {
+  --theme-primary: #f7b500;
+  --theme-primary-dark: #c79100;
+  --theme-primary-light: rgba(247, 181, 0, 0.1);
+}
+
+/* Scope to calendar wrapper as well */
+#tnScope .calendar-modern,
+#tnScope .calendar-wrapper {
+  --theme-primary: #f7b500;
+  --theme-primary-dark: #c79100;
+  --theme-primary-light: rgba(247, 181, 0, 0.1);
+}
+
+#tnScope {
+  --theme-primary: var(--theme-primary, #f7b500);
+  --theme-primary-dark: var(--theme-primary-dark, #c79100);
+  --theme-primary-light: rgba(247, 181, 0, 0.1);
+  --theme-primary-hover: rgba(247, 181, 0, 0.15);
+  --success-color: #52c41a;
+  --error-color: #ff4d4f;
+  --text-primary: #262626;
+  --text-secondary: #8c8c8c;
+  --border-color: #d9d9d9;
+  --bg-light: #fafafa;
+}
+
+/* ========== GLOBAL RESET ========== */
+#tnScope .calendar-modern * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ========== CONTAINER ========== */
+#tnScope .calendar-modern .container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+#tnScope .calendar-modern h1 {
+  text-align: center;
+  margin-bottom: 8px;
+  color: #1a1a2e;
+}
+
+#tnScope .calendar-modern .subtitle {
+  text-align: center;
+  color: #666;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+/* ========== TEAM SELECTOR ========== */
+/* Team Selector Section */
+#tnScope .calendar-modern .team-selector,
+#tnScope .team-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: nowrap;
+}
+
+#tnScope .calendar-modern .team-selector label,
+#tnScope .calendar-modern .team-selector-label,
+#tnScope .team-selector label,
+#tnScope .team-selector-label {
+  white-space: nowrap;
+  font-weight: 500;
+  color: #262626;
+  flex-shrink: 0;
+}
+
+#tnScope .calendar-modern .team-selector select,
+#tnScope .calendar-modern #teamSelect,
+#tnScope .team-selector select,
+#tnScope #teamSelect {
+  min-width: 150px;
+  max-width: 200px;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+#tnScope .calendar-modern .team-selector select:focus,
+#tnScope .calendar-modern #teamSelect:focus,
+#tnScope .team-selector select:focus,
+#tnScope #teamSelect:focus {
+  outline: none;
+  border-color: var(--theme-primary, #f7b500);
+  box-shadow: 0 0 0 2px rgba(247, 181, 0, 0.1);
+}
+
+/* If using flexbox container, prevent wrapping */
+#tnScope .calendar-modern .team-selector-wrapper,
+#tnScope .team-selector-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+#tnScope .calendar-modern .team-btn {
+  padding: 10px 24px;
+  border: 2px solid var(--theme-primary);
+  background: white;
+  color: var(--theme-primary-dark);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+#tnScope .calendar-modern .team-btn:hover {
+  background: var(--theme-primary-light);
+}
+
+#tnScope .calendar-modern .team-btn.active {
+  background: var(--theme-primary);
+  color: white;
+}
+
+/* ========== CALENDAR CONTAINER ========== */
+#tnScope .calendar-modern .calendar-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+/* ========== CALENDAR HEADER ========== */
+#tnScope .calendar-modern .calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--bg-light);
+  border-bottom: 1px solid #f0f0f0;
+}
+
+#tnScope .calendar-modern .nav-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color);
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+#tnScope .calendar-modern .nav-btn:hover:not(:disabled) {
+  border-color: var(--theme-primary);
+  color: var(--theme-primary);
+}
+
+#tnScope .calendar-modern .nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+#tnScope .calendar-modern .month-year-selector {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#tnScope .calendar-modern .month-dropdown,
+#tnScope .calendar-modern .year-dropdown {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: white;
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+#tnScope .calendar-modern .month-dropdown:hover,
+#tnScope .calendar-modern .year-dropdown:hover {
+  border-color: var(--theme-primary);
+}
+
+#tnScope .calendar-modern .month-dropdown:focus,
+#tnScope .calendar-modern .year-dropdown:focus {
+  outline: none;
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 0 2px var(--theme-primary-light);
+}
+
+/* ========== CALENDAR GRID ========== */
+#tnScope .calendar-modern .calendar-grid {
+  padding: 16px;
+}
+
+#tnScope .calendar-modern .weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: 500;
+  color: #8c8c8c;
+  font-size: 13px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 8px;
+}
+
+#tnScope .calendar-modern .days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+#tnScope .calendar-modern .day-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  position: relative;
+  transition: all 0.15s;
+  min-height: 40px;
+}
+
+#tnScope .calendar-modern .day-cell:hover:not(.disabled):not(.empty) {
+  background: var(--theme-primary-hover);
+}
+
+#tnScope .calendar-modern .day-cell.empty {
+  cursor: default;
+}
+
+#tnScope .calendar-modern .day-cell.disabled {
+  color: #d9d9d9;
+  cursor: not-allowed;
+  background: #fafafa;
+}
+
+#tnScope .calendar-modern .day-cell.today {
+  border: 2px solid var(--theme-primary);
+}
+
+#tnScope .calendar-modern .day-cell.selected {
+  background: var(--theme-primary);
+  color: white;
+  font-weight: 600;
+}
+
+#tnScope .calendar-modern .day-cell.selected:hover {
+  background: var(--theme-primary-dark);
+}
+
+#tnScope .calendar-modern .day-cell .selection-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  background: var(--success-color);
+  border-radius: 50%;
+}
+
+#tnScope .calendar-modern .day-cell.selected .selection-badge {
+  background: white;
+}
+
+/* ========== SELECTED DATES PANEL ========== */
+#tnScope .calendar-modern .selected-dates-panel {
+  margin-top: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+#tnScope .calendar-modern .panel-header {
+  padding: 16px 20px;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+/* Panel Title Wrapper */
+#tnScope .calendar-modern .panel-title-wrapper,
+#tnScope .panel-title-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 6px;
+}
+
+/* Panel Instructions Text */
+#tnScope .calendar-modern .panel-instructions,
+#tnScope .panel-instructions {
+  font-size: 13px;
+  color: #262626;
+  font-weight: 400;
+  font-style: italic;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Adjust panel header for the new layout */
+#tnScope .calendar-modern .selected-dates-panel .panel-header,
+#tnScope .selected-dates-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px 12px 20px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+/* Keep the Clear All button aligned to top */
+#tnScope .calendar-modern .selected-dates-panel .panel-header .clear-all-btn,
+#tnScope .selected-dates-panel .panel-header .clear-all-btn {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+#tnScope .calendar-modern .clear-all-btn {
+  padding: 4px 12px;
+  border: 1px solid #ff4d4f;
+  background: white;
+  color: #ff4d4f;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+#tnScope .calendar-modern .clear-all-btn:hover {
+  background: #ff4d4f;
+  color: white;
+}
+
+#tnScope .calendar-modern .selected-dates-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+#tnScope .calendar-modern .selected-date-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #f5f5f5;
+  transition: background 0.15s;
+}
+
+#tnScope .calendar-modern .selected-date-item:hover {
+  background: #fafafa;
+}
+
+#tnScope .calendar-modern .selected-date-item:last-child {
+  border-bottom: none;
+}
+
+#tnScope .calendar-modern .date-info {
+  flex: 1;
+  min-width: 0;
+}
+
+#tnScope .calendar-modern .date-text {
+  font-weight: 500;
+  color: #262626;
+}
+
+#tnScope .calendar-modern .date-weekday {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-top: 2px;
+}
+
+#tnScope .calendar-modern .date-options {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#tnScope .calendar-modern .option-select {
+  padding: 6px 10px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  font-size: 13px;
+  min-width: 100px;
+}
+
+#tnScope .calendar-modern .remove-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: #fff1f0;
+  color: #ff4d4f;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+#tnScope .calendar-modern .remove-btn:hover {
+  background: #ff4d4f;
+  color: white;
+}
+
+#tnScope .calendar-modern .empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: #8c8c8c;
+}
+
+#tnScope .calendar-modern .empty-state svg {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+/* ========== SUMMARY FOOTER ========== */
+#tnScope .calendar-modern .summary-footer {
+  margin-top: 20px;
+  padding: 16px 20px;
+  background: var(--theme-primary-light);
+  border: 1px solid var(--theme-primary);
+  border-radius: 8px;
+}
+
+#tnScope .calendar-modern .summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+#tnScope .calendar-modern .summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(247, 181, 0, 0.2);
+}
+
+#tnScope .calendar-modern .summary-item:last-child {
+  border-bottom: none;
+}
+
+#tnScope .calendar-modern .summary-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+#tnScope .calendar-modern .summary-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--theme-primary-dark);
+}
+
+#tnScope .calendar-modern .summary-value.warning {
+  color: var(--error-color);
+}
+
+#tnScope .calendar-modern .summary-value.success {
+  color: var(--success-color);
+}
+
+#tnScope .calendar-modern .extra-sessions {
+  background: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-top: 12px;
+  border: 1px solid var(--theme-primary);
+}
+
+#tnScope .calendar-modern .extra-sessions-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+#tnScope .calendar-modern .extra-sessions-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--theme-primary-dark);
+}
+
+/* ========== COPY FROM TEAM 1 BUTTON - THEME STYLED ========== */
+#tnScope .calendar-modern .copy-from-team1 button,
+#tnScope .calendar-modern #copyFromTeam1Btn,
+#tnScope .calendar-modern .copy-btn,
+#tnScope .calendar-modern button[onclick*="copyFromTeam1"],
+#tnScope .calendar-modern .copy-from-team1-btn,
+#tnScope .copy-from-team1 button,
+#tnScope #copyFromTeam1Btn {
+  background: transparent;
+  color: var(--theme-primary-dark, #c79100);
+  border: 2px solid var(--theme-primary, #f7b500);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#tnScope .calendar-modern .copy-from-team1 button:hover,
+#tnScope .calendar-modern #copyFromTeam1Btn:hover,
+#tnScope .calendar-modern .copy-btn:hover,
+#tnScope .calendar-modern button[onclick*="copyFromTeam1"]:hover,
+#tnScope .calendar-modern .copy-from-team1-btn:hover,
+#tnScope .copy-from-team1 button:hover,
+#tnScope #copyFromTeam1Btn:hover {
+  background: var(--theme-primary, #f7b500);
+  color: white;
+  box-shadow: 0 2px 8px rgba(247, 181, 0, 0.3);
+}
+
+/* Center the button container */
+#tnScope .calendar-modern .copy-from-team1,
+#tnScope .copy-from-team1 {
+  text-align: center;
+  margin-top: 16px;
+}
+
+/* ========== VALIDATION WARNING ========== */
+#tnScope .calendar-modern .validation-warning {
+  padding: 12px 16px;
+  background: #fff2f0;
+  border: 1px solid var(--error-color);
+  border-radius: 8px;
+  color: var(--error-color);
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+/* ========== LANGUAGE TOGGLE ========== */
+#tnScope .calendar-modern .lang-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 4px;
+  background: white;
+  padding: 4px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+#tnScope .calendar-modern .lang-btn {
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+#tnScope .calendar-modern .lang-btn.active {
+  background: var(--theme-primary);
+  color: white;
+}
+
+/* ========== COMPARISON SECTION ========== */
+#tnScope .calendar-modern .comparison {
+  margin-top: 40px;
+  padding: 20px;
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
+  border-radius: 8px;
+}
+
+#tnScope .calendar-modern .comparison h3 {
+  color: #d48806;
+  margin-bottom: 12px;
+}
+
+#tnScope .calendar-modern .comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+#tnScope .calendar-modern .comparison-item h4 {
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #262626;
+}
+
+#tnScope .calendar-modern .comparison-item ul {
+  font-size: 13px;
+  color: #595959;
+  padding-left: 20px;
+}
+
+#tnScope .calendar-modern .comparison-item li {
+  margin-bottom: 4px;
+}
+
+/* ========== SLOT PREFERENCE SECTION ========== */
+#tnScope .calendar-modern .slot-preference-section,
+#tnScope .calendar-modern .time-slot-preference,
+#tnScope .calendar-modern #slotPreferenceSection,
+#tnScope .slot-preferences {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 20px;
+  margin-top: 20px;
+}
+
+#tnScope .calendar-modern .slot-preference-section .section-header,
+#tnScope .calendar-modern .slot-preference-section h3,
+#tnScope .calendar-modern .slot-preference-section h4,
+#tnScope .calendar-modern .time-slot-preference h3,
+#tnScope .calendar-modern .time-slot-preference h4,
+#tnScope .slot-preferences h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--theme-primary-dark, #c79100);
+  margin: 0;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* ========== SUMMARY SECTION ========== */
+#tnScope .calendar-modern .practice-summary,
+#tnScope .calendar-modern .summary-section,
+#tnScope .calendar-modern #practiceSummary,
+#tnScope .summary-box {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 20px;
+  margin-top: 20px;
+}
+
+#tnScope .calendar-modern .practice-summary .section-header,
+#tnScope .calendar-modern .practice-summary h3,
+#tnScope .calendar-modern .practice-summary h4,
+#tnScope .calendar-modern .summary-section h3,
+#tnScope .calendar-modern .summary-section h4,
+#tnScope .summary-box h3 {
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  font-weight: 600;
+  color: #262626;
+}
+
+/* ========== SECTION TITLES - CONSISTENT STYLING ========== */
+/* Section Titles - Consistent styling with theme color */
+#tnScope .calendar-modern .panel-header span,
+#tnScope .calendar-modern .panel-header h3,
+#tnScope .calendar-modern .panel-header h4,
+#tnScope .calendar-modern .section-title,
+#tnScope .calendar-modern .selected-dates-panel .panel-header span,
+#tnScope .calendar-modern .slot-preference-section h3,
+#tnScope .calendar-modern .slot-preference-section h4,
+#tnScope .calendar-modern .slot-preference-section .section-title,
+#tnScope .calendar-modern .practice-summary h3,
+#tnScope .calendar-modern .practice-summary h4,
+#tnScope .calendar-modern .practice-summary .section-title,
+#tnScope .calendar-modern #slotPreferenceSection h3,
+#tnScope .calendar-modern #slotPreferenceSection h4,
+#tnScope .calendar-modern #practiceSummary h3,
+#tnScope .calendar-modern #practiceSummary h4,
+#tnScope .slot-preferences h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--theme-primary-dark, #c79100);
+  margin: 0;
+  padding: 0;
+}
+
+/* Panel header layout */
+#tnScope .calendar-modern .panel-header,
+#tnScope .calendar-modern .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* ========== CONSISTENT SPACING ========== */
+#tnScope .calendar-modern .calendar-container,
+#tnScope .calendar-modern .selected-dates-panel,
+#tnScope .calendar-modern .slot-preference-section,
+#tnScope .calendar-modern .time-slot-preference,
+#tnScope .calendar-modern .practice-summary,
+#tnScope .calendar-modern .summary-section,
+#tnScope .calendar-modern #slotPreferenceSection,
+#tnScope .calendar-modern #practiceSummary {
+  margin-top: 20px;
+}
+
+#tnScope .calendar-modern .calendar-container:first-child {
+  margin-top: 0;
+}
+
+/* ========== SUMMARY ITEMS STYLING ========== */
+#tnScope .calendar-modern .summary-item,
+#tnScope .calendar-modern .summary-row,
+#tnScope .summary-box p {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+#tnScope .calendar-modern .summary-item:last-child,
+#tnScope .calendar-modern .summary-row:last-child,
+#tnScope .summary-box p:last-child {
+  border-bottom: none;
+}
+
+#tnScope .calendar-modern .summary-label,
+#tnScope .summary-box p span:first-child {
+  color: #595959;
+  font-weight: 500;
+}
+
+#tnScope .calendar-modern .summary-value,
+#tnScope .summary-box p span:last-child {
+  font-weight: 600;
+  color: var(--theme-primary-dark, #c79100);
+}
+
+/* ========== SLOT PREFERENCE DROPDOWNS ========== */
+#tnScope .calendar-modern .slot-preference-section select,
+#tnScope .calendar-modern #slotPreferenceSection select,
+#tnScope .slot-preferences select,
+#tnScope .slot-table select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+#tnScope .calendar-modern .slot-preference-section select:focus,
+#tnScope .calendar-modern #slotPreferenceSection select:focus,
+#tnScope .slot-preferences select:focus,
+#tnScope .slot-table select:focus {
+  outline: none;
+  border-color: var(--theme-primary, #f7b500);
+  box-shadow: 0 0 0 2px rgba(247, 181, 0, 0.1);
+}
+
+#tnScope .calendar-modern .slot-preference-section label,
+#tnScope .calendar-modern #slotPreferenceSection label,
+#tnScope .slot-preferences label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #262626;
+}
+
+/* ========== SLOT TABLE STYLING ========== */
+#tnScope .slot-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+#tnScope .slot-table th,
+#tnScope .slot-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+#tnScope .slot-table th {
+  font-weight: 600;
+  color: #262626;
+  background: #fafafa;
+}
+
+#tnScope .slot-table td {
+  color: #595959;
+}
+
+#tnScope .slot-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 600px) {
+  #tnScope .calendar-modern .date-options {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  #tnScope .calendar-modern .option-select {
+    min-width: 80px;
+    font-size: 12px;
+  }
+
+  #tnScope .calendar-modern .selected-date-item {
+    flex-wrap: wrap;
+  }
+
+  #tnScope .calendar-modern .comparison-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Hide "Now scheduling" text */
+#tnScope #teamNameFields,
+#teamNameFields {
+  display: none;
+}
+

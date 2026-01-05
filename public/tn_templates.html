@@ -95,7 +95,7 @@
      Navigation buttons use IDs: backBtn, nextBtn (matching setupStep4Navigation)
 -->
 <template id="tn-step-4">
-  <div class="card">
+  <div class="card calendar-modern">
 
     <h2 data-i18n="practiceBookingTitleFallback">Practice Booking (Jan–Jul 2026)</h2> <!-- Fallback if config not loaded; overwritten by live config when available. -->
 
@@ -110,9 +110,56 @@
       <button type="button" id="copyFromTeam1Btn" data-i18n="copyFromTeam1">Copy from Team 1</button>
     </div>
 
+    <!-- Single Calendar Container -->
+    <div id="calendarContainer" class="calendar-wrapper">
+      <div class="calendar-container">
+        <div class="calendar-header">
+          <button class="nav-btn" id="prevMonthBtn" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </button>
+          
+          <div class="month-year-selector">
+            <select class="month-dropdown" id="monthDropdown">
+              <!-- Populated by JS -->
+            </select>
+            <select class="year-dropdown" id="yearDropdown">
+              <option value="2026">2026</option>
+            </select>
+          </div>
 
-    <!-- Calendar Container -->
-    <div id="calendarContainer" class="calendar-wrapper"></div>
+          <button class="nav-btn" id="nextMonthBtn" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="calendar-grid">
+          <div class="weekdays" id="weekdayHeaders">
+            <!-- Populated by JS -->
+          </div>
+          <div class="days-grid" id="daysGrid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected Dates Panel -->
+      <div class="selected-dates-panel">
+        <div class="panel-header">
+          <div class="panel-title-wrapper">
+            <span data-i18n="selectedPracticeDates">Selected Practice Dates</span>
+            <p class="panel-instructions" data-i18n="practiceInstructions">Please select Practice Duration (1 Hour / 2 Hours) and Trainer & Steersman Needs (Steersman only / Coach only / Steersman and Coach / None) for each practice date.</p>
+          </div>
+          <button class="clear-all-btn" type="button" id="clearAllDatesBtn" data-i18n="clearAll">Clear All</button>
+        </div>
+        <div class="selected-dates-list" id="selectedDatesList">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
     
     <!-- Error divs for practice validation (per team, dynamically shown/hidden) -->
     <div id="error-practice-team-1" class="field-error" role="alert" aria-live="polite" style="display: none;"></div>
@@ -185,9 +232,9 @@
     <div id="practiceSummary" class="summary-box">
       <h3 data-i18n="practiceBookingSummary">Practice Booking Summary</h3>
       <p><span data-i18n="totalHoursSelected">Total Hours Selected:</span> <span id="totalHours">0</span> / 12</p>
-      <p><span data-i18n="extraPracticeSessions">Extra Practice Sessions</span> (<span id="priceExtraStd">HK$600</span>): <span id="extraPracticeQty">0</span></p> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-      <p><span data-i18n="trainerSessions">Trainer Sessions</span> (<span id="priceTrainer">HK$550</span>): <span id="trainerQty">0</span></p> <!-- Fallback if config not loaded; overwritten by live config when available. -->
-      <p><span data-i18n="steersmanSessions">Steersman Sessions</span> (<span id="priceSteersman">HK$350</span>): <span id="steersmanQty">0</span></p> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+      <p><span data-i18n="extraPracticeSessions">Extra Practice Sessions</span> <span id="priceExtraStd">HK$600</span> <span data-i18n="perSession">/ per session</span>: <span id="extraPracticeQty">0</span></p> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+      <p><span data-i18n="trainerSessions">Trainer Sessions</span> <span id="priceTrainer">HK$550</span> <span data-i18n="perSession">/ per session</span>: <span id="trainerQty">0</span></p> <!-- Fallback if config not loaded; overwritten by live config when available. -->
+      <p><span data-i18n="steersmanSessions">Steersman Sessions</span> <span id="priceSteersman">HK$350</span> <span data-i18n="perSession">/ per session</span>: <span id="steersmanQty">0</span></p> <!-- Fallback if config not loaded; overwritten by live config when available. -->
     </div>
 
     <!-- Navigation Buttons - CRITICAL: These IDs (backBtn, nextBtn) must match setupStep4Navigation() -->

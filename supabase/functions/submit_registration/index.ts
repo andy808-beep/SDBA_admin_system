@@ -563,6 +563,107 @@ Deno.serve(async (req) => {
       console.log('Practice disabled for non-TN event:', eventShortRef);
     }
 
+    // Extract practice data into parallel arrays for storage (TN events only)
+    interface PracticeArrays {
+      dates: string[];      // ISO date strings
+      durations: string[];  // '1hr' or '2hr'
+      helpers: string[];    // 'NONE', 'S', 'T', 'ST'
+      slotPrefs: (string | null)[];  // 6 elements: [2hr_p1, 2hr_p2, 2hr_p3, 1hr_p1, 1hr_p2, 1hr_p3]
+    }
+
+    const practiceDataMap = new Map<number, PracticeArrays>();
+
+    if (eventType === 'tn' && practice && typeof practice === 'object' && 'teams' in practice) {
+      const tnPractice = practice as { teams: TNPracticeTeam[] };
+      
+      // Collect all unique slot codes to batch query durations
+      const allSlotCodes = new Set<string>();
+      for (const team of tnPractice.teams) {
+        if (Array.isArray(team.slot_ranks)) {
+          for (const sr of team.slot_ranks) {
+            if (sr.slot_code) {
+              allSlotCodes.add(sr.slot_code);
+            }
+          }
+        }
+      }
+      
+      // Batch query slot durations
+      const slotDurationMap = new Map<string, number>();
+      if (allSlotCodes.size > 0) {
+        const { data: slotData } = await admin
+          .from('timeslot_catalog')
+          .select('slot_code, duration_hours')
+          .in('slot_code', Array.from(allSlotCodes))
+          .eq('is_active', true);
+        
+        if (slotData) {
+          for (const slot of slotData) {
+            slotDurationMap.set(slot.slot_code, slot.duration_hours);
+          }
+        }
+      }
+      
+      // Process each team's practice data
+      for (const team of tnPractice.teams) {
+        const teamIndexMatch = team.team_key?.match(/^t(\d+)$/);
+        if (!teamIndexMatch) continue;
+        
+        const teamIndex = parseInt(teamIndexMatch[1], 10) - 1; // Convert to 0-based index
+        
+        // Extract dates and parallel arrays
+        const dates: string[] = [];
+        const durations: string[] = [];
+        const helpers: string[] = [];
+        
+        if (Array.isArray(team.dates)) {
+          for (const d of team.dates) {
+            dates.push(d.pref_date);
+            // Convert numeric duration to string format '1hr' or '2hr'
+            const durationNum = d.duration_hours || 2;
+            durations.push(durationNum === 1 ? '1hr' : '2hr');
+            helpers.push(d.helper || 'ST');
+          }
+        }
+        
+        // Extract slot preferences into fixed 6-element array
+        // [2hr_rank1, 2hr_rank2, 2hr_rank3, 1hr_rank1, 1hr_rank2, 1hr_rank3]
+        const slotPrefs: (string | null)[] = [null, null, null, null, null, null];
+        
+        if (Array.isArray(team.slot_ranks)) {
+          // Separate by duration using the slot duration map
+          const twoHourSlots: { rank: number; slot_code: string }[] = [];
+          const oneHourSlots: { rank: number; slot_code: string }[] = [];
+          
+          for (const sr of team.slot_ranks) {
+            if (sr.slot_code) {
+              const duration = slotDurationMap.get(sr.slot_code);
+              if (duration === 2) {
+                twoHourSlots.push({ rank: sr.rank, slot_code: sr.slot_code });
+              } else if (duration === 1) {
+                oneHourSlots.push({ rank: sr.rank, slot_code: sr.slot_code });
+              }
+            }
+          }
+          
+          // Sort by rank and assign to array positions
+          twoHourSlots.sort((a, b) => a.rank - b.rank);
+          oneHourSlots.sort((a, b) => a.rank - b.rank);
+          
+          // 2hr slots go to index 0, 1, 2
+          for (let i = 0; i < Math.min(3, twoHourSlots.length); i++) {
+            slotPrefs[i] = twoHourSlots[i].slot_code;
+          }
+          // 1hr slots go to index 3, 4, 5
+          for (let i = 0; i < Math.min(3, oneHourSlots.length); i++) {
+            slotPrefs[3 + i] = oneHourSlots[i].slot_code;
+          }
+        }
+        
+        practiceDataMap.set(teamIndex, { dates, durations, helpers, slotPrefs });
+      }
+    }
+
     // 5) registration_meta (now stores individual team registrations for admin approval)
     const optionText = (o: "opt1" | "opt2") => (o === "opt1" ? "Option 1" : "Option 2");
     
@@ -585,6 +686,9 @@ Deno.serve(async (req) => {
         const validSteersmanOption = (steersmanOption === 'with_practice' || steersmanOption === 'no_practice' || steersmanOption === 'not_required') 
           ? steersmanOption 
           : null;
+        
+        // Get practice data for this team
+        const practiceData = practiceDataMap.get(idx);
         
         return {
           event_type: 'tn',
@@ -614,6 +718,11 @@ Deno.serve(async (req) => {
           junk_boat_license_nos: idx === 0 ? (raceDayColumns?.junk_boat_license_nos ?? null) : null,
           speed_boat_qty: idx === 0 ? (raceDayColumns?.speed_boat_qty ?? 0) : 0,
           speed_boat_license_nos: idx === 0 ? (raceDayColumns?.speed_boat_license_nos ?? null) : null,
+          // Practice data as parallel arrays
+          practice_dates: practiceData?.dates && practiceData.dates.length > 0 ? practiceData.dates : null,
+          practice_durations: practiceData?.durations && practiceData.durations.length > 0 ? practiceData.durations : null,
+          practice_helpers: practiceData?.helpers && practiceData.helpers.length > 0 ? practiceData.helpers : null,
+          practice_slot_prefs: practiceData?.slotPrefs && practiceData.slotPrefs.some(s => s !== null) ? practiceData.slotPrefs : null,
           status: 'pending'
         };
       });
@@ -703,6 +812,11 @@ Deno.serve(async (req) => {
           junk_boat_license_nos: idx === 0 ? (raceDayColumns?.junk_boat_license_nos ?? null) : null,
           speed_boat_qty: idx === 0 ? (raceDayColumns?.speed_boat_qty ?? 0) : 0,
           speed_boat_license_nos: idx === 0 ? (raceDayColumns?.speed_boat_license_nos ?? null) : null,
+          // Practice arrays null for WU/SC (no practice for these events)
+          practice_dates: null,
+          practice_durations: null,
+          practice_helpers: null,
+          practice_slot_prefs: null,
           status: 'pending'
         };
       });

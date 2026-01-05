@@ -1097,6 +1097,15 @@ DECLARE
   new_team_id uuid;
   v_primary_reg_id uuid;
   v_has_race_day_data boolean;
+  -- Practice data processing variables
+  i integer;
+  arr_len integer;
+  curr_duration_str text;
+  curr_duration integer;
+  curr_helper text;
+  calc_total integer;
+  calc_trainer integer;
+  calc_steersman integer;
 BEGIN
   -- Get the registration record
   SELECT * INTO reg_record
@@ -1183,6 +1192,82 @@ BEGIN
         junk_boat_license_nos = EXCLUDED.junk_boat_license_nos,
         speed_boat_qty = EXCLUDED.speed_boat_qty,
         speed_boat_license_nos = EXCLUDED.speed_boat_license_nos;
+    END IF;
+    
+    -- Insert practice preferences for TN events and calculate totals
+    IF reg_record.practice_dates IS NOT NULL AND array_length(reg_record.practice_dates, 1) > 0 THEN
+      -- Initialize totals
+      calc_total := 0;
+      calc_trainer := 0;
+      calc_steersman := 0;
+      arr_len := array_length(reg_record.practice_dates, 1);
+      
+      FOR i IN 1..arr_len LOOP
+        curr_duration_str := COALESCE(reg_record.practice_durations[i], '2hr');
+        curr_helper := COALESCE(reg_record.practice_helpers[i], 'ST');
+        
+        -- Parse duration string to integer ('1hr' -> 1, '2hr' -> 2)
+        curr_duration := CASE 
+          WHEN curr_duration_str = '1hr' THEN 1
+          WHEN curr_duration_str = '2hr' THEN 2
+          ELSE 2
+        END;
+        
+        -- Calculate totals
+        calc_total := calc_total + curr_duration;
+        IF curr_helper IN ('T', 'ST') THEN
+          calc_trainer := calc_trainer + curr_duration;
+        END IF;
+        IF curr_helper IN ('S', 'ST') THEN
+          calc_steersman := calc_steersman + curr_duration;
+        END IF;
+        
+        -- Insert row into practice_preferences
+        INSERT INTO public.practice_preferences (
+          team_id,
+          pref_date,
+          duration_hours,
+          need_steersman,
+          need_coach,
+          pref1_slot_code,
+          pref2_slot_code,
+          pref3_slot_code
+        ) VALUES (
+          new_team_id,
+          reg_record.practice_dates[i],
+          curr_duration,
+          curr_helper IN ('S', 'ST'),
+          curr_helper IN ('T', 'ST'),
+          -- 2hr prefs at index 1,2,3; 1hr prefs at index 4,5,6 (PostgreSQL arrays are 1-indexed)
+          CASE WHEN curr_duration = 2 THEN reg_record.practice_slot_prefs[1] ELSE reg_record.practice_slot_prefs[4] END,
+          CASE WHEN curr_duration = 2 THEN reg_record.practice_slot_prefs[2] ELSE reg_record.practice_slot_prefs[5] END,
+          CASE WHEN curr_duration = 2 THEN reg_record.practice_slot_prefs[3] ELSE reg_record.practice_slot_prefs[6] END
+        )
+        ON CONFLICT (team_id, pref_date) DO UPDATE SET
+          duration_hours = EXCLUDED.duration_hours,
+          need_steersman = EXCLUDED.need_steersman,
+          need_coach = EXCLUDED.need_coach,
+          pref1_slot_code = EXCLUDED.pref1_slot_code,
+          pref2_slot_code = EXCLUDED.pref2_slot_code,
+          pref3_slot_code = EXCLUDED.pref3_slot_code,
+          updated_at = now();
+      END LOOP;
+      
+      -- Update team_meta with calculated totals (if columns exist)
+      -- Note: These columns may need to be added via migration first
+      BEGIN
+        UPDATE public.team_meta
+        SET 
+          practice_total_hours = calc_total,
+          practice_trainer_hours = calc_trainer,
+          practice_steersman_hours = calc_steersman,
+          updated_at = now()
+        WHERE id = new_team_id;
+      EXCEPTION
+        WHEN undefined_column THEN
+          -- Columns don't exist yet, skip update (will be added via migration)
+          NULL;
+      END;
     END IF;
     
   ELSIF reg_record.event_type = 'wu' THEN

@@ -3740,7 +3740,7 @@ function initStep4() {
         const retryCalendar = document.getElementById('calendarContainer');
         if (retryCalendar) {
           console.log('✅ calendarContainer found on retry');
-          initCalendarContainer();
+          initTNCalendarModern();
           continueStep4Init();
         } else {
           console.error('❌ calendarContainer still not found after retry');
@@ -3750,8 +3750,8 @@ function initStep4() {
     }
     Logger.debug('🎯 initStep4: #calendarContainer found, proceeding with calendar init');
     
-    // Set up calendar container
-    initCalendarContainer();
+    // Initialize modern calendar
+    initTNCalendarModern();
     
     // Continue with rest of initialization
     continueStep4Init();
@@ -3894,10 +3894,10 @@ function initPracticeConfig() {
 }
 
 /**
- * Initialize calendar container
- * Creates a functional practice calendar for TN wizard
+ * Initialize modern calendar component
+ * Creates a functional practice calendar for TN wizard using TNCalendarModern
  */
-function initCalendarContainer() {
+function initTNCalendarModern() {
   const calendarEl = document.getElementById('calendarContainer');
   if (!calendarEl) { 
 	Logger.warn('TN: #calendarContainer not found after mount'); 
@@ -3910,21 +3910,26 @@ function initCalendarContainer() {
     return;
   }
   
-  // Legacy vs fallback
-  const hasLegacy = typeof window.initCalendar === 'function';
-	Logger.debug('TN: calendar init path', { hasLegacy });
-  
-  if (hasLegacy) {
-    window.initCalendar();
-  } else {
-    const p = window.__CONFIG?.practice || {};
-    initTNCalendar({
-      mount: '#calendarContainer',
-      windowStart: p.practice_start_date ?? p.window_start ?? null,
-      windowEnd:   p.practice_end_date   ?? p.window_end   ?? null,
-      allowedWeekdays: Array.isArray(p.allowed_weekdays) ? p.allowed_weekdays : [0,1,2,3,4,5,6]
-    });
+  // Check if TNCalendarModern is available
+  if (typeof window.TNCalendarModern === 'undefined') {
+    Logger.error('TN: TNCalendarModern not available. Make sure tn_calendar_modern.js is loaded.');
+    return;
   }
+  
+  const p = window.__CONFIG?.practice || {};
+  const practiceStartDate = p.practice_start_date ? new Date(p.practice_start_date) : new Date(2026, 0, 1);
+  const practiceEndDate = p.practice_end_date ? new Date(p.practice_end_date) : new Date(2026, 7, 31);
+  
+  // Initialize modern calendar
+  const calendar = window.TNCalendarModern.create('#calendarContainer', {
+    practiceStartDate: practiceStartDate,
+    practiceEndDate: practiceEndDate,
+    minimumHoursPerTeam: p.minimum_hours_per_team || 12,
+    maxDatesPerTeam: p.max_dates_per_team || 60,
+    extraSessionPrice: p.extra_session_price || 600,
+    defaultDuration: 2,
+    defaultHelper: 'ST'
+  });
   
   calendarEl.dataset.initStep = '4';
   logCalendarState();
@@ -4380,6 +4385,13 @@ function removeDateFromCurrentTeam(dateStr) {
  * Update practice summary based on selected dates and options
  */
 function updatePracticeSummary() {
+  // Use the modern calendar's update method if available
+  if (window.TNCalendarModern?.instance) {
+    window.TNCalendarModern.instance.updateSummary();
+    return;
+  }
+  
+  // Fallback to old calendar format (for backward compatibility)
   const totalHoursEl = document.getElementById('totalHours');
   const extraPracticeQtyEl = document.getElementById('extraPracticeQty');
   const trainerQtyEl = document.getElementById('trainerQty');
@@ -4398,18 +4410,21 @@ function updatePracticeSummary() {
     const durationSelect = dayEl.querySelector('.duration');
     const helpersSelect = dayEl.querySelector('.helpers');
     
-    if (durationSelect.value) {
-      totalHours += parseInt(durationSelect.value, 10);
-    }
+    const duration = parseInt(durationSelect?.value, 10) || 0;
+    const helperType = helpersSelect?.value || 'NONE';
     
-    // Check for 'T' (Trainer) or 'ST' (both)
-    if (helpersSelect.value === 'T' || helpersSelect.value === 'ST') {
-      trainerCount++;
-    }
-    
-    // Check for 'S' (Steersman) or 'ST' (both)
-    if (helpersSelect.value === 'S' || helpersSelect.value === 'ST') {
-      steersmanCount++;
+    if (duration > 0) {
+      totalHours += duration;
+      
+      // Check for 'T' (Trainer) or 'ST' (both) - add duration, not count
+      if (helperType === 'T' || helperType === 'ST') {
+        trainerCount += duration;
+      }
+      
+      // Check for 'S' (Steersman) or 'ST' (both) - add duration, not count
+      if (helperType === 'S' || helperType === 'ST') {
+        steersmanCount += duration;
+      }
     }
   });
   
@@ -6471,61 +6486,214 @@ function setupCopyFromTeam1Button() {
 
 /**
  * Copy practice data between teams with validation
+ * Works with both legacy and modern calendar
  */
 function copyPractice(fromKey, toKey, mode, cfg) {
-  const srcRows = readTeamRows(fromKey);
-  const srcRanks = readTeamRanks(fromKey);
-  const p = cfg.practice || {};
+  const srcRows = readTeamRows(fromKey) || [];
+  const srcRanks = readTeamRanks(fromKey) || [];
+  const p = cfg?.practice || window.__CONFIG?.practice || {};
   const min = p.practice_start_date || p.window_start;
   const max = p.practice_end_date || p.window_end;
   const wd  = p.allowed_weekdays;
-  const maxDates = cfg?.limits?.practice?.max_dates_per_team ?? 10;
+  const maxDates = cfg?.limits?.practice?.max_dates_per_team || p.max_dates_per_team || 60;
+  
+  // Validate dates if constraints exist
   const valid = (r) => {
     if (!r.pref_date) return false;
-    const d = new Date(r.pref_date);
-    if (min && d < new Date(min)) return false;
-    if (max && d > new Date(max)) return false;
-    if (Array.isArray(wd) && wd.length && !wd.includes(d.getDay())) return false;
+    if (min || max || (Array.isArray(wd) && wd.length > 0)) {
+      const d = new Date(r.pref_date);
+      if (min && d < new Date(min)) return false;
+      if (max && d > new Date(max)) return false;
+      if (Array.isArray(wd) && wd.length && !wd.includes(d.getDay())) return false;
+    }
     return true;
   };
-  const cleaned = srcRows.filter(valid).map(r => ({ ...r }));
-  const dest = readTeamRows(toKey);
+  
+  const cleaned = srcRows.filter(valid).map(r => ({ 
+    pref_date: r.pref_date,
+    duration_hours: r.duration_hours || 2,
+    helper: r.helper || 'ST'
+  }));
+  
+  const dest = readTeamRows(toKey) || [];
   const nextRows = (mode === 'append')
     ? dest.concat(cleaned).slice(0, maxDates)
     : cleaned.slice(0, maxDates);
+  
   writeTeamRows(toKey, nextRows);
-  writeTeamRanks(toKey, Array.isArray(srcRanks) ? srcRanks.slice(0,3) : []);
+  writeTeamRanks(toKey, Array.isArray(srcRanks) ? srcRanks.slice(0, 3) : []);
+  
+  // Update calendar display if it's the current team (modern calendar)
+  const calendar = window.TNCalendarModern?.getInstance();
+  if (calendar && calendar.currentTeam === toKey) {
+    calendar.refresh();
+  }
+  
+  return {
+    copied: nextRows.length,
+    ranks: Array.isArray(srcRanks) ? srcRanks.slice(0, 3).length : 0
+  };
+}
+
+/**
+ * Show toast notification
+ */
+function showToast(message, type = 'success') {
+  // Remove existing toast if any
+  const existingToast = document.getElementById('tn-toast-notification');
+  if (existingToast) {
+    existingToast.remove();
+  }
+
+  const toast = document.createElement('div');
+  toast.id = 'tn-toast-notification';
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: ${type === 'success' ? '#52c41a' : '#ff4d4f'};
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    font-size: 14px;
+    font-weight: 500;
+    animation: fadeIn 0.3s ease;
+    max-width: 90%;
+    text-align: center;
+  `;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  // Auto-remove after 3 seconds
+  setTimeout(() => {
+    toast.style.animation = 'fadeOut 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+/**
+ * Copy practice data from Team 1 to all other teams
+ */
+function copyFromTeam1ToAllTeams() {
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  if (teamCount < 2) {
+    const msg = window.i18n?.t('noOtherTeams', 'No other teams to copy to') || 'No other teams to copy to';
+    showToast(msg, 'error');
+    return;
+  }
+
+  const fromKey = 't1';
+  const srcRows = readTeamRows(fromKey) || [];
+  const srcRanks = readTeamRanks(fromKey) || [];
+
+  if (srcRows.length === 0) {
+    const msg = window.i18n?.t('team1NoData', 'Team 1 has no practice dates selected') || 'Team 1 has no practice dates selected';
+    showToast(msg, 'error');
+    return;
+  }
+
+  const cfg = window.__CONFIG || {};
+  let copiedCount = 0;
+
+  // Copy to all teams except Team 1
+  for (let i = 2; i <= teamCount; i++) {
+    const toKey = `t${i}`;
+    const result = copyPractice(fromKey, toKey, 'replace', cfg);
+    if (result.copied > 0) {
+      copiedCount++;
+    }
+  }
+
+  // Refresh calendar if using modern calendar
+  const calendar = window.TNCalendarModern?.getInstance();
+  if (calendar) {
+    calendar.refresh();
+  } else {
+    // Legacy: update current team's calendar
+    const currentTeamIndex = getCurrentTeamIndex();
+    updateCalendarForTeam(currentTeamIndex);
+  }
+
+  // Update summary
+  updatePracticeSummary();
+
+  // Show success message
+  const msg = window.i18n?.t('practiceCopiedToAllTeams', 
+    `Practice data copied from Team 1 to ${copiedCount} team(s)`) 
+    || `Practice data copied from Team 1 to ${copiedCount} team(s)`;
+  showToast(msg, 'success');
+
+	Logger.debug(`🎯 Copied ${srcRows.length} practice dates & ${srcRanks.length} slot ranks from Team 1 to ${copiedCount} team(s)`);
 }
 
 /**
  * Handle copy from Team 1 button click
+ * Copies to all other teams (t2, t3, etc.)
  */
 function handleCopyFromTeam1() {
 	Logger.debug('🎯 handleCopyFromTeam1: Copy button clicked!');
   
-  const currentTeamIndex = getCurrentTeamIndex();
-	Logger.debug(`🎯 handleCopyFromTeam1: Current team index: ${currentTeamIndex}`);
-  
-  if (currentTeamIndex === 0) {
-	Logger.debug('🎯 handleCopyFromTeam1: Already on Team 1, nothing to copy');
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  if (teamCount < 2) {
+    const msg = window.i18n?.t('noOtherTeams', 'No other teams to copy to') || 'No other teams to copy to';
+    showToast(msg, 'error');
+	Logger.debug('🎯 handleCopyFromTeam1: No other teams to copy to');
     return;
   }
-  
-	Logger.debug(`🎯 handleCopyFromTeam1: Copying Team 1 data to Team ${currentTeamIndex + 1}`);
-  
-  const currentIdx = getCurrentTeamIndex(); // 0-based
+
   const fromKey = 't1';
-  const toKey = `t${currentIdx + 1}`;
-  const srcRows  = readTeamRows(fromKey) || [];
-  const srcRanks = readTeamRanks?.(fromKey) || [];
-  writeTeamRows(toKey, srcRows.slice());
-  writeTeamRanks?.(toKey, srcRanks.slice(0,3));
-  updateCalendarForTeam(currentIdx);
-  updateSlotPreferencesForTeam(currentIdx);
-  updatePracticeSummary(); // Update the practice summary box
-	Logger.debug(`🎯 Copied ${srcRows.length} rows & ${srcRanks.length||0} ranks from ${fromKey} → ${toKey}`);
+  const srcRows = readTeamRows(fromKey) || [];
+  const srcRanks = readTeamRanks(fromKey) || [];
+
+  if (srcRows.length === 0) {
+    const msg = window.i18n?.t('team1NoData', 'Team 1 has no practice dates selected') || 'Team 1 has no practice dates selected';
+    showToast(msg, 'error');
+	Logger.debug('🎯 handleCopyFromTeam1: Team 1 has no practice dates');
+    return;
+  }
+
+	Logger.debug(`🎯 handleCopyFromTeam1: Copying Team 1 data to all other teams (${teamCount - 1} teams)`);
   
-	Logger.debug(`🎯 handleCopyFromTeam1: Copied Team 1 data to Team ${currentTeamIndex + 1}`);
+  const cfg = window.__CONFIG || {};
+  let copiedCount = 0;
+
+  // Copy to all teams except Team 1
+  for (let i = 2; i <= teamCount; i++) {
+    const toKey = `t${i}`;
+    const result = copyPractice(fromKey, toKey, 'replace', cfg);
+    if (result.copied > 0) {
+      copiedCount++;
+    }
+  }
+
+  // Refresh calendar display (modern or legacy)
+  const calendar = window.TNCalendarModern?.getInstance();
+  if (calendar) {
+    // Refresh to show current team's updated data
+    calendar.refresh();
+  } else {
+    // Legacy: update current team's calendar
+    const currentTeamIndex = getCurrentTeamIndex();
+    updateCalendarForTeam(currentTeamIndex);
+  }
+
+  // Update slot preferences for current team
+  const currentTeamIndex = getCurrentTeamIndex();
+  updateSlotPreferencesForTeam(currentTeamIndex);
+  
+  // Update summary
+  updatePracticeSummary();
+
+  // Show success message
+  const msg = window.i18n?.t('practiceCopiedToAllTeams', 
+    `Practice data copied from Team 1 to ${copiedCount} team(s)`) 
+    || `Practice data copied from Team 1 to ${copiedCount} team(s)`;
+  showToast(msg, 'success');
+  
+	Logger.debug(`🎯 Copied ${srcRows.length} practice dates & ${srcRanks.length} slot ranks from Team 1 to ${copiedCount} team(s)`);
 }
 
 /**
@@ -6562,26 +6730,18 @@ function saveTeamPracticeData(teamIndex, data) {
  * Save current team's practice data
  */
 function saveCurrentTeamPracticeData() {
+  // With TNCalendarModern, data is already saved to sessionStorage automatically
+  // when dates are selected/deselected or modified. This function now just
+  // ensures the calendar instance is in sync.
+  const calendar = window.TNCalendarModern?.getInstance();
+  if (calendar) {
+    // Calendar already saves data automatically, just refresh to ensure sync
+    calendar.refresh();
+  }
+  
   const currentTeamKey = getCurrentTeamKey();
-  const rows = [];
-  const checks = document.querySelectorAll('#calendarContainer input[type="checkbox"][data-date]:checked');
-  checks.forEach(cb => {
-    const dateStr = cb.getAttribute('data-date');
-    // dropdowns are the next sibling `.dropdowns` of the label wrapper
-    const label = cb.closest('label.day-checkbox');
-    const dropdowns = label?.parentElement?.querySelector('.dropdowns');
-    const durationSel = dropdowns?.querySelector('select.duration');
-    const helperSel = dropdowns?.querySelector('select.helpers');
-    if (dateStr && durationSel && helperSel) {
-      rows.push({
-        pref_date: dateStr,
-        duration_hours: Number(durationSel.value) || 2,
-        helper: helperSel.value || 'ST'
-      });
-    }
-  });
-  writeTeamRows(currentTeamKey, rows);
-	Logger.debug(`🎯 saveCurrentTeamPracticeData: Saved ${rows.length} rows for ${currentTeamKey}`);
+  const rows = readTeamRows(currentTeamKey) || [];
+	Logger.debug(`🎯 saveCurrentTeamPracticeData: Current ${rows.length} rows for ${currentTeamKey}`);
 }
 
 /**
@@ -6596,63 +6756,100 @@ function validatePracticeRequired() {
   const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
   const errors = [];
   
-  // Check if practice is required (you may need to adjust this based on your actual logic)
-  const isPracticeRequired = window.__PRACTICE_ENABLED !== false; // Adjust based on your config
+  // Get config values
+  const practiceConfig = window.__CONFIG?.practice || {};
+  const isPracticeRequired = window.__PRACTICE_ENABLED !== false;
+  const minimumHours = practiceConfig.minimum_hours_per_team || 12;
+  const minimumDates = practiceConfig.minimum_dates_per_team || 1;
+  const maxDates = practiceConfig.max_dates_per_team || 60;
+  
+  // Use TNCalendarModern if available, otherwise fallback to readTeamRows
+  const getTeamData = window.TNCalendarModern?.getTeamData || readTeamRows;
   
   for (let i = 0; i < teamCount; i++) {
     const teamNum = i + 1;
     const key = `t${teamNum}`;
-    // Use correct storage key: tn_team_name_en_${teamNum}
+    
+    // Get team name
     const teamNameEn = sessionStorage.getItem(`tn_team_name_en_${teamNum}`);
     const teamNameTc = sessionStorage.getItem(`tn_team_name_tc_${teamNum}`);
     const teamName = teamNameEn ? (teamNameTc ? `${teamNameEn} (${teamNameTc})` : teamNameEn) : `Team ${teamNum}`;
     
-    const rows = readTeamRows(key) || [];
+    // Get practice data using new calendar method or fallback
+    const rows = getTeamData(key) || [];
     const ranks = readTeamRanks(key) || [];
     
     if (isPracticeRequired) {
-      // 1. Validate calendar selection (practice dates)
-      if (rows.length === 0) {
+      // 1. Validate minimum dates selected
+      if (rows.length < minimumDates) {
         errors.push({
           field: `practice-team-${teamNum}`,
-          messageKey: 'practiceSelectionRequired',
-          params: { teamNum: teamNum, teamName: teamName }
+          messageKey: 'practiceMinimumDatesRequired',
+          params: { 
+            teamNum: teamNum, 
+            teamName: teamName,
+            minimum: minimumDates,
+            current: rows.length
+          }
         });
       }
       
-      // 2. Validate total practice hours (minimum 12 hours)
-      let totalHours = 0;
+      // 2. Validate each date has required fields
+      rows.forEach((row, index) => {
+        // Check duration is present and valid (1 or 2)
+        if (!row.duration_hours || (row.duration_hours !== 1 && row.duration_hours !== 2)) {
+          errors.push({
+            field: `duration-team-${teamNum}`,
+            messageKey: 'practiceDurationRequired',
+            params: { 
+              teamNum: teamNum, 
+              teamName: teamName,
+              dateIndex: index + 1,
+              date: row.pref_date || 'unknown'
+            }
+          });
+        }
+        
+        // Check helper is present (default ST is OK, but must be one of: NONE, S, T, ST)
+        if (!row.helper || !['NONE', 'S', 'T', 'ST'].includes(row.helper)) {
+          errors.push({
+            field: `helper-team-${teamNum}`,
+            messageKey: 'practiceHelperRequired',
+            params: { 
+              teamNum: teamNum, 
+              teamName: teamName,
+              dateIndex: index + 1,
+              date: row.pref_date || 'unknown'
+            }
+          });
+        }
+      });
       
+      // 3. Validate total practice hours (minimum required)
+      let totalHours = 0;
       for (const r of rows) {
         const hours = Number(r.duration_hours) || 0;
         totalHours += hours;
       }
       
-      // Check minimum 12 hours requirement
-      if (totalHours < 12) {
+      if (totalHours < minimumHours) {
         errors.push({
           field: `practice-team-${teamNum}`,
           messageKey: 'practiceMinimumRequired',
           params: { 
             teamNum: teamNum, 
-            teamName: teamName
+            teamName: teamName,
+            minimum: minimumHours,
+            current: totalHours
           }
         });
       }
       
-      // NOTE: Duration and steersman & coach validation removed
-      // Fields now have defaults (2h for duration, NONE for steersman/coach)
-      // so they can never be missing. No validation needed.
-    }
-    
-    // Check that team has at least one slot preference (optional, but keep for now)
-    if (ranks.length === 0 && rows.length > 0) {
-      // This is optional per the task, so we'll skip it
-      // errors.push({
-      //   field: `practice-team-${teamNum}`,
-      //   messageKey: 'practiceTimeSlotRequired',
-      //   params: { teamNum: teamNum, teamName: teamName }
-      // });
+      // 4. Validate max dates (warning, not error)
+      if (rows.length > maxDates) {
+        // This is a warning, not blocking, but log it
+        Logger.warn(`Team ${teamNum} has ${rows.length} dates, exceeding max of ${maxDates}`);
+      }
     }
   }
   
@@ -6924,23 +7121,33 @@ function loadTeamPracticeData(teamIndex) {
 function updateCalendarForTeam(teamIndex) {
   const teamKey = `t${teamIndex + 1}`;
   const rows = readTeamRows(teamKey) || [];
-  clearCalendarSelections();
-  rows.forEach(row => {
-    const cb = document.querySelector(`#calendarContainer input[type="checkbox"][data-date="${row.pref_date}"]`);
-    if (!cb) return;
-    cb.checked = true;
-    const label = cb.closest('label.day-checkbox');
-    const dropdowns = label?.parentElement?.querySelector('.dropdowns');
-    const durationSel = dropdowns?.querySelector('select.duration');
-    const helperSel = dropdowns?.querySelector('select.helpers');
-    // Ensure duration defaults to 2 if missing or invalid
-    const durationHours = row.duration_hours && [1, 2].includes(Number(row.duration_hours)) 
-      ? Number(row.duration_hours) 
-      : 2;
-    if (durationSel) durationSel.value = String(durationHours);
-    if (helperSel)  helperSel.value  = row.helper || 'ST';
-    dropdowns?.classList.remove('hide');
-  });
+  
+  // Use TNCalendarModern if available
+  const calendar = window.TNCalendarModern?.getInstance();
+  if (calendar) {
+    // Switch to the team and refresh display
+    calendar.switchTeam(teamKey);
+    // Data is already in sessionStorage, calendar will read it automatically
+  } else {
+    // Fallback to legacy method if calendar not initialized
+    clearCalendarSelections();
+    rows.forEach(row => {
+      const cb = document.querySelector(`#calendarContainer input[type="checkbox"][data-date="${row.pref_date}"]`);
+      if (!cb) return;
+      cb.checked = true;
+      const label = cb.closest('label.day-checkbox');
+      const dropdowns = label?.parentElement?.querySelector('.dropdowns');
+      const durationSel = dropdowns?.querySelector('select.duration');
+      const helperSel = dropdowns?.querySelector('select.helpers');
+      // Ensure duration defaults to 2 if missing or invalid
+      const durationHours = row.duration_hours && [1, 2].includes(Number(row.duration_hours)) 
+        ? Number(row.duration_hours) 
+        : 2;
+      if (durationSel) durationSel.value = String(durationHours);
+      if (helperSel)  helperSel.value  = row.helper || 'ST';
+      dropdowns?.classList.remove('hide');
+    });
+  }
 }
 
 /**
@@ -7027,32 +7234,42 @@ function updateSlotPreferencesForTeam(teamIndex) {
 function clearCalendarSelections() {
 	Logger.debug('🎯 clearCalendarSelections: Clearing calendar selections');
   
-  // Clear any selected dates on the calendar
-  const calendarContainer = document.getElementById('calendarContainer');
-  if (calendarContainer) {
-    // Clear any checkboxes that might be checked
-    const checkboxes = calendarContainer.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach(checkbox => {
-      checkbox.checked = false;
-    });
-    
-    // Hide all dropdowns and clear their values
-    const dropdowns = calendarContainer.querySelectorAll('.dropdowns');
-    dropdowns.forEach(dropdown => {
-      dropdown.classList.add('hide');
-      dropdown.querySelectorAll('select').forEach(select => {
-        select.value = '';
+  // Use TNCalendarModern if available
+  const calendar = window.TNCalendarModern?.getInstance();
+  if (calendar) {
+    // Modern calendar handles clearing internally via refresh
+    // Data is stored in sessionStorage, so clearing is done by writing empty array
+    const currentTeamKey = getCurrentTeamKey();
+    writeTeamRows(currentTeamKey, []);
+    calendar.refresh();
+  } else {
+    // Fallback to legacy method
+    const calendarContainer = document.getElementById('calendarContainer');
+    if (calendarContainer) {
+      // Clear any checkboxes that might be checked
+      const checkboxes = calendarContainer.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
       });
-    });
-    
-    // Clear summary total hours
-    const totalHoursEl = document.getElementById('totalHours');
-    if (totalHoursEl) {
-      totalHoursEl.textContent = '0';
+      
+      // Hide all dropdowns and clear their values
+      const dropdowns = calendarContainer.querySelectorAll('.dropdowns');
+      dropdowns.forEach(dropdown => {
+        dropdown.classList.add('hide');
+        dropdown.querySelectorAll('select').forEach(select => {
+          select.value = '';
+        });
+      });
+      
+      // Clear summary total hours
+      const totalHoursEl = document.getElementById('totalHours');
+      if (totalHoursEl) {
+        totalHoursEl.textContent = '0';
+      }
     }
-    
-	Logger.debug('🎯 clearCalendarSelections: Cleared calendar selections');
   }
+  
+	Logger.debug('🎯 clearCalendarSelections: Cleared calendar selections');
 }
 
 /**
@@ -8140,9 +8357,11 @@ function validateStep4() {
   
   // Display errors if any found
   if (errors.length > 0) {
-    if (window.errorSystem) {
-      // For practice errors, we need to display them in the pre-existing error divs
-      // since they don't have corresponding form fields
+    if (window.errorSystem && typeof window.errorSystem.showFormErrors === 'function') {
+      // Use showFormErrors for unified error display
+      window.errorSystem.showFormErrors(errors);
+      
+      // Also display in pre-existing error divs for practice errors
       errors.forEach(error => {
         const { field, messageKey, params = {} } = error;
         const errorDivId = `error-${field}`;
@@ -8158,22 +8377,6 @@ function validateStep4() {
           errorDiv.textContent = message;
           errorDiv.style.display = 'block';
           errorDiv.classList.add('show');
-          
-          // Store in error system for proper cleanup
-          window.errorSystem.errors.set(field, {
-            field: null, // No field element
-            errorDiv: errorDiv,
-            messageKey: messageKey,
-            params: params,
-            message: message
-          });
-        } else {
-          // Fallback: use error system's showFieldError if field exists
-          // This handles other types of errors that do have fields
-          const fieldElement = document.getElementById(field);
-          if (fieldElement) {
-            window.errorSystem.showFieldError(field, messageKey, { params });
-          }
         }
       });
       
@@ -8187,6 +8390,23 @@ function validateStep4() {
           }, 100);
         }
       }
+    } else if (window.errorSystem) {
+      // Fallback: use showFieldError for each error
+      errors.forEach(error => {
+        const { field, messageKey, params = {} } = error;
+        const errorDivId = `error-${field}`;
+        const errorDiv = document.getElementById(errorDivId);
+        
+        if (errorDiv) {
+          const message = window.i18n && typeof window.i18n.t === 'function'
+            ? window.i18n.t(messageKey, params)
+            : messageKey;
+          errorDiv.textContent = message;
+          errorDiv.style.display = 'block';
+        } else if (window.errorSystem.showFieldError) {
+          window.errorSystem.showFieldError(field, messageKey, { params });
+        }
+      });
     } else {
       // Fallback: errorSystem not available
       const errorMessages = errors.map(err => {

@@ -1,0 +1,36 @@
+# Exclude middleware.ts - this is for Next.js, not static site deployment
+middleware.ts
+
+# Exclude source files that aren't needed for static deployment
+*.ts
+!supabase/functions/**/*.ts
+lib/
+middleware.ts
+tsconfig.json
+
+# Exclude development files
+.env.local
+.env.*.local
+*.log
+
+# Exclude test files
+tests/
+*.test.ts
+*.spec.ts
+
+# Exclude documentation
+docs/
+*.md
+!README.md
+
+# Exclude build artifacts
+.next/
+dist/
+build/
+node_modules/
+
+# Exclude database schema (not needed for static site)
+db_schema/
+
+# Note: scripts/ is needed during build, so don't exclude it
+
