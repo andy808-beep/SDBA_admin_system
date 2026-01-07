@@ -92,12 +92,32 @@ const translations = {
     raceInfoClickHere: "Click Here",
     raceInfoNext: "Next",
     
-    // Success page
+    // Success page (legacy keys - kept for backward compatibility)
     applicationSubmittedSuccess: "Application Submitted Successfully!",
     thankYouMessage: "Thank you for your registration. Your application has been received.",
     registrationDetails: "Registration Details",
     redirectingMessage: "Redirecting to event selection in {seconds} seconds...",
     saveRecordsMessage: "Please save your Registration ID and Team Codes for your records.",
+    
+    // Success page (new nested keys for success page)
+    "success.title": "Registration Successful!",
+    "success.subtitle": "Your registration has been submitted successfully.",
+    "success.your_registration_number": "Your Registration Number",
+    "success.save_this_number": "Please save this number for future reference",
+    "success.details": "Registration Details",
+    "success.registration_number": "Registration Number",
+    "success.registration_id": "Registration ID",
+    "success.event_type": "Event Type",
+    "success.team_names": "Team Name(s)",
+    "success.team_codes": "Team Codes",
+    "success.number_of_teams": "Number of Teams",
+    "success.confirmation_email": "Confirmation Email",
+    "success.submitted_at": "Submitted At",
+    "success.print": "Print Confirmation",
+    "success.copy_details": "Copy Details",
+    "success.return_to_events": "Return to Events Registration",
+    "success.important": "Important Notice",
+    "success.note": "Please save your Registration Number for future reference. You will receive a confirmation email shortly with payment instructions.",
     
     // Step headings (TN)
     selectRaceCategory: "Select Race Category",
@@ -564,12 +584,32 @@ const translations = {
     raceInfoClickHere: "按此",
     raceInfoNext: "下一步",
     
-    // Success page
+    // Success page (legacy keys - kept for backward compatibility)
     applicationSubmittedSuccess: "申請已成功提交！",
     thankYouMessage: "感謝您的報名。我們已收到您的申請。",
     registrationDetails: "報名詳情",
     redirectingMessage: "{seconds} 秒後將重新導向至賽事選擇...",
     saveRecordsMessage: "請儲存您的報名編號及隊伍代碼以作記錄。",
+    
+    // Success page (new nested keys for success page)
+    "success.title": "報名成功！",
+    "success.subtitle": "您的報名已成功提交。",
+    "success.your_registration_number": "您的報名編號",
+    "success.save_this_number": "請保存此編號以供將來參考",
+    "success.details": "報名詳情",
+    "success.registration_number": "報名編號",
+    "success.registration_id": "報名ID",
+    "success.event_type": "活動類型",
+    "success.team_names": "隊伍名稱",
+    "success.team_codes": "隊伍代碼",
+    "success.number_of_teams": "隊伍數量",
+    "success.confirmation_email": "確認電郵",
+    "success.submitted_at": "提交時間",
+    "success.print": "列印確認",
+    "success.copy_details": "複製詳情",
+    "success.return_to_events": "返回活動報名",
+    "success.important": "重要通知",
+    "success.note": "請保存您的報名編號以供將來參考。您將很快收到一封確認電郵，內含付款說明。",
     
     // Step headings (TN)
     selectRaceCategory: "選擇賽事組別",

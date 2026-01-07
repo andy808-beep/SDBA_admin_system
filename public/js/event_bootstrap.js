@@ -568,9 +568,27 @@ function resolveInitialRef() {
 }
 
 async function boot() {
-  // CHECK FOR SUCCESS PAGE FIRST - before anything else
-  // Check both URL parameter and window flag (set by success handler)
+  // CHECK FOR PREVIEW MODE FIRST - before anything else
   const urlParams = new URLSearchParams(window.location.search);
+  const isPreview = urlParams.get('preview') === 'success';
+  
+  if (isPreview) {
+    console.log('🎭 Boot: Preview mode detected, checking for success page preview');
+    // Try to load preview mode (imported from success_handler.js)
+    try {
+      const { checkSuccessPagePreview } = await import('./success_handler.js');
+      if (checkSuccessPagePreview && checkSuccessPagePreview()) {
+        console.log('🎭 Boot: Preview mode active - skipping event bootstrap');
+        return; // Exit boot, preview mode is handling display
+      }
+    } catch (err) {
+      console.warn('🎭 Boot: Could not load preview mode:', err);
+      // Continue with normal boot if preview check fails
+    }
+  }
+  
+  // CHECK FOR SUCCESS PAGE - before anything else
+  // Check both URL parameter and window flag (set by success handler)
   const isSuccessParam = urlParams.get('success') === 'true';
   const isSuccessFlag = window.__SUCCESS_PAGE_ACTIVE === true;
   

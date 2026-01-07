@@ -536,7 +536,7 @@ create table public.registration_meta (
   division_code text,                -- e.g. 'M','L','X','C' for TN; 'WM','WL','WX','WPM','WPL','WPX','Y','YL','D' for WU; 'SM','SL','SX','SU','HKU','SPM','SPL','SPX' for SC
 
   option_choice text CHECK (option_choice IN ('Option 1','Option 2')),  -- Only required for TN events
-  team_code     text NOT NULL,       -- assigned/validated by trigger
+  team_code     text,                 -- Generated on approval, NULL until approved
   team_name_en  citext NOT NULL,
   team_name_tc  citext,
 
@@ -578,6 +578,9 @@ create table public.registration_meta (
   client_tx_id text,
   event_short_ref text,
 
+  -- Registration number (auto-generated unique ID: TN2026-001, WU2026-001, SC2026-001)
+  registration_number VARCHAR(20),
+
   -- Race day order quantities (only populated on primary team - first team in registration)
   marquee_qty INTEGER DEFAULT 0 CHECK (marquee_qty >= 0),
   race_day_steersman_option TEXT CHECK (race_day_steersman_option IN ('with_practice', 'no_practice', 'not_required')),
@@ -586,15 +589,22 @@ create table public.registration_meta (
   speed_boat_qty INTEGER DEFAULT 0 CHECK (speed_boat_qty >= 0),
   speed_boat_license_nos TEXT[],
 
+  -- Practice preferences (TN events only - stored temporarily until approval, then moved to practice_preferences table)
+  practice_dates DATE[],
+  practice_durations TEXT[],  -- Array of '1hr' or '2hr' strings
+  practice_helpers TEXT[],    -- Array of 'NONE', 'S', 'T', or 'ST' strings
+  practice_slot_prefs TEXT[], -- Array of slot codes: [2hr_p1, 2hr_p2, 2hr_p3, 1hr_p1, 1hr_p2, 1hr_p3]
+
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
 
   -- Constraints
   CONSTRAINT uniq_registration_teamcode_global UNIQUE (team_code),
   CONSTRAINT uniq_registration_teamname_per_div_season_norm UNIQUE (season, division_code, team_name_normalized),
+  CONSTRAINT uniq_registration_number UNIQUE (registration_number),
   -- Removed uniq_registration_client_tx constraint to allow multiple teams per submission
   CHECK (length(btrim(team_name_en::text)) > 0),
-  CHECK (length(btrim(team_code)) > 0),
+  CHECK (team_code IS NULL OR length(btrim(team_code)) > 0),
   -- TN events require option_choice, WU/SC events don't
   CONSTRAINT ck_option_choice_required_for_tn CHECK (
     (event_type = 'tn' AND option_choice IS NOT NULL) OR
@@ -608,6 +618,7 @@ CREATE INDEX IF NOT EXISTS idx_registration_meta_user ON public.registration_met
 CREATE INDEX IF NOT EXISTS idx_registration_meta_status ON public.registration_meta (status);
 CREATE INDEX IF NOT EXISTS idx_registration_meta_event_type ON public.registration_meta (event_type);
 CREATE INDEX IF NOT EXISTS idx_registration_meta_client_tx ON public.registration_meta (event_short_ref, client_tx_id);
+CREATE INDEX IF NOT EXISTS idx_registration_number ON public.registration_meta (registration_number);
 
 -- Triggers
 CREATE TRIGGER trg_registration_meta_updated_at
@@ -670,23 +681,15 @@ BEGIN
   yy := lpad((NEW.season % 100)::text, 2, '0');
   prefix := 'S' || yy || '-' || eff_letter;
 
-  -- advisory lock per (season, letter) - use hash for multi-char codes
-  bucket_key := hashtext(eff_letter);
-  IF NEW.team_code IS NULL OR NEW.team_code = '' THEN
-    PERFORM pg_advisory_xact_lock(NEW.season, bucket_key);
-
-    SELECT COALESCE(MAX((substring(team_code from '^[S][0-9]{2}-[A-Z]+([0-9]{3})$'))::int), 0)
-      INTO max_num
-    FROM public.registration_meta
-    WHERE season = NEW.season
-      AND team_code ~ ('^' || prefix || '[0-9]{3}$');
-
-    NEW.team_code := prefix || lpad((max_num + 1)::text, 3, '0');
-  END IF;
-
-  IF NEW.team_code !~ ('^' || prefix || '[0-9]{3}$') THEN
-    RAISE EXCEPTION 'team_code % does not match expected pattern %### for season %',
-      NEW.team_code, prefix, NEW.season;
+  -- Team code generation removed - codes are generated on approval, not at submission
+  -- If team_code is provided (shouldn't happen at submission), validate it
+  IF NEW.team_code IS NOT NULL AND NEW.team_code != '' THEN
+    yy := lpad((NEW.season % 100)::text, 2, '0');
+    prefix := 'S' || yy || '-' || eff_letter;
+    IF NEW.team_code !~ ('^' || prefix || '[0-9]{3}$') THEN
+      RAISE EXCEPTION 'team_code % does not match expected pattern %### for season %',
+        NEW.team_code, prefix, NEW.season;
+    END IF;
   END IF;
 
   -- Normalize team name for uniqueness constraint
@@ -701,6 +704,114 @@ $$;
 CREATE TRIGGER trg_registration_meta_before
 BEFORE INSERT OR UPDATE ON public.registration_meta
 FOR EACH ROW EXECUTE FUNCTION public.registration_meta_normalize_and_assign();
+
+-- =========================================================
+-- REGISTRATION NUMBER: Auto-generation support
+-- =========================================================
+
+-- Function to generate unique registration numbers (TN2026-001, WU2026-001, SC2026-001)
+CREATE OR REPLACE FUNCTION public.generate_registration_number(
+  p_event_type TEXT,
+  p_year INTEGER DEFAULT EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER
+)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_prefix TEXT;
+  v_next_number INTEGER;
+  v_registration_number TEXT;
+  v_pattern TEXT;
+BEGIN
+  -- Validate event type and determine prefix
+  IF UPPER(p_event_type) = 'TN' OR LOWER(p_event_type) = 'tn' THEN
+    v_prefix := 'TN';
+  ELSIF UPPER(p_event_type) = 'WU' OR LOWER(p_event_type) = 'wu' THEN
+    v_prefix := 'WU';
+  ELSIF UPPER(p_event_type) = 'SC' OR LOWER(p_event_type) = 'sc' THEN
+    v_prefix := 'SC';
+  ELSE
+    RAISE EXCEPTION 'Invalid event_type: %. Must be TN, WU, or SC', p_event_type;
+  END IF;
+
+  -- Build pattern for matching existing registration numbers
+  v_pattern := '^' || v_prefix || p_year::TEXT || '-([0-9]+)$';
+
+  -- Get the next sequence number for this event type and year
+  -- Find the maximum number already used for this prefix+year combination
+  SELECT COALESCE(
+    MAX(
+      CAST(
+        (regexp_match(registration_number, v_pattern))[1]
+        AS INTEGER
+      )
+    ),
+    0
+  ) + 1
+  INTO v_next_number
+  FROM public.registration_meta
+  WHERE registration_number IS NOT NULL
+    AND registration_number ~ v_pattern;
+
+  -- Format the registration number with zero-padding (001, 002, etc.)
+  v_registration_number := v_prefix || p_year::TEXT || '-' || LPAD(v_next_number::TEXT, 3, '0');
+
+  -- Check for uniqueness (should be unique due to MAX + 1, but double-check for safety)
+  IF EXISTS (SELECT 1 FROM public.registration_meta WHERE registration_number = v_registration_number) THEN
+    -- If collision occurs, try next number (shouldn't happen, but safety check)
+    v_next_number := v_next_number + 1;
+    v_registration_number := v_prefix || p_year::TEXT || '-' || LPAD(v_next_number::TEXT, 3, '0');
+    
+    -- If still exists, raise exception
+    IF EXISTS (SELECT 1 FROM public.registration_meta WHERE registration_number = v_registration_number) THEN
+      RAISE EXCEPTION 'Registration number collision detected for %. Please retry.', v_registration_number;
+    END IF;
+  END IF;
+
+  RETURN v_registration_number;
+END;
+$$;
+
+COMMENT ON FUNCTION public.generate_registration_number IS 
+'Generates unique registration numbers in format: TN2026-001, WU2026-001, SC2026-001. Counter is separate for each event type and year.';
+
+-- Trigger function to auto-generate registration_number on insert
+CREATE OR REPLACE FUNCTION public.auto_generate_registration_number()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Only generate if registration_number is NULL or empty
+  IF NEW.registration_number IS NULL OR TRIM(COALESCE(NEW.registration_number, '')) = '' THEN
+    -- Extract year from created_at or use season or current year
+    NEW.registration_number := public.generate_registration_number(
+      COALESCE(NEW.event_type, 'tn'),
+      COALESCE(NEW.season, EXTRACT(YEAR FROM COALESCE(NEW.created_at, CURRENT_TIMESTAMP))::INTEGER)
+    );
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION public.auto_generate_registration_number IS 
+'Trigger function that automatically generates registration_number before insert if it is NULL';
+
+-- Trigger to auto-generate registration_number on insert
+DROP TRIGGER IF EXISTS trigger_auto_registration_number ON public.registration_meta;
+
+CREATE TRIGGER trigger_auto_registration_number
+  BEFORE INSERT ON public.registration_meta
+  FOR EACH ROW
+  EXECUTE FUNCTION public.auto_generate_registration_number();
+
+COMMENT ON TRIGGER trigger_auto_registration_number ON public.registration_meta IS 
+'Automatically generates registration_number before insert if not provided';
+
+COMMENT ON COLUMN public.registration_meta.registration_number IS 
+'Unique registration ID in format: TN2026-001, WU2026-001, SC2026-001';
 
 -- =========================================================
 -- WU TEAM META (Warm-Up Event Teams)

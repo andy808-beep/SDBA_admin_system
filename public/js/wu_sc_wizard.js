@@ -5,6 +5,7 @@
 
 import { sb } from '../supabase_config.js';
 import { EDGE_URL, getClientTxId, getEventShortRef, postJSON, saveReceipt, showConfirmation, mapError } from './submit.js';
+import { displaySuccessPage } from './success_handler.js';
 import { 
   isValidEmail, 
   isValidHKPhone, 
@@ -1049,16 +1050,6 @@ async function renderTeamDetails(count) {
 async function renderEntryGroupDropdown(teamIndex, cfg) {
 	Logger.debug(`renderEntryGroupDropdown: Starting for team ${teamIndex}`);
   
-  // Check if DropdownOptionsBuilder is available
-  if (!window.DropdownOptionsBuilder) {
-	Logger.error('renderEntryGroupDropdown: DropdownOptionsBuilder not available');
-    const container = document.getElementById(`entryGroupContainer${teamIndex}`);
-    if (container) {
-      container.innerHTML = '<div class="msg error">Error: Dropdown builder not loaded</div>';
-    }
-    return;
-  }
-  
   const container = document.getElementById(`entryGroupContainer${teamIndex}`);
   if (!container) {
 	Logger.error(`renderEntryGroupDropdown: Container not found: entryGroupContainer${teamIndex}`);
@@ -1069,8 +1060,70 @@ async function renderEntryGroupDropdown(teamIndex, cfg) {
   const lang = window.i18n?.getCurrentLanguage?.() || 'en';
   const isZh = lang === 'zh' || lang === 'tc';
   
-  // Build options from config
-  const options = window.DropdownOptionsBuilder.buildEntryGroupOptions(cfg, lang);
+  // Build options from config - use DropdownOptionsBuilder if available, otherwise fallback
+  let options = [];
+  
+  if (window.DropdownOptionsBuilder && typeof window.DropdownOptionsBuilder.buildEntryGroupOptions === 'function') {
+    // Use the builder if available
+    options = window.DropdownOptionsBuilder.buildEntryGroupOptions(cfg, lang);
+	Logger.debug(`renderEntryGroupDropdown: Used DropdownOptionsBuilder, got ${options.length} options`);
+  } else {
+    // FALLBACK: Build options manually from config
+	Logger.warn('renderEntryGroupDropdown: DropdownOptionsBuilder not available, using fallback method');
+    
+    if (!cfg || !cfg.divisions || !cfg.packages) {
+		Logger.error('renderEntryGroupDropdown: Missing config, divisions, or packages');
+      container.innerHTML = '<div class="msg error">Error: Configuration not available</div>';
+      return;
+    }
+    
+    // Build package map
+    const packageMap = new Map();
+    for (const pkg of cfg.packages) {
+      if (pkg.is_active === false) continue;
+      if (pkg.title_en === 'By Invitation') continue;
+      packageMap.set(pkg.title_en, {
+        price: pkg.listed_unit_price || 0,
+        title_en: pkg.title_en,
+        title_tc: pkg.title_tc || pkg.title_en
+      });
+    }
+    
+    // Build options from divisions
+    for (const div of cfg.divisions) {
+      if (div.is_active === false) continue;
+      if (div.by_invitation_only === true) continue;
+      
+      const nameEn = div.name_en || '';
+      const boatTypeEn = nameEn.includes(' – ') 
+        ? nameEn.split(' – ')[0].trim()
+        : nameEn.trim();
+      
+      const pkg = packageMap.get(boatTypeEn);
+      if (!pkg) continue;
+      
+      // Skip special invitation divisions
+      const specialKeywords = [
+        'Hong Kong Youth Group',
+        'Disciplinary Forces',
+        'Post-Secondary',
+        'HKU Invitational'
+      ];
+      if (specialKeywords.some(keyword => nameEn.includes(keyword))) continue;
+      
+      options.push({
+        value: div.division_code,
+        label_en: nameEn,
+        label_tc: div.name_tc || nameEn,
+        price: pkg.price,
+        boat_type_en: boatTypeEn,
+        boat_type_tc: pkg.title_tc,
+        division_code: div.division_code
+      });
+    }
+    
+	Logger.debug(`renderEntryGroupDropdown: Built ${options.length} options using fallback method`);
+  }
   
   if (options.length === 0) {
 	Logger.warn('renderEntryGroupDropdown: No entry group options available');
@@ -1106,7 +1159,16 @@ async function renderEntryGroupDropdown(teamIndex, cfg) {
   for (const opt of options) {
     const option = document.createElement('option');
     option.value = opt.value;  // division_code (e.g., "WM")
-    option.textContent = window.DropdownOptionsBuilder.formatOptionLabel(opt, lang);
+    
+    // Format label - use DropdownOptionsBuilder if available, otherwise format manually
+    if (window.DropdownOptionsBuilder && typeof window.DropdownOptionsBuilder.formatOptionLabel === 'function') {
+      option.textContent = window.DropdownOptionsBuilder.formatOptionLabel(opt, lang);
+    } else {
+      // Fallback formatting
+      const label = isZh ? (opt.label_tc || opt.label_en) : opt.label_en;
+      const priceFormatted = (opt.price || 0).toLocaleString('en-US');
+      option.textContent = `${label} - HK$${priceFormatted}`;
+    }
     
     // Store additional data as data attributes (for price calculation, etc.)
     option.dataset.price = opt.price;
@@ -2980,9 +3042,24 @@ async function submitWUSCForm() {
         console.log('💾 Auto-save: Draft cleared after successful submission');
       }
 
-      // Save receipt and show confirmation
-      saveReceipt(clientTxId, formData);
-      showConfirmation(result.data);
+      // Save receipt and display success page
+      saveReceipt(result.data);
+      
+      // Use the new success handler - pass all data from response
+      displaySuccessPage({
+        registration_id: result.data.registration_id,
+        registration_number: result.data.registration_number || null,
+        team_codes: result.data.team_codes,
+        team_name: result.data.team_name || null,
+        teams: result.data.teams || null,
+        email: result.data.email || formData.contact?.email,
+        event_type: result.data.event_type || result.data.ref_event_type || null,
+        ref_event_type: result.data.ref_event_type || result.data.event_type || null,
+        event_short_ref: result.data.event_short_ref || getEventShortRef(),
+        created_at: result.data.created_at || new Date().toISOString(),
+        season: result.data.season || null,
+        category: result.data.category || null
+      });
 
       // Clear sessionStorage
       clearSessionData();

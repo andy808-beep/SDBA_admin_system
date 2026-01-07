@@ -1,42 +1,6 @@
 self.__BUILD_MANIFEST = {
   "__rewrites": {
-    "afterFiles": [
-      {
-        "has": [
-          {
-            "type": "query",
-            "key": "o",
-            "value": "(?<orgid>\\d*)"
-          },
-          {
-            "type": "query",
-            "key": "p",
-            "value": "(?<projectid>\\d*)"
-          },
-          {
-            "type": "query",
-            "key": "r",
-            "value": "(?<region>[a-z]{2})"
-          }
-        ],
-        "source": "/monitoring(/?)"
-      },
-      {
-        "has": [
-          {
-            "type": "query",
-            "key": "o",
-            "value": "(?<orgid>\\d*)"
-          },
-          {
-            "type": "query",
-            "key": "p",
-            "value": "(?<projectid>\\d*)"
-          }
-        ],
-        "source": "/monitoring(/?)"
-      }
-    ],
+    "afterFiles": [],
     "beforeFiles": [],
     "fallback": []
   },

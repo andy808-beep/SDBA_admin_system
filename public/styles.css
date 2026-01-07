@@ -1028,3 +1028,266 @@ table.summary tbody tr:hover {
   padding-top: 16px;
   border-top: 1px solid #e5e7eb;
 }
+
+/* ========================================== */
+/* SUCCESS PAGE STYLES                        */
+/* ========================================== */
+
+.success-page-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+}
+
+.success-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.success-icon {
+  font-size: 5rem;
+  color: #28a745;
+  font-weight: bold;
+  line-height: 1;
+  margin-bottom: 1rem;
+  display: inline-block;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: #d4edda;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  border: 4px solid #28a745;
+}
+
+.success-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #28a745;
+  margin: 0 0 0.5rem 0;
+}
+
+.success-subtitle {
+  font-size: 1.1rem;
+  color: #6c757d;
+  margin: 0;
+}
+
+.success-registration-number-card {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  border-radius: 16px;
+  padding: 2.5rem 2rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 123, 255, 0.3);
+  color: white;
+}
+
+.success-registration-number-label {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+  opacity: 0.95;
+}
+
+.success-registration-number-value {
+  font-family: 'Courier New', monospace;
+  font-size: 3.5rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin: 0.5rem 0;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  word-break: break-word;
+  line-height: 1.2;
+}
+
+.success-registration-number-hint {
+  font-size: 0.9375rem;
+  margin: 1rem 0 0 0;
+  opacity: 0.9;
+}
+
+.success-details-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.success-details-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 1.5rem 0;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.success-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.success-detail-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.success-detail-item-full {
+  grid-column: 1 / -1;
+}
+
+.success-detail-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.success-detail-value {
+  font-size: 1.125rem;
+  color: #333;
+  word-break: break-word;
+}
+
+.success-registration-id-value {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  font-size: 1.25rem;
+  background: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 2px solid #e5e7eb;
+}
+
+.success-team-codes-value {
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
+  background: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: 6px;
+}
+
+.success-notes {
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+  padding: 1rem 1.5rem;
+  border-radius: 6px;
+  margin-bottom: 2rem;
+}
+
+.success-notes-text {
+  margin: 0;
+  color: #856404;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.success-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.success-btn {
+  padding: 0.875rem 1.75rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 160px;
+}
+
+.success-btn-primary {
+  background: var(--theme-primary, #007bff);
+  color: white;
+}
+
+.success-btn-primary:hover {
+  background: var(--theme-primary-dark, #0056b3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.success-btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.success-btn-secondary:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+@media (max-width: 768px) {
+  .success-page-container {
+    padding: 1rem;
+    margin: 1rem auto;
+  }
+
+  .success-icon {
+    width: 80px;
+    height: 80px;
+    font-size: 4rem;
+  }
+
+  .success-title {
+    font-size: 1.75rem;
+  }
+
+  .success-registration-number-card {
+    padding: 2rem 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .success-registration-number-value {
+    font-size: 2.5rem;
+  }
+
+  .success-details-card {
+    padding: 1.5rem;
+  }
+
+  .success-details-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .success-actions {
+    flex-direction: column;
+  }
+
+  .success-btn {
+    width: 100%;
+  }
+}
+
+@media print {
+  .success-actions {
+    display: none;
+  }
+
+  .success-page-container {
+    max-width: 100%;
+    margin: 0;
+    padding: 1rem;
+  }
+
+  .success-details-card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}

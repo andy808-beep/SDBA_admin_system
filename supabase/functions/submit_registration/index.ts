@@ -834,17 +834,69 @@ Deno.serve(async (req) => {
     const { data: insertedRegistrations, error: regError } = await admin
       .from('registration_meta')
       .insert(registrationsToInsert)
-      .select('id, team_code');
+      .select('id, team_name_en, team_name_tc, registration_number, created_at, event_type, event_short_ref, season, category');
     
     if (regError) throw new Error(`Registration insert failed: ${regError.message}`);
+    
+    // Validate that registration_number was generated for all registrations
+    const missingRegistrationNumbers = insertedRegistrations.filter((r: any) => !r.registration_number);
+    if (missingRegistrationNumbers.length > 0) {
+      console.error('⚠️ Registration number was not generated for some registrations:', 
+        missingRegistrationNumbers.map((r: any) => ({ id: r.id, team_code: r.team_code })));
+      // This shouldn't happen due to trigger, but handle it gracefully
+      throw new Error('Failed to generate registration number. Please contact support.');
+    }
+    
     const registration_ids: string[] = insertedRegistrations.map((r: any) => r.id);
-    const team_codes: string[] = insertedRegistrations.map((r: any) => r.team_code);
+    // NOTE: team_codes are NOT generated at submission - they are generated on admin approval
+    // Do NOT return team_codes in the response
+    
+    // Get primary registration (first team) for the response
+    const primaryRegistration = insertedRegistrations[0];
+    
+    // Log the generated registration number
+    console.log('✅ Registration created:', {
+      registration_count: insertedRegistrations.length,
+      primary_id: primaryRegistration.id,
+      primary_registration_number: primaryRegistration.registration_number,
+      created_at: primaryRegistration.created_at,
+      note: 'Team codes will be generated on admin approval'
+    });
 
     // Note: race_day columns (marquee_qty, junk_boat_qty, speed_boat_qty) are stored on primary team (index 0) in registration_meta
     // race_day_steersman_option is stored per-team (each team can have its own option)
     // race_day_requests will be created after admin approval when teams are moved to team_meta
 
-    return respond(req, { registration_ids, team_codes }, 200);
+    // Get email from managers (first manager's email)
+    const contactEmail = mgrs[0]?.email || null;
+
+    // Build array of all team names for multi-team registrations
+    const teams = insertedRegistrations.map((reg: any) => ({
+      name: reg.team_name_en || reg.team_name_tc || null,
+      name_en: reg.team_name_en || null,
+      name_tc: reg.team_name_tc || null,
+      registration_id: reg.id
+      // NOTE: team_code not included - generated on approval
+    }));
+
+    // Build response with all required data for success page
+    return respond(req, { 
+      ok: true,
+      registration_ids,
+      registration_id: primaryRegistration.id, // Primary registration ID (backward compatibility)
+      registration_number: primaryRegistration.registration_number || null, // Auto-generated registration number
+      team_name: primaryRegistration.team_name_en || primaryRegistration.team_name_tc || null, // Primary team name for display
+      team_name_en: primaryRegistration.team_name_en || null,
+      team_name_tc: primaryRegistration.team_name_tc || null,
+      teams: teams, // Array of all teams (for multi-team registrations)
+      event_type: primaryRegistration.event_type || eventType, // Event type from database or fallback
+      ref_event_type: primaryRegistration.event_type || eventType, // Alias for compatibility
+      event_short_ref: primaryRegistration.event_short_ref || eventShortRef,
+      season: primaryRegistration.season || seasonNum,
+      category: primaryRegistration.category || category || null,
+      created_at: primaryRegistration.created_at, // Timestamp from database
+      email: contactEmail, // Contact email from first manager
+    }, 200);
   } catch (err) {
     console.error("submit_registration failed:", err);
     const msg = (err as Error)?.message || "Server error";

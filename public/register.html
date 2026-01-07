@@ -13,6 +13,10 @@
   <link rel="stylesheet" href="css/tn_legacy.css?v=1.0.0-mj5lf93y" id="tnLegacyCSS" disabled />
   <!-- TN Modern Calendar CSS - loaded conditionally when event='tn' -->
   <link rel="stylesheet" href="css/tn_calendar_modern.css?v=1.0.0-mj5lf93y" id="tnCalendarModernCSS" disabled />
+  <!-- Supabase CDN - MUST be loaded FIRST before any scripts that use it -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Dropdown Options Builder - Load early to ensure it's available for modules -->
+  <script src="./js/dropdown_options_builder.js?v=1.0.0-mj5lf93y"></script>
   <style>
     /* Universal form specific styles */
     .form-container {
@@ -438,43 +442,102 @@
     </div>
 
     <!-- Success Page -->
-    <div id="successPage" class="event-picker" style="display: none;">
-      <div class="success-container" style="background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
-        <div style="font-size: 4rem; color: #28a745; margin-bottom: 1rem;"></div>
-        <h2 style="color: #28a745; margin-bottom: 1rem;" data-i18n="applicationSubmittedSuccess">Application Submitted Successfully!</h2>
-        <p style="font-size: 1.1rem; color: #495057; margin-bottom: 2rem;" data-i18n="thankYouMessage">
-          Thank you for your registration. Your application has been received.
-        </p>
-        
-        <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
-          <h3 style="margin-top: 0; color: #333;" data-i18n="registrationDetails">Registration Details</h3>
-          <p style="margin: 0.5rem 0;">
-            <strong data-i18n="registrationIdLabel">Registration ID:</strong> <span id="successRegistrationId"></span>
-          </p>
-          <p style="margin: 0.5rem 0;">
-            <strong data-i18n="teamCodesLabel">Team Codes:</strong> <span id="successTeamCodes"></span>
-          </p>
-          <p style="margin: 0.5rem 0;">
-            <strong data-i18n="confirmationEmailLabel">Confirmation Email:</strong> <span id="successEmail"></span>
+    <div id="successPage" style="display: none;">
+      <div class="success-page-container">
+        <!-- Success Header -->
+        <div class="success-header">
+          <h1 class="success-title" data-i18n="success.title">Registration Successful!</h1>
+          <p class="success-subtitle" data-i18n="success.subtitle">
+            Your registration has been submitted successfully.
           </p>
         </div>
-        
-        <p style="font-size: 0.9rem; color: #6c757d; margin-bottom: 1rem;" data-i18n="saveRecordsMessage">
-          Please save your Registration ID and Team Codes for your records.
-        </p>
-        
-        <div style="margin-bottom: 2rem;">
-          <button id="copyReceiptBtn" class="btn" style="margin-right: 0.5rem;" data-i18n="copyDetails">
+
+        <!-- HIGHLIGHTED Registration Number Card -->
+        <div class="success-registration-number-card">
+          <p class="success-registration-number-label" data-i18n="success.your_registration_number">
+            Your Registration Number
+          </p>
+          <div id="success-registration-number" class="success-registration-number-value">
+            Loading...
+          </div>
+          <p class="success-registration-number-hint" data-i18n="success.save_this_number">
+            Please save this number for future reference
+          </p>
+        </div>
+
+        <!-- Registration Details Card -->
+        <div class="success-details-card">
+          <h2 class="success-details-title" data-i18n="success.details">Registration Details</h2>
+          
+          <div class="success-details-grid">
+            <!-- Event Type -->
+            <div class="success-detail-item">
+              <label class="success-detail-label" data-i18n="success.event_type">Event Type</label>
+              <div id="success-event-type" class="success-detail-value">
+                Loading...
+              </div>
+            </div>
+
+            <!-- Team Names -->
+            <div class="success-detail-item success-detail-item-full">
+              <label class="success-detail-label" data-i18n="success.team_names">Team Name(s)</label>
+              <div id="success-team-names" class="success-detail-value">
+                Loading...
+              </div>
+            </div>
+
+            <!-- Team Codes -->
+            <div class="success-detail-item success-detail-item-full">
+              <label class="success-detail-label" data-i18n="success.team_codes">Team Codes</label>
+              <div id="success-team-codes" class="success-detail-value success-team-codes-value">
+                Loading...
+              </div>
+            </div>
+
+            <!-- Number of Teams -->
+            <div class="success-detail-item">
+              <label class="success-detail-label" data-i18n="success.number_of_teams">Number of Teams</label>
+              <div id="success-number-of-teams" class="success-detail-value">
+                Loading...
+              </div>
+            </div>
+
+            <!-- Confirmation Email -->
+            <div class="success-detail-item">
+              <label class="success-detail-label" data-i18n="success.confirmation_email">Confirmation Email</label>
+              <div id="success-email" class="success-detail-value">
+                Loading...
+              </div>
+            </div>
+
+            <!-- Submission Timestamp -->
+            <div class="success-detail-item success-detail-item-full">
+              <label class="success-detail-label" data-i18n="success.submitted_at">Submitted At</label>
+              <div id="success-timestamp" class="success-detail-value">
+                Loading...
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Important Notes -->
+        <div class="success-notes">
+          <p class="success-notes-text" data-i18n="success.note">
+            <strong>Important:</strong> Please save your Registration ID and Team Codes for future reference. 
+            You will receive a confirmation email shortly.
+          </p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="success-actions">
+          <button id="copyReceiptBtn" class="success-btn success-btn-secondary" data-i18n="success.copy_details">
             Copy Details
           </button>
-        </div>
-        
-        <div style="background: #e7f3ff; padding: 1rem; border-radius: 8px; border-left: 4px solid #007bff;">
-          <p id="redirectMessage" style="margin: 0; color: #004085;">
-            <span data-i18n="redirectingMessage" data-i18n-params='{"seconds":"8"}'>Redirecting to event selection in 8 seconds...</span>
-          </p>
-          <button id="redirectNowBtn" class="btn" style="margin-top: 1rem; background: #6c757d;" data-i18n="goNowButton">
-            Go Now
+          <button id="printReceiptBtn" class="success-btn success-btn-secondary" data-i18n="success.print">
+            Print Confirmation
+          </button>
+          <button id="redirectNowBtn" class="success-btn success-btn-primary" data-i18n="success.return_to_events">
+            Return to Events Registration
           </button>
         </div>
       </div>
@@ -545,6 +608,18 @@
   <script type="module" src="./js/submit.js?v=1.0.0-mj5lf93y"></script>
   <script type="module" src="./js/error-system.js?v=1.0.0-mj5lf93y"></script>
   <!-- Success Page Handler Script - MUST RUN BEFORE event_bootstrap.js -->
+  <script type="module">
+    import { checkForSuccessPageOnLoad } from './js/success_handler.js';
+    
+    // Check for success page on load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', checkForSuccessPageOnLoad);
+    } else {
+      checkForSuccessPageOnLoad();
+    }
+  </script>
+  
+  <!-- Legacy success page handler (for backward compatibility) -->
   <script>
     (function() {
       // Run immediately to prevent event_bootstrap from interfering
@@ -555,15 +630,21 @@
         // Set a flag to prevent boot() from running
         window.__SUCCESS_PAGE_ACTIVE = true;
         console.log('✅ Success page handler: Detected ?success=true, blocking event_bootstrap');
-        // Get receipt from sessionStorage
-        const receiptData = sessionStorage.getItem('success_receipt');
         
-        if (receiptData) {
-          try {
-            const receipt = JSON.parse(receiptData);
-            
-            // Wait for DOM to be ready
-            function showSuccessPage() {
+        // The new success_handler.js module will handle the display
+        // This script just sets the flag to prevent event_bootstrap from interfering
+      } else {
+        // Not a success page, clear any stale flag
+        window.__SUCCESS_PAGE_ACTIVE = false;
+      }
+    })();
+  </script>
+  
+  <!-- OLD SUCCESS PAGE HANDLER - REMOVED
+  <script>
+    (function() {
+      // ... old code removed ...
+      function showSuccessPage() {
               const eventPicker = document.getElementById('eventPicker');
               const formContainer = document.getElementById('formContainer');
               const successPage = document.getElementById('successPage');
@@ -580,29 +661,140 @@
               // Show success page
               successPage.style.display = 'block';
               
-              // Populate receipt details
-              const regIdEl = document.getElementById('successRegistrationId');
-              const teamCodesEl = document.getElementById('successTeamCodes');
-              const emailEl = document.getElementById('successEmail');
-              
-              if (regIdEl) regIdEl.textContent = receipt.registration_id || 'N/A';
-              if (teamCodesEl) {
-                teamCodesEl.textContent = Array.isArray(receipt.team_codes) 
-                  ? receipt.team_codes.join(', ') 
-                  : (receipt.team_codes || 'N/A');
+              // Helper function to get event display name
+              function getEventDisplayName(eventRef) {
+                const eventMap = {
+                  'tn': 'Tuen Ng Festival',
+                  'TN2026': 'Tuen Ng Festival',
+                  'wu': 'Women\'s International Race',
+                  'WU2026': 'Women\'s International Race',
+                  'sc': 'Stanley Championship',
+                  'SC2026': 'Stanley Championship'
+                };
+                return eventMap[eventRef?.toLowerCase()] || eventMap[eventRef] || eventRef || 'N/A';
               }
-              if (emailEl) emailEl.textContent = receipt.email || 'N/A';
+              
+              // Helper function to get team names from sessionStorage
+              function getTeamNames(eventRef) {
+                const prefix = eventRef?.toLowerCase() || '';
+                const teamNames = [];
+                let i = 1;
+                
+                // Try to get team names from sessionStorage
+                while (i <= 10) {
+                  const nameEn = sessionStorage.getItem(`${prefix}_team${i}_name_en`) || 
+                                 sessionStorage.getItem(`tn_team_name_en_${i}`);
+                  const nameTc = sessionStorage.getItem(`${prefix}_team${i}_name_tc`) || 
+                                 sessionStorage.getItem(`tn_team_name_tc_${i}`);
+                  
+                  if (nameEn) {
+                    const displayName = nameTc ? `${nameEn} (${nameTc})` : nameEn;
+                    teamNames.push(displayName);
+                  } else {
+                    break; // No more teams
+                  }
+                  i++;
+                }
+                
+                return teamNames.length > 0 ? teamNames : null;
+              }
+              
+              // Populate receipt details
+              const eventTypeEl = document.getElementById('success-event-type');
+              const teamNamesEl = document.getElementById('success-team-names');
+              const teamCodesEl = document.getElementById('success-team-codes');
+              const numberOfTeamsEl = document.getElementById('success-number-of-teams');
+              const emailEl = document.getElementById('success-email');
+              const timestampEl = document.getElementById('success-timestamp');
+              
+              // Event Type
+              if (eventTypeEl) {
+                const eventRef = receipt.event_short_ref || '';
+                eventTypeEl.textContent = getEventDisplayName(eventRef);
+              }
+              
+              // Team Names
+              if (teamNamesEl) {
+                const eventRef = receipt.event_short_ref || '';
+                const teamNames = getTeamNames(eventRef);
+                if (teamNames && teamNames.length > 0) {
+                  teamNamesEl.innerHTML = teamNames.map(name => 
+                    `<div style="margin-bottom: 0.5rem;">${name}</div>`
+                  ).join('');
+                } else {
+                  teamNamesEl.textContent = 'N/A';
+                }
+              }
+              
+              // Team Codes
+              if (teamCodesEl) {
+                const teamCodes = Array.isArray(receipt.team_codes) 
+                  ? receipt.team_codes 
+                  : (receipt.team_codes ? [receipt.team_codes] : []);
+                if (teamCodes.length > 0) {
+                  teamCodesEl.textContent = teamCodes.join(', ');
+                } else {
+                  teamCodesEl.textContent = 'N/A';
+                }
+              }
+              
+              // Number of Teams
+              if (numberOfTeamsEl) {
+                const teamCodes = Array.isArray(receipt.team_codes) 
+                  ? receipt.team_codes 
+                  : (receipt.team_codes ? [receipt.team_codes] : []);
+                numberOfTeamsEl.textContent = teamCodes.length > 0 ? teamCodes.length.toString() : 'N/A';
+              }
+              
+              // Email
+              if (emailEl) {
+                emailEl.textContent = receipt.email || 'N/A';
+              }
+              
+              // Timestamp
+              if (timestampEl && receipt.ts) {
+                const date = new Date(receipt.ts);
+                const formattedDate = date.toLocaleString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: true
+                });
+                timestampEl.textContent = formattedDate;
+              } else if (timestampEl) {
+                timestampEl.textContent = new Date().toLocaleString();
+              }
               
               // Set up copy button
               const copyBtn = document.getElementById('copyReceiptBtn');
               if (copyBtn) {
                 copyBtn.addEventListener('click', async function() {
-                  const text = `Registration ID: ${receipt.registration_id}\nTeam Codes: ${receipt.team_codes?.join(', ') || 'N/A'}\nEmail: ${receipt.email || 'N/A'}`;
+                  const eventRef = receipt.event_short_ref || '';
+                  const eventName = getEventDisplayName(eventRef);
+                  const teamCodes = Array.isArray(receipt.team_codes) 
+                    ? receipt.team_codes.join(', ') 
+                    : (receipt.team_codes || 'N/A');
+                  const teamNames = getTeamNames(eventRef);
+                  const teamNamesText = teamNames ? teamNames.join('\n') : 'N/A';
+                  
+                  const text = `Registration Confirmation\n\n` +
+                    `Registration ID: ${receipt.registration_id || 'N/A'}\n` +
+                    `Event Type: ${eventName}\n` +
+                    `Team Names:\n${teamNamesText}\n` +
+                    `Team Codes: ${teamCodes}\n` +
+                    `Number of Teams: ${teamCodes.split(', ').length}\n` +
+                    `Email: ${receipt.email || 'N/A'}\n` +
+                    `Submitted At: ${timestampEl?.textContent || 'N/A'}`;
+                  
                   try {
                     await navigator.clipboard.writeText(text);
-                    this.textContent = window.i18n ? window.i18n.t('copiedSuccess') : 'Copied!';
+                    const originalText = this.textContent;
+                    this.textContent = window.i18n ? (window.i18n.t('copiedSuccess') || 'Copied!') : 'Copied!';
                     setTimeout(() => {
-                      this.textContent = window.i18n ? window.i18n.t('copyDetails') : 'Copy Details';
+                      this.textContent = originalText;
                     }, 2000);
                   } catch (err) {
                     console.error('Failed to copy:', err);
@@ -610,10 +802,15 @@
                 });
               }
               
-              // Countdown timer (8 seconds)
-              let countdown = 8;
-              const countdownEl = document.getElementById('countdown');
-              const redirectMessage = document.getElementById('redirectMessage');
+              // Set up print button
+              const printBtn = document.getElementById('printReceiptBtn');
+              if (printBtn) {
+                printBtn.addEventListener('click', function() {
+                  window.print();
+                });
+              }
+              
+              // Manual navigation function (auto-redirect disabled)
               const redirectNowBtn = document.getElementById('redirectNowBtn');
               
               function redirectToEventSelection() {
@@ -624,30 +821,19 @@
                 const tnKeys = Object.keys(sessionStorage).filter(key => key.startsWith('tn_'));
                 tnKeys.forEach(key => sessionStorage.removeItem(key));
                 
+                // Clear WU/SC data
+                const wuKeys = Object.keys(sessionStorage).filter(key => key.startsWith('wu_'));
+                wuKeys.forEach(key => sessionStorage.removeItem(key));
+                const scKeys = Object.keys(sessionStorage).filter(key => key.startsWith('sc_'));
+                scKeys.forEach(key => sessionStorage.removeItem(key));
+                
                 // Redirect to event selection (clear URL parameters)
                 window.location.href = '/register.html';
               }
               
-              // Update countdown in redirect message
-              const timer = setInterval(function() {
-                countdown--;
-                if (redirectMessage && window.i18n) {
-                  const message = window.i18n.t('redirectingMessage', { seconds: countdown });
-                  redirectMessage.innerHTML = `<span>${message}</span>`;
-                } else if (redirectMessage) {
-                  redirectMessage.innerHTML = `<span>Redirecting to event selection in ${countdown} second${countdown !== 1 ? 's' : ''}...</span>`;
-                }
-                
-                if (countdown <= 0) {
-                  clearInterval(timer);
-                  redirectToEventSelection();
-                }
-              }, 1000);
-              
-              // Set up redirect now button
+              // Set up manual navigation button (user must click to go back)
               if (redirectNowBtn) {
                 redirectNowBtn.addEventListener('click', function() {
-                  clearInterval(timer);
                   redirectToEventSelection();
                 });
               }
@@ -683,8 +869,7 @@
   </script>
   
   <script src="./js/field-restore-utility.js?v=1.0.0-mj5lf93y"></script>
-  <script src="./js/dropdown_options_builder.js?v=1.0.0-mj5lf93y"></script>
-  <script type="module" src="./js/event_bootstrap.js?v=1.0.0-mj5lf93y"></script>
+  <!-- dropdown_options_builder.js moved to <head> to ensure it loads before modules -->
   <!-- TN Modern Calendar JS - must load BEFORE tn_wizard.js -->
   <script type="module" src="./js/tn_calendar_modern.js?v=1.0.0-mj5lf93y"></script>
   <script type="module" src="./js/tn_wizard.js?v=1.0.1"></script>
@@ -696,6 +881,8 @@
     }
   </script>
   <script src="./js/tn_verification.js?v=1.0.0-mj5lf93y"></script>
+  <!-- event_bootstrap.js - MUST be loaded LAST (after all wizards) -->
+  <script type="module" src="./js/event_bootstrap.js?v=1.0.0-mj5lf93y"></script>
   
   <!-- Load Templates -->
   <!-- REMOVED: Template loading moved to event_bootstrap.js to prevent duplicate loading -->

@@ -34,6 +34,7 @@ export default function AdminPage() {
   // -------------------------------
   type AppRow = {
     id: string;
+    registration_number: string | null;
     season: number;
     event_type: string;
     division_code: string | null;
@@ -553,7 +554,7 @@ export default function AdminPage() {
                 <input
                   id="searchBox"
                   type="search"
-                  placeholder="Search team / org / manager / team code"
+                  placeholder="Search registration number / team / org / manager / team code"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   className="h-9 min-w-[260px] flex-1 rounded-xl border px-3 text-sm"
@@ -593,6 +594,7 @@ export default function AdminPage() {
                 <table className="table w-full text-left text-sm">
                   <thead className="bg-gray-50 text-gray-600">
                     <tr>
+                      <th className="px-3 py-2">Registration Number</th>
                       <th className="px-3 py-2">Team Name</th>
                       <th className="px-3 py-2">Team Code</th>
                       <th className="px-3 py-2">Event</th>
@@ -607,7 +609,7 @@ export default function AdminPage() {
                   <tbody id="appTbody">
                     {!isLoading && items.length === 0 ? (
                       <tr className="border-t">
-                        <td colSpan={9} className="px-3 py-12 text-center text-sm text-gray-500">
+                        <td colSpan={10} className="px-3 py-12 text-center text-sm text-gray-500">
                           No applications found.
                         </td>
                       </tr>
@@ -617,6 +619,7 @@ export default function AdminPage() {
                           key={r.id}
                           className="border-t hover:bg-gray-50"
                         >
+                          <td className="px-3 py-2 font-mono font-semibold text-blue-600">{r.registration_number || "—"}</td>
                           <td className="px-3 py-2">{r.team_name}</td>
                           <td className="px-3 py-2 font-semibold">{r.team_code}</td>
                           <td className="px-3 py-2">{r.event_type.toUpperCase()}</td>

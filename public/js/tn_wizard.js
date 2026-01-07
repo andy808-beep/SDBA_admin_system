@@ -7,6 +7,7 @@ import { TN_SELECTORS, collectCompleteTNState, validateTNState } from './tn_map.
 import { sb } from '../supabase_config.js';
 import { getCurrentTeamKey, setCurrentTeamKey, readTeamRows, writeTeamRows, readTeamRanks, writeTeamRanks } from './tn_practice_store.js';
 import { EDGE_URL, getClientTxId, getEventShortRef, postJSON, saveReceipt, showConfirmation, mapError } from './submit.js';
+import { displaySuccessPage } from './success_handler.js';
 import { 
   isValidEmail, 
   isValidHKPhone, 
@@ -9074,9 +9075,25 @@ async function submitTNForm() {
         email: contact.email 
       });
       
-      // Hide loading and redirect to success page
+      // Hide loading and display success page
       hideLoadingIndicator();
-      redirectToSuccessPage(receipt);
+      
+      // Use the new success handler - pass all data from response
+      displaySuccessPage({
+        registration_id: data?.registration_id || registration_ids?.[0],
+        registration_ids: registration_ids,
+        registration_number: data?.registration_number || null,
+        team_codes: data?.team_codes || team_codes,
+        team_name: data?.team_name || null,
+        teams: data?.teams || null,
+        email: data?.email || contact.email,
+        event_type: data?.event_type || data?.ref_event_type || null,
+        ref_event_type: data?.ref_event_type || data?.event_type || null,
+        event_short_ref: data?.event_short_ref || getEventShortRef(),
+        created_at: data?.created_at || new Date().toISOString(),
+        season: data?.season || null,
+        category: data?.category || null
+      });
     } else {
 	Logger.debug('⚠️ No data in response, but no error either');
       hideLoadingIndicator();
@@ -9211,9 +9228,12 @@ function hideLoadingIndicator() {
 }
 
 /**
- * Redirect to success page with auto-redirect to event selection
+ * DEPRECATED: Redirect to success page
+ * This function is kept for backward compatibility but should use displaySuccessPage() directly
+ * @deprecated Use displaySuccessPage() from success_handler.js instead
  */
 function redirectToSuccessPage(receipt) {
+  console.warn('redirectToSuccessPage() is deprecated. Use displaySuccessPage() directly.');
   // Store receipt data for success page
   sessionStorage.setItem('success_receipt', JSON.stringify(receipt));
   
@@ -9221,11 +9241,6 @@ function redirectToSuccessPage(receipt) {
   const targetUrl = '/register.html?success=true';
   
   console.log('🔄 redirectToSuccessPage: Redirecting to', targetUrl);
-  console.log('🔄 redirectToSuccessPage: Receipt saved to sessionStorage:', {
-    registration_id: receipt.registration_id,
-    team_codes: receipt.team_codes,
-    hasEmail: !!receipt.email
-  });
   
   // Use location.href for reliable redirect
   window.location.href = targetUrl;
