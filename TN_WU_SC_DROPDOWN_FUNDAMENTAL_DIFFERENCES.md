@@ -194,3 +194,4 @@ To confirm if general rule is affecting #teamCount:
 **Key Finding:**
 The general `#tnScope select` rule with `padding: 0.6rem` might still be affecting the dropdown, even though there's a specific rule. The specific rule should win due to higher specificity, but the general rule could be the source of the height difference if it's not being properly overridden.
 
+

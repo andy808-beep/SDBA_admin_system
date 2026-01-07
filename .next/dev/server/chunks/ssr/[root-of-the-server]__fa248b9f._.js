@@ -1,4 +1,3 @@
-;!function(){try { var e="undefined"!=typeof globalThis?globalThis:"undefined"!=typeof global?global:"undefined"!=typeof window?window:"undefined"!=typeof self?self:{},n=(new e.Error).stack;n&&((e._debugIds|| (e._debugIds={}))[n]="efcb9ed1-e96d-2a5c-becc-fdff295e69f6")}catch(e){}}();
 module.exports = [
 "[externals]/react/jsx-runtime [external] (react/jsx-runtime, cjs)", ((__turbopack_context__, module, exports) => {
 
@@ -25,5 +24,3 @@ const mod = __turbopack_context__.x("next/dist/compiled/next-server/pages-turbo.
 module.exports = mod;
 }),
 ];
-
-//# debugId=efcb9ed1-e96d-2a5c-becc-fdff295e69f6

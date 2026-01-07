@@ -10,7 +10,7 @@ create extension if not exists "citext";    -- case-insensitive text
 -- DB Config/event.sql
 -- DB Config/annual.sql  
 -- DB Config/division.sql
--- DB Config/order.sql
+-- DB Config/order.wu
 -- DB Config/secdef.sql
 -- DB Config/ui_text.sql
 -- DB Config/unique_client_tx_id.sql
@@ -686,9 +686,9 @@ BEGIN
   IF NEW.team_code IS NOT NULL AND NEW.team_code != '' THEN
     yy := lpad((NEW.season % 100)::text, 2, '0');
     prefix := 'S' || yy || '-' || eff_letter;
-    IF NEW.team_code !~ ('^' || prefix || '[0-9]{3}$') THEN
-      RAISE EXCEPTION 'team_code % does not match expected pattern %### for season %',
-        NEW.team_code, prefix, NEW.season;
+  IF NEW.team_code !~ ('^' || prefix || '[0-9]{3}$') THEN
+    RAISE EXCEPTION 'team_code % does not match expected pattern %### for season %',
+      NEW.team_code, prefix, NEW.season;
     END IF;
   END IF;
 

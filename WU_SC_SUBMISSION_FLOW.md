@@ -221,3 +221,4 @@ If you're seeing an object format in the API, it's likely:
 2. A different code path (check browser DevTools Network tab)
 3. The edge function might be receiving correct data but logging it incorrectly
 
+

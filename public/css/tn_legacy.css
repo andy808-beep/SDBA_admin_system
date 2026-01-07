@@ -396,8 +396,52 @@
   text-align: left; 
 }
 
+/* Pricing table specific styles */
+#tnScope table.pricing-table th.text-right,
+#tnScope table.pricing-table td.text-right {
+  text-align: right;
+}
+
+#tnScope table.pricing-table td.text-center {
+  text-align: center;
+}
+
+#tnScope table.pricing-table tbody tr.subtotal-row {
+  background-color: #f9f9f9;
+  font-weight: 600;
+}
+
+#tnScope table.pricing-table tbody tr.subtotal-row td {
+  border-top: 1px solid #ddd;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+#tnScope table.pricing-table tfoot tr.total-row {
+  background-color: var(--theme-primary-light, #fff8e6);
+  border-top: 2px solid var(--theme-primary-dark, #c79100);
+}
+
+#tnScope table.pricing-table tfoot tr.total-row td {
+  padding-top: 16px;
+  padding-bottom: 16px;
+  font-size: 1.1rem;
+}
+
+#tnScope table.pricing-table tfoot tr.total-row strong {
+  color: var(--theme-primary-dark, #c79100);
+  font-size: 1.2rem;
+}
+
 #tnScope .muted { 
   color: #777; 
+}
+
+/* Practice Booking Section - Team Name Styling */
+#tnScope .practice-team-name,
+#tnScope .summary-team-name {
+  color: var(--theme-primary-dark, #c79100) !important;
+  font-weight: 600;
 }
 
 #tnScope .actions { 

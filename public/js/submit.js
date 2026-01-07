@@ -321,7 +321,19 @@ function showConfirmation({ registration_id, team_codes }) {
 	const idEl = document.getElementById('registrationId');
 	const codesEl = document.getElementById('teamCodes');
 	if (idEl) idEl.textContent = registration_id || '';
-	if (codesEl) codesEl.textContent = Array.isArray(team_codes) ? team_codes.join(', ') : '';
+	
+	// Filter out empty/null values to avoid ",," issue
+	let codesText = '';
+	if (team_codes) {
+		const validCodes = Array.isArray(team_codes)
+			? team_codes.filter(code => code && typeof code === 'string' && code.trim() && code !== 'null' && code !== 'undefined')
+			: (typeof team_codes === 'string' && team_codes.trim() ? [team_codes] : []);
+		codesText = validCodes.length > 0 ? validCodes.join(', ') : 'Pending';
+	} else {
+		codesText = 'Pending';
+	}
+	
+	if (codesEl) codesEl.textContent = codesText;
 	box.style.display = 'block';
 
     const labels = (window.__CONFIG && window.__CONFIG.labels) || {};
@@ -330,7 +342,7 @@ function showConfirmation({ registration_id, team_codes }) {
     const title = labels.confirmation_title || '';
     const copyText = labels.copy_button || '—';
     const shareText = labels.share_button || '—';
-    const msg = `${title || 'Registration'} ${registration_id}\n${codesLabel}: ${(team_codes || []).join(', ')}`;
+    const msg = `${title || 'Registration'} ${registration_id}\n${codesLabel}: ${codesText}`;
     const copyBtn = document.getElementById('copyBtn');
     const shareBtn = document.getElementById('shareBtn');
     if (copyBtn) copyBtn.textContent = copyText;

@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Test suite for Unified Error System",
   "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -11,6 +14,11 @@
     "test:a11y": "jest tests/a11y",
     "test:performance": "jest tests/performance",
     "test:verbose": "jest --verbose"
+  },
+  "dependencies": {
+    "next": "^16.0.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",
@@ -24,6 +32,9 @@
   },
   "jest": {
     "testEnvironment": "jsdom",
+    "transform": {
+      "^.+\\.js$": ["babel-jest", { "configFile": "./.babelrc.jest.json" }]
+    },
     "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
     "collectCoverageFrom": [
       "public/js/error-system.js"

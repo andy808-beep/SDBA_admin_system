@@ -4,6 +4,221 @@
  */
 
 /**
+ * Format currency in HKD format
+ */
+function formatCurrency(amount) {
+  if (typeof amount !== 'number' || isNaN(amount)) return 'HK$0';
+  return `HK$${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+/**
+ * Get total price from cost summary table (if already rendered)
+ */
+function getTotalFromCostSummaryTable() {
+  // Try to find the total from the cost summary table
+  const totalCell = document.querySelector('#pricingTotal, .total-row td:last-child, .total-row .text-right:last-child');
+  if (totalCell) {
+    const totalText = totalCell.textContent?.trim() || '';
+    // Extract number from "HK$7,400" format
+    const match = totalText.match(/HK\$\s*([\d,]+)/);
+    if (match) {
+      const numberStr = match[1].replace(/,/g, '');
+      const number = parseInt(numberStr, 10);
+      if (!isNaN(number) && number > 0) {
+        return number;
+      }
+    }
+  }
+  return 0;
+}
+
+/**
+ * Sync total price from cost summary table to success-total-price element
+ */
+function syncTotalPriceFromCostSummary() {
+  const totalPriceElement = document.getElementById('success-total-price');
+  if (!totalPriceElement) return;
+  
+  const totalFromTable = getTotalFromCostSummaryTable();
+  if (totalFromTable > 0) {
+    const formattedPrice = formatCurrency(totalFromTable);
+    totalPriceElement.textContent = formattedPrice;
+    console.log('✅ Total price synced from cost summary table:', formattedPrice);
+  }
+}
+
+/**
+ * Get package price from config
+ */
+function getPackagePriceFromConfig(packageCode) {
+  // Try window.__CONFIG.packages first
+  if (window.__CONFIG?.packages) {
+    const pkg = window.__CONFIG.packages.find(p => p.package_code === packageCode);
+    if (pkg && pkg.listed_unit_price) return pkg.listed_unit_price;
+  }
+  
+  // Try window.__PACKAGES (loaded from database)
+  if (window.__PACKAGES) {
+    const pkg = window.__PACKAGES.find(p => p.package_code === packageCode);
+    if (pkg && pkg.listed_unit_price) return pkg.listed_unit_price;
+  }
+  
+  // Fallback prices from order.sql
+  const fallbackPrices = {
+    'option_1_non_corp': 20900,
+    'option_2_non_corp': 17500,
+    'option_1_corp': 21900,
+    'option_2_corp': 18500,
+    'opt1': 20900,
+    'opt2': 17500
+  };
+  
+  return fallbackPrices[packageCode] || 0;
+}
+
+/**
+ * Get order item price from config
+ */
+function getOrderItemPriceFromConfig(itemCode) {
+  // Try window.__CONFIG.orderItems
+  if (window.__CONFIG?.orderItems) {
+    const item = window.__CONFIG.orderItems.find(i => 
+      i.order_item_code === itemCode || i.item_code === itemCode
+    );
+    if (item && item.listed_unit_price) return item.listed_unit_price;
+  }
+  
+  // Fallback prices from order.sql for TN2026
+  const fallbackPrices = {
+    'rd_marquee': 800,
+    'rd_steerer': 800,  // with practice
+    'rd_steerer_no_practice': 1500,  // without practice
+    'rd_junk': 2500,
+    'rd_speedboat': 1500,
+    'extra_practice_hr_regular': 600,
+    'practice_trainer': 550,
+    'practice_steerer': 350
+  };
+  
+  return fallbackPrices[itemCode] || 0;
+}
+
+/**
+ * Calculate total price from sessionStorage data
+ * This is a fallback when total_price is not in submission response
+ */
+function calculateTotalPriceFromStorage(eventRef) {
+  let total = 0;
+  const eventType = (eventRef || '').toLowerCase();
+  
+  // For TN events, calculate from sessionStorage
+  if (eventType === 'tn' || eventType.includes('tn')) {
+    // 1. Entry fees (packages)
+    const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+    for (let i = 1; i <= teamCount; i++) {
+      const packageCode = sessionStorage.getItem(`tn_team_option_${i}`);
+      if (packageCode) {
+        total += getPackagePriceFromConfig(packageCode);
+      }
+    }
+    
+    // 2. Race day arrangements
+    const raceDayDataStr = sessionStorage.getItem('tn_race_day');
+    if (raceDayDataStr) {
+      try {
+        const raceDayData = JSON.parse(raceDayDataStr);
+        
+        // Marquee
+        const marqueeQty = parseInt(raceDayData.marqueeQty || 0, 10);
+        if (marqueeQty > 0) {
+          total += marqueeQty * getOrderItemPriceFromConfig('rd_marquee');
+        }
+        
+        // Steersman (per team)
+        for (let i = 1; i <= teamCount; i++) {
+          const steersmanOption = sessionStorage.getItem(`tn_team_${i}_steersman_option`) || 'not_required';
+          if (steersmanOption === 'with_practice') {
+            total += getOrderItemPriceFromConfig('rd_steerer');
+          } else if (steersmanOption === 'no_practice') {
+            total += getOrderItemPriceFromConfig('rd_steerer_no_practice');
+          }
+        }
+        
+        // Junk Boat
+        const junkQty = parseInt(raceDayData.junkBoatQty || 0, 10);
+        if (junkQty > 0) {
+          total += junkQty * getOrderItemPriceFromConfig('rd_junk');
+        }
+        
+        // Speed Boat
+        const speedQty = parseInt(raceDayData.speedboatQty || 0, 10);
+        if (speedQty > 0) {
+          total += speedQty * getOrderItemPriceFromConfig('rd_speedboat');
+        }
+      } catch (e) {
+        console.warn('Failed to parse race day data:', e);
+      }
+    }
+    
+    // 3. Practice sessions
+    const { readTeamRows } = window.__DBG_TN || {};
+    if (readTeamRows) {
+      let extraPracticeHours = 0;
+      let trainerHours = 0;
+      let steersmanHours = 0;
+      
+      for (let i = 1; i <= teamCount; i++) {
+        const teamKey = `t${i}`;
+        const practiceRows = readTeamRows(teamKey) || [];
+        
+        let teamTotalHours = 0;
+        let teamTrainerHours = 0;
+        let teamSteersmanHours = 0;
+        
+        practiceRows.forEach(row => {
+          const duration = parseInt(row.duration_hours || 2, 10);
+          const helper = row.helper || 'NONE';
+          
+          teamTotalHours += duration;
+          
+          if (helper === 'T' || helper === 'ST') {
+            teamTrainerHours += duration;
+          }
+          
+          if (helper === 'S' || helper === 'ST') {
+            teamSteersmanHours += duration;
+          }
+        });
+        
+        const teamExtraHours = Math.max(0, teamTotalHours - 12);
+        extraPracticeHours += teamExtraHours;
+        trainerHours += teamTrainerHours;
+        steersmanHours += teamSteersmanHours;
+      }
+      
+      if (extraPracticeHours > 0) {
+        total += extraPracticeHours * getOrderItemPriceFromConfig('extra_practice_hr_regular');
+      }
+      if (trainerHours > 0) {
+        total += trainerHours * getOrderItemPriceFromConfig('practice_trainer');
+      }
+      if (steersmanHours > 0) {
+        total += steersmanHours * getOrderItemPriceFromConfig('practice_steerer');
+      }
+    }
+  } else {
+    // For WU/SC events, try to get from sessionStorage or calculate
+    // This is a simplified version - can be enhanced if needed
+    const savedTotal = sessionStorage.getItem(`${eventType}_total_price`);
+    if (savedTotal) {
+      total = parseFloat(savedTotal) || 0;
+    }
+  }
+  
+  return total;
+}
+
+/**
  * Check if we're in preview mode and show success page with mock data
  * Usage: /register?preview=success or /register?e=tn&preview=success
  * @returns {boolean} True if preview mode is active
@@ -38,64 +253,62 @@ export function checkSuccessPagePreview() {
 function generateMockSuccessData(eventType) {
   const eventTypes = {
     'TN': {
-      name: 'Tuen Ng Festival (TN)',
+      name: 'Tuen Ng Festival Dragon Boat Races',
+      long_name: 'Tuen Ng Festival International Dragon Boat Races 2026',
       short_ref: 'TN2026',
       team_codes: ['S26-M001', 'S26-L001'],
-      category: 'mixed_open',
-      team_names: ['Sample Men Team', 'Sample Ladies Team']
+      team_names: ['Dragons Warriors', 'Phoenix Flyers'],
+      category: 'mixed_open'
     },
     'WU': {
-      name: 'Warm-Up (WU)',
+      name: 'Warm-Up Dragon Boat Races',
+      long_name: 'Warm-Up Dragon Boat Championship 2026',
       short_ref: 'WU2026',
       team_codes: ['S26-M002'],
-      category: 'men_open',
-      team_names: ['Sample Men Team']
+      team_names: ['Thunder Paddlers'],
+      category: 'men_open'
     },
     'SC': {
-      name: 'Short Course (SC)',
+      name: 'Short Course Dragon Boat Races',
+      long_name: 'Short Course Dragon Boat Sprint 2026',
       short_ref: 'SC2026',
       team_codes: ['S26-W001'],
-      category: 'ladies_open',
-      team_names: ['Sample Ladies Team']
+      team_names: ['Lightning Ladies'],
+      category: 'ladies_open'
     }
   };
   
   const eventInfo = eventTypes[eventType] || eventTypes['TN'];
   
   return {
-    // Registration identifiers
     registration_id: '12345678-abcd-1234-abcd-1234567890ab',
     registration_number: `${eventType}2026-001`,
     
-    // Team information
-    team_meta_id: 'team-uuid-12345',
-    team_name: eventInfo.team_names[0],
-    team_name_en: eventInfo.team_names[0],
-    team_codes: eventInfo.team_codes,
-    teams: eventInfo.team_names.map((name, idx) => ({
-      name: name,
-      name_en: name,
-      team_code: eventInfo.team_codes[idx]
-    })),
-    
-    // Event information
+    // Event info
     event_type: eventType,
     ref_event_type: eventType,
     event_short_ref: eventInfo.short_ref,
+    event_long_name: eventInfo.long_name,
+    
+    // Team info
+    team_meta_id: 'team-uuid-12345',
+    team_name: eventInfo.team_names[0],
+    team_names: eventInfo.team_names,
+    team_codes: eventInfo.team_codes,
+    
+    // Email info (all emails receiving confirmation)
+    contact_email: 'contact@sampleteam.com',
+    manager_email: 'manager@sampleteam.com',
+    org_email: 'org@sampleteam.com',
+    email: 'contact@sampleteam.com',
+    
     category: eventInfo.category,
     season: 2026,
-    
-    // Contact information
-    email: 'sample@example.com',
-    contact_email: 'sample@example.com',
-    
-    // Timestamps
     created_at: new Date().toISOString(),
     
-    // Additional info
-    number_of_teams: eventInfo.team_codes.length,
+    // Total price (sample calculation for preview)
+    total_price: eventInfo.team_names.length * 20000, // Sample: 20k per team
     
-    // Preview mode flag
     _isPreview: true
   };
 }
@@ -279,92 +492,232 @@ export function displaySuccessPage(submissionData) {
     }
   }
   
-  // Populate Event Type
-  const eventTypeEl = document.getElementById('success-event-type');
-  if (eventTypeEl) {
-    eventTypeEl.textContent = getEventDisplayName(eventRef);
+  // ========================================
+  // POPULATE EVENT (LONG NAME FROM CONFIG)
+  // ========================================
+  const eventElement = document.getElementById('success-event');
+  if (eventElement) {
+    let eventName = 'N/A';
+    const currentLang = localStorage.getItem('selectedLanguage') || 'en';
+    
+    // Priority 1: Try window.__CONFIG.event (primary config source)
+    // Check for event_long_name fields first (most specific)
+    if (window.__CONFIG?.event) {
+      const event = window.__CONFIG.event;
+      if (currentLang === 'zh') {
+        // Try Traditional Chinese variants
+        eventName = event.event_long_name_tc || 
+                   event.event_name_tc || 
+                   event.event_long_name || 
+                   event.event_name || 
+                   event.name || 
+                   'N/A';
+      } else {
+        // Try English variants
+        eventName = event.event_long_name_en || 
+                   event.event_name_en || 
+                   event.event_long_name || 
+                   event.event_name || 
+                   event.name || 
+                   'N/A';
+      }
+    }
+    
+    // Priority 2: Try window.eventConfig (legacy/alternative config source)
+    if (eventName === 'N/A' && window.eventConfig) {
+      if (currentLang === 'zh') {
+        eventName = window.eventConfig.event_long_name_tc || 
+                   window.eventConfig.event_name_tc || 
+                   window.eventConfig.event_long_name || 
+                   window.eventConfig.event_name || 
+                   'N/A';
+      } else {
+        eventName = window.eventConfig.event_long_name_en || 
+                   window.eventConfig.event_name_en || 
+                   window.eventConfig.event_long_name || 
+                   window.eventConfig.event_name || 
+                   'N/A';
+      }
+    }
+    
+    // Priority 3: Use data from submission response
+    if (eventName === 'N/A' && submissionData.event_long_name) {
+      eventName = submissionData.event_long_name;
+    }
+    
+    // Priority 4: Last resort - construct from event type (should rarely be needed)
+    if (eventName === 'N/A') {
+      const eventType = (submissionData.event_type || submissionData.ref_event_type || eventRef || '').toUpperCase();
+      const eventNames = {
+        'TN': 'Tuen Ng Festival Dragon Boat Races',
+        'WU': 'Warm-Up Dragon Boat Races',
+        'SC': 'Short Course Dragon Boat Races'
+      };
+      eventName = eventNames[eventType] || eventType;
+      console.warn('⚠️ Using fallback event name for:', eventType, '- Config may not be loaded properly');
+    }
+    
+    eventElement.textContent = eventName;
+    console.log('✅ Event name:', eventName);
   }
   
-  // Populate Team Names
-  const teamNamesEl = document.getElementById('success-team-names');
-  if (teamNamesEl) {
-    // First try to get from response data
-    let teamNames = null;
-    if (submissionData.teams && Array.isArray(submissionData.teams) && submissionData.teams.length > 0) {
-      teamNames = submissionData.teams.map(team => {
-        if (team.name_en && team.name_tc) {
-          return `${team.name_en} (${team.name_tc})`;
-        } else if (team.name_en) {
-          return team.name_en;
-        } else if (team.name_tc) {
-          return team.name_tc;
-        } else if (team.name) {
-          return team.name;
-        }
-        return null;
-      }).filter(Boolean);
+  // ========================================
+  // POPULATE TEAM NAMES (PLURAL)
+  // ========================================
+  const teamNamesElement = document.getElementById('success-team-names');
+  if (teamNamesElement) {
+    let teamNamesText = 'N/A';
+    
+    if (submissionData.team_names && Array.isArray(submissionData.team_names)) {
+      // Multiple teams (array)
+      teamNamesText = submissionData.team_names.join(', ');
     } else if (submissionData.team_name) {
-      // Single team name from response
-      teamNames = [submissionData.team_name];
+      // Single team (string)
+      teamNamesText = submissionData.team_name;
+    } else {
+      // Fallback to sessionStorage
+      const teamNames = getTeamNames(eventRef);
+      if (teamNames && teamNames.length > 0) {
+        teamNamesText = teamNames.join(', ');
+      }
     }
     
-    // Fallback to sessionStorage
-    if (!teamNames || teamNames.length === 0) {
-      teamNames = getTeamNames(eventRef);
+    teamNamesElement.textContent = teamNamesText;
+    console.log('✅ Team names:', teamNamesText);
+  }
+  
+  // ========================================
+  // POPULATE TEAM CODES (PENDING)
+  // ========================================
+  const teamCodesElement = document.getElementById('success-team-codes');
+  if (teamCodesElement) {
+    const t = (key) => window.i18n?.t?.(key) || key;
+    
+    // Helper function to escape HTML safely
+    const escapeHtml = (text) => {
+      if (typeof text !== 'string') return text;
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    };
+    
+    // Filter out empty/null values before processing to avoid ",," issue
+    let validCodes = [];
+    if (submissionData.team_codes) {
+      if (Array.isArray(submissionData.team_codes)) {
+        validCodes = submissionData.team_codes.filter(code => 
+          code && 
+          typeof code === 'string' && 
+          code.trim() && 
+          code !== 'null' && 
+          code !== 'undefined' &&
+          code !== 'Pending'
+        );
+      } else if (typeof submissionData.team_codes === 'string' && submissionData.team_codes.trim()) {
+        validCodes = [submissionData.team_codes];
+      }
     }
     
-    if (teamNames && teamNames.length > 0) {
-      teamNamesEl.innerHTML = teamNames.map(name => 
-        `<div style="margin-bottom: 0.5rem;">${name}</div>`
-      ).join('');
+    if (validCodes.length > 0 && !submissionData._isPreview) {
+      // Show actual codes (only if approved and not preview)
+      const codesText = validCodes.join(', ');
+      const safeCodesText = escapeHtml(codesText);
+      teamCodesElement.innerHTML = `<span class="approved-badge">${safeCodesText}</span>`;
+      console.log('✅ Team codes:', codesText);
     } else {
-      teamNamesEl.textContent = 'N/A';
+      // Show "Pending" (normal case at submission time)
+      const pendingText = t('pending');
+      const safePendingText = escapeHtml(pendingText);
+      teamCodesElement.innerHTML = `<span class="pending-badge">${safePendingText}</span>`;
+      console.log('⏳ Team codes pending approval');
     }
   }
   
-  // Populate Team Codes
-  // NOTE: Team codes are only generated on admin approval, not at submission
-  const teamCodesEl = document.getElementById('success-team-codes');
-  if (teamCodesEl) {
-    const codesArray = Array.isArray(teamCodes) ? teamCodes : (teamCodes ? [teamCodes] : []);
-    if (codesArray.length > 0 && codesArray[0] && codesArray[0] !== 'N/A') {
-      // Team codes exist (only in preview mode or after approval)
-      teamCodesEl.innerHTML = codesArray.join(', ');
-      teamCodesEl.classList.remove('pending');
+  // ========================================
+  // POPULATE CONFIRMATION EMAILS
+  // ========================================
+  const emailsElement = document.getElementById('success-confirmation-emails');
+  if (emailsElement) {
+    const emails = [];
+    
+    // Collect all emails that will receive confirmation
+    if (submissionData.contact_email) {
+      emails.push(submissionData.contact_email);
+    }
+    if (submissionData.manager_email && submissionData.manager_email !== submissionData.contact_email) {
+      emails.push(submissionData.manager_email);
+    }
+    if (submissionData.org_email && !emails.includes(submissionData.org_email)) {
+      emails.push(submissionData.org_email);
+    }
+    if (submissionData.email && !emails.includes(submissionData.email)) {
+      emails.push(submissionData.email);
+    }
+    
+    // Remove duplicates and format
+    const uniqueEmails = [...new Set(emails)];
+    const emailsText = uniqueEmails.length > 0 ? uniqueEmails.join(', ') : 'N/A';
+    
+    emailsElement.textContent = emailsText;
+    console.log('✅ Confirmation emails:', emailsText);
+  }
+  
+  // ========================================
+  // POPULATE TOTAL PRICE
+  // ========================================
+  const totalPriceElement = document.getElementById('success-total-price');
+  if (totalPriceElement) {
+    let totalPrice = 0;
+    
+    // Priority 1: Try to get from submission data
+    if (submissionData.total_price || submissionData.totalPrice) {
+      totalPrice = parseFloat(submissionData.total_price || submissionData.totalPrice) || 0;
     } else {
-      // Normal case: submission successful but pending approval
-      teamCodesEl.innerHTML = '<span class="pending-badge">⏳ Pending Approval</span>';
-      teamCodesEl.classList.add('pending');
+      // Priority 2: Try to read from cost summary table (if already rendered)
+      const costSummaryTotal = getTotalFromCostSummaryTable();
+      if (costSummaryTotal > 0) {
+        totalPrice = costSummaryTotal;
+      } else {
+        // Priority 3: Calculate from sessionStorage data (fallback)
+        totalPrice = calculateTotalPriceFromStorage(eventRef);
+      }
+    }
+    
+    // Format as currency
+    const formattedPrice = formatCurrency(totalPrice);
+    totalPriceElement.textContent = formattedPrice;
+    console.log('✅ Total price:', formattedPrice);
+    
+    // If still 0, try to sync from cost summary table after a delay (in case it renders later)
+    if (totalPrice === 0) {
+      // Try multiple times with increasing delays to catch the cost summary when it renders
+      setTimeout(() => syncTotalPriceFromCostSummary(), 200);
+      setTimeout(() => syncTotalPriceFromCostSummary(), 500);
+      setTimeout(() => syncTotalPriceFromCostSummary(), 1000);
     }
   }
   
-  // Populate Number of Teams
-  const numberOfTeamsEl = document.getElementById('success-number-of-teams');
-  if (numberOfTeamsEl) {
-    const codesArray = Array.isArray(teamCodes) ? teamCodes : (teamCodes ? [teamCodes] : []);
-    numberOfTeamsEl.textContent = codesArray.length > 0 ? codesArray.length.toString() : 'N/A';
-  }
-  
-  // Populate Email
-  const emailEl = document.getElementById('success-email');
-  if (emailEl) {
-    emailEl.textContent = email;
-  }
-  
-  // Populate Timestamp
-  const timestampEl = document.getElementById('success-timestamp');
-  if (timestampEl) {
-    const date = new Date(timestamp);
-    const formattedDate = date.toLocaleString('en-US', {
+  // ========================================
+  // POPULATE SUBMITTED AT TIMESTAMP
+  // ========================================
+  const timestampElement = document.getElementById('success-timestamp');
+  if (timestampElement) {
+    const timestamp = submissionData.created_at || new Date().toISOString();
+    
+    const currentLang = localStorage.getItem('selectedLanguage') || 'en';
+    const locale = currentLang === 'zh' ? 'zh-HK' : 'en-HK';
+    
+    const formatted = new Date(timestamp).toLocaleString(locale, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
-      hour12: true
+      second: '2-digit'
     });
-    timestampEl.textContent = formattedDate;
+    
+    timestampElement.textContent = formatted;
+    console.log('✅ Submitted at:', formatted);
   }
   
   // Prepare receipt object for sessionStorage
@@ -447,9 +800,14 @@ function setupSuccessPageButtons(receipt, eventRef) {
       }
       
       const eventName = getEventDisplayName(eventRef);
-      const teamCodes = Array.isArray(receipt.team_codes) 
-        ? receipt.team_codes.join(', ') 
-        : (receipt.team_codes || 'N/A');
+      // Filter out empty/null values to avoid ",," issue
+      let teamCodes = 'N/A';
+      if (receipt.team_codes) {
+        const validCodes = Array.isArray(receipt.team_codes)
+          ? receipt.team_codes.filter(code => code && typeof code === 'string' && code.trim() && code !== 'null' && code !== 'undefined')
+          : (typeof receipt.team_codes === 'string' && receipt.team_codes.trim() ? [receipt.team_codes] : []);
+        teamCodes = validCodes.length > 0 ? validCodes.join(', ') : 'Pending';
+      }
       const teamNames = getTeamNames(eventRef);
       const teamNamesText = teamNames ? teamNames.join('\n') : 'N/A';
       const timestampEl = document.getElementById('success-timestamp');
@@ -457,15 +815,19 @@ function setupSuccessPageButtons(receipt, eventRef) {
       
       const teamCodesText = teamCodes && teamCodes !== 'N/A' && !teamCodes.includes('Pending')
         ? `Team Codes: ${teamCodes}\n`
-        : `Team Codes: Pending Approval\n`;
+        : `Team Codes: Pending\n`;
+      
+      const emailsEl = document.getElementById('success-confirmation-emails');
+      const emailsText = emailsEl?.textContent || receipt.email || 'N/A';
+      const eventEl = document.getElementById('success-event');
+      const eventNameText = eventEl?.textContent || eventName;
       
       const text = `Registration Confirmation\n\n` +
         `Registration Number: ${registrationNumber}\n` +
-        `Event Type: ${eventName}\n` +
-        `Team Names:\n${teamNamesText}\n` +
+        `Event: ${eventNameText}\n` +
+        `Team Names: ${teamNamesText}\n` +
         teamCodesText +
-        `Number of Teams: ${teamCodes && teamCodes !== 'N/A' ? teamCodes.split(', ').length : 'N/A'}\n` +
-        `Email: ${receipt.email || 'N/A'}\n` +
+        `Confirmation Emails: ${emailsText}\n` +
         `Submitted At: ${timestampEl?.textContent || 'N/A'}`;
       
       try {
@@ -478,17 +840,6 @@ function setupSuccessPageButtons(receipt, eventRef) {
       } catch (err) {
         console.error('Failed to copy:', err);
       }
-    });
-  }
-  
-  // Set up print button
-  const printBtn = document.getElementById('printReceiptBtn');
-  if (printBtn) {
-    const newPrintBtn = printBtn.cloneNode(true);
-    printBtn.parentNode.replaceChild(newPrintBtn, printBtn);
-    
-    newPrintBtn.addEventListener('click', function() {
-      window.print();
     });
   }
   

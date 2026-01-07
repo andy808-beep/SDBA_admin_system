@@ -252,3 +252,4 @@ If you want to keep the form-group wrapper for consistency but make it inline:
 - Make label and select direct children of container
 - Keep all other elements (teamFieldsContainer, formMsg, nav-buttons) as-is
 
+

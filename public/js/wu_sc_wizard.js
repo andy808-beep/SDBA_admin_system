@@ -1162,7 +1162,7 @@ async function renderEntryGroupDropdown(teamIndex, cfg) {
     
     // Format label - use DropdownOptionsBuilder if available, otherwise format manually
     if (window.DropdownOptionsBuilder && typeof window.DropdownOptionsBuilder.formatOptionLabel === 'function') {
-      option.textContent = window.DropdownOptionsBuilder.formatOptionLabel(opt, lang);
+    option.textContent = window.DropdownOptionsBuilder.formatOptionLabel(opt, lang);
     } else {
       // Fallback formatting
       const label = isZh ? (opt.label_tc || opt.label_en) : opt.label_en;
@@ -2387,7 +2387,10 @@ function populateSummary() {
   // Race Day
   populateRaceDaySummary();
   
-  // Total Cost
+  // Cost Summary
+  loadCostSummary();
+  
+  // Total Cost (legacy - keep for backward compatibility)
   calculateTotalCost();
 }
 
@@ -2514,43 +2517,398 @@ function populateManagersSummary() {
  * Populate race day summary
  */
 function populateRaceDaySummary() {
+	Logger.debug('🎯 populateRaceDaySummary: Starting');
+  
+  // Marquee
   const sumMarquee = document.getElementById('sumMarquee');
-  const marqueeQty = sessionStorage.getItem(`${eventType}_marqueeQty`) || document.getElementById('marqueeQty')?.value || '0';
-  if (sumMarquee) sumMarquee.textContent = marqueeQty === '0' ? '—' : `${marqueeQty} × HK$800`;
+  const marqueeQty = parseInt(sessionStorage.getItem(`${eventType}_marqueeQty`) || document.getElementById('marqueeQty')?.value || '0', 10);
+  if (sumMarquee) {
+    sumMarquee.textContent = marqueeQty === 0 ? '—' : `${marqueeQty} × HK$800`;
+  }
   
-  const sumSteerWith = document.getElementById('sumSteerWith');
-  const steerWithQty = sessionStorage.getItem(`${eventType}_steerWithQty`) || document.getElementById('steerWithQty')?.value || '0';
-  if (sumSteerWith) sumSteerWith.textContent = steerWithQty === '0' ? '—' : `${steerWithQty} × HK$800`;
-  
+  // Official Steersman (per-team, show all options in one row)
   const sumSteerWithout = document.getElementById('sumSteerWithout');
-  const steerWithoutQty = sessionStorage.getItem(`${eventType}_steerWithoutQty`) || document.getElementById('steerWithoutQty')?.value || '0';
-  if (sumSteerWithout) sumSteerWithout.textContent = steerWithoutQty === '0' ? '—' : `${steerWithoutQty} × HK$1,500`;
   
+  const teamCount = parseInt(sessionStorage.getItem(`${eventType}_team_count`), 10) || 0;
+  const steersmanOptions = [];
+  const currentLang = window.i18n?.currentLang || 'en';
+  
+  for (let i = 1; i <= teamCount; i++) {
+    const teamNameEn = sessionStorage.getItem(`${eventType}_team${i}_name_en`) || `Team ${i}`;
+    const teamNameTc = sessionStorage.getItem(`${eventType}_team${i}_name_tc`);
+    const teamName = (currentLang === 'zh' && teamNameTc) ? teamNameTc : teamNameEn;
+    const steersmanOption = sessionStorage.getItem(`${eventType}_team${i}_steersman_option`) || 'not_required';
+    
+    if (steersmanOption !== 'not_required') {
+      let optionText = '';
+      if (steersmanOption === 'with_practice') {
+        optionText = currentLang === 'zh' ? '練習時已聘用舵手' : 'Hired steersman during practice';
+      } else if (steersmanOption === 'no_practice') {
+        optionText = currentLang === 'zh' ? '練習時沒有聘用舵手' : 'Did not hire steersman during practice';
+      }
+      
+      // Escape team name and option text for XSS safety
+      const safeTeamName = SafeDOM.escapeHtml(teamName);
+      const safeOptionText = SafeDOM.escapeHtml(optionText);
+      
+      // Format with bold team name in theme color, each team on a new line
+      steersmanOptions.push({
+        teamName: safeTeamName,
+        option: steersmanOption,
+        displayText: safeOptionText
+      });
+    }
+  }
+  
+  // Display all steersman options in one row
+  if (sumSteerWithout) {
+    if (steersmanOptions.length > 0) {
+      const display = steersmanOptions.map(s => 
+        `<strong style="color: var(--theme-primary-dark, #c79100); font-weight: bold;">${s.teamName}</strong>: ${s.displayText}`
+      ).join('<br>');
+      sumSteerWithout.innerHTML = display;
+    } else {
+      sumSteerWithout.textContent = '—';
+    }
+  }
+  
+  // Junk Boat
   const sumJunk = document.getElementById('sumJunk');
-  const junkBoatNo = sessionStorage.getItem(`${eventType}_junkBoatNo`) || document.getElementById('junkBoatNo')?.value || '';
-  const junkBoatQty = sessionStorage.getItem(`${eventType}_junkBoatQty`) || document.getElementById('junkBoatQty')?.value || '0';
+  const junkBoatQty = parseInt(sessionStorage.getItem(`${eventType}_junkBoatQty`) || document.getElementById('junkBoatQty')?.value || '0', 10);
+  const junkBoatLicenses = JSON.parse(sessionStorage.getItem(`${eventType}_junkBoatLicenses`) || '[]');
+  
   if (sumJunk) {
-    if (junkBoatQty === '0' || !junkBoatNo) {
+    if (junkBoatQty === 0) {
       sumJunk.textContent = '—';
     } else {
-      sumJunk.textContent = `${junkBoatNo} (${junkBoatQty} × HK$2,500)`;
+      const licensesText = junkBoatLicenses.length > 0 ? ` (${junkBoatLicenses.join(', ')})` : '';
+      sumJunk.textContent = `${junkBoatQty} × HK$2,500${licensesText}`;
     }
   }
   
+  // Speed Boat
   const sumSpeed = document.getElementById('sumSpeed');
-  const speedBoatNo = sessionStorage.getItem(`${eventType}_speedBoatNo`) || document.getElementById('speedBoatNo')?.value || '';
-  const speedboatQty = sessionStorage.getItem(`${eventType}_speedboatQty`) || document.getElementById('speedboatQty')?.value || '0';
+  const speedboatQty = parseInt(sessionStorage.getItem(`${eventType}_speedboatQty`) || document.getElementById('speedboatQty')?.value || '0', 10);
+  const speedBoatLicenses = JSON.parse(sessionStorage.getItem(`${eventType}_speedBoatLicenses`) || '[]');
+  
   if (sumSpeed) {
-    if (speedboatQty === '0' || !speedBoatNo) {
+    if (speedboatQty === 0) {
       sumSpeed.textContent = '—';
     } else {
-      sumSpeed.textContent = `${speedBoatNo} (${speedboatQty} × HK$1,500)`;
+      const licensesText = speedBoatLicenses.length > 0 ? ` (${speedBoatLicenses.join(', ')})` : '';
+      sumSpeed.textContent = `${speedboatQty} × HK$1,500${licensesText}`;
     }
   }
+  
+	Logger.debug('🎯 populateRaceDaySummary: Completed');
 }
 
 /**
- * Calculate and display total cost
+ * Format currency in HKD format
+ */
+function formatCurrency(amount) {
+  if (typeof amount !== 'number' || isNaN(amount)) return 'HK$0';
+  return `HK$${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+/**
+ * Get package price from config
+ */
+function getPackagePriceFromConfig(packageCode) {
+  // Try window.__CONFIG.packages first
+  if (window.__CONFIG?.packages) {
+    const pkg = window.__CONFIG.packages.find(p => p.package_code === packageCode);
+    if (pkg && pkg.listed_unit_price) return pkg.listed_unit_price;
+  }
+  
+  // Try window.__PACKAGES (loaded from database)
+  if (window.__PACKAGES) {
+    const pkg = window.__PACKAGES.find(p => p.package_code === packageCode);
+    if (pkg && pkg.listed_unit_price) return pkg.listed_unit_price;
+  }
+  
+  // Fallback: try to get from team price in sessionStorage
+  return 0;
+}
+
+/**
+ * Get order item price from config
+ */
+function getOrderItemPriceFromConfig(itemCode) {
+  // Try window.__CONFIG.race_day_items (primary source)
+  if (window.__CONFIG?.race_day_items) {
+    const item = window.__CONFIG.race_day_items.find(i => 
+      i.item_code === itemCode || 
+      i.order_item_code === itemCode ||
+      i.title_en?.toLowerCase().includes(itemCode.toLowerCase()) ||
+      i.title_tc?.toLowerCase().includes(itemCode.toLowerCase())
+    );
+    if (item && item.listed_unit_price) return item.listed_unit_price;
+  }
+  
+  // Try window.__CONFIG.orderItems (legacy/alternative)
+  if (window.__CONFIG?.orderItems) {
+    const item = window.__CONFIG.orderItems.find(i => 
+      i.order_item_code === itemCode || i.item_code === itemCode
+    );
+    if (item && item.listed_unit_price) return item.listed_unit_price;
+  }
+  
+  // Fallback prices
+  const fallbackPrices = {
+    'rd_marquee': 800,
+    'marquee': 800,
+    'rd_steerer': 800,  // with practice
+    'rd_steerer_no_practice': 1500,  // without practice
+    'rd_junk': 2500,
+    'junk_boat': 2500,
+    'rd_speedboat': 1500,
+    'speed_boat': 1500
+  };
+  
+  return fallbackPrices[itemCode] || 0;
+}
+
+/**
+ * Load cost summary for WU/SC
+ */
+function loadCostSummary() {
+	Logger.debug('🎯 loadCostSummary: Starting');
+  const pricingTbody = document.getElementById('pricingTbody');
+  const pricingTotal = document.getElementById('pricingTotal');
+  
+  if (!pricingTbody) {
+	Logger.warn('🎯 loadCostSummary: pricingTbody element not found');
+    return;
+  }
+  
+  // Ensure eventType is available (fallback if module variable not set)
+  const currentEventType = eventType || window.__EVENT_TYPE || 
+                          (window.__CONFIG?.event?.event_short_ref?.substring(0, 2).toLowerCase()) || 'wu';
+  
+	Logger.debug('🎯 loadCostSummary: Using eventType:', currentEventType);
+  
+  const pricingRows = [];
+  let grandTotal = 0;
+  const currentLang = window.i18n?.currentLang || 'en';
+  const t = (key) => window.i18n?.t?.(key) || key;
+  
+  // 1. ENTRY FEES (per team, based on package/price)
+  const teamCount = parseInt(sessionStorage.getItem(`${currentEventType}_team_count`), 10) || 0;
+	Logger.debug('🎯 loadCostSummary: Team count:', teamCount);
+  let entryFeesSubtotal = 0;
+  
+  for (let i = 1; i <= teamCount; i++) {
+    const teamNameEn = sessionStorage.getItem(`${currentEventType}_team${i}_name_en`) || `Team ${i}`;
+    const teamNameTc = sessionStorage.getItem(`${currentEventType}_team${i}_name_tc`);
+    const teamName = (currentLang === 'zh' && teamNameTc) ? teamNameTc : teamNameEn;
+    
+    // Get price from sessionStorage (set by dropdown change event)
+    const storedPrice = sessionStorage.getItem(`${currentEventType}_team${i}_price`);
+    const price = storedPrice ? parseFloat(storedPrice) : 0;
+    
+	Logger.debug(`🎯 loadCostSummary: Team ${i} - storedPrice: "${storedPrice}", parsed: ${price}`);
+    
+    let teamPrice = 0;
+    let priceSource = 'none';
+    
+    // Priority 1: Use stored price if available and valid
+    if (price > 0) {
+      teamPrice = price;
+      priceSource = 'sessionStorage';
+    } else {
+      // Priority 2: Try to get from package config using entryGroup
+      const entryGroup = sessionStorage.getItem(`${currentEventType}_team${i}_entryGroup`) || '';
+      const boatType = sessionStorage.getItem(`${currentEventType}_team${i}_boatType`) || '';
+      const division = sessionStorage.getItem(`${currentEventType}_team${i}_division`) || '';
+      
+	Logger.debug(`🎯 loadCostSummary: Team ${i} - entryGroup: "${entryGroup}", boatType: "${boatType}", division: "${division}"`);
+      
+      // Try to find package by entryGroup code first (most reliable)
+      let pkg = null;
+      if (entryGroup && window.__CONFIG?.packages) {
+        pkg = window.__CONFIG.packages.find(p => 
+          p.package_code === entryGroup || 
+          p.title_en === entryGroup ||
+          p.title_en === boatType ||
+          p.title_en === division
+        );
+      }
+      
+      // If not found, try by boatType or division
+      if (!pkg && window.__CONFIG?.packages) {
+        pkg = window.__CONFIG.packages.find(p => 
+          p.title_en === boatType || 
+          p.title_en === division ||
+          p.package_code === boatType ||
+          p.package_code === division
+        );
+      }
+      
+      if (pkg && pkg.listed_unit_price) {
+        teamPrice = pkg.listed_unit_price;
+        priceSource = 'config';
+	Logger.debug(`🎯 loadCostSummary: Team ${i} - Found package: ${pkg.package_code || pkg.title_en}, price: ${teamPrice}`);
+      } else {
+	Logger.warn(`🎯 loadCostSummary: Team ${i} - No package found for entryGroup: "${entryGroup}", boatType: "${boatType}", division: "${division}"`);
+      }
+    }
+    
+    if (teamPrice > 0) {
+      entryFeesSubtotal += teamPrice;
+      const safeTeamName = SafeDOM ? SafeDOM.escapeHtml(teamName) : teamName;
+      pricingRows.push({
+        item: safeTeamName,
+        qty: 1,
+        unitPrice: teamPrice,
+        amount: teamPrice
+      });
+	Logger.debug(`🎯 loadCostSummary: Team ${i} - Added to pricing (${priceSource}): ${teamName} = HK$${teamPrice}`);
+    } else {
+	Logger.warn(`🎯 loadCostSummary: Team ${i} - Price is 0, skipping from pricing`);
+    }
+  }
+  
+  if (entryFeesSubtotal > 0) {
+    pricingRows.push({
+      item: `<strong>${t('entryFeesSubtotal')}</strong>`,
+      qty: '',
+      unitPrice: '',
+      amount: entryFeesSubtotal,
+      isSubtotal: true
+    });
+    grandTotal += entryFeesSubtotal;
+  }
+  
+  // 2. RACE DAY ARRANGEMENTS
+  // Marquee
+  const marqueeQty = parseInt(sessionStorage.getItem(`${currentEventType}_marqueeQty`) || '0', 10);
+  let marqueeTotal = 0;
+  if (marqueeQty > 0) {
+    const marqueePrice = getOrderItemPriceFromConfig('marquee');
+    marqueeTotal = marqueeQty * marqueePrice;
+    pricingRows.push({
+      item: t('athleteMarquee'),
+      qty: marqueeQty,
+      unitPrice: marqueePrice,
+      amount: marqueeTotal
+    });
+    grandTotal += marqueeTotal;
+  }
+  
+  // Official Steersman (per team)
+  let steersmanSubtotal = 0;
+  for (let i = 1; i <= teamCount; i++) {
+    const steersmanOption = sessionStorage.getItem(`${currentEventType}_team${i}_steersman_option`) || 'not_required';
+    
+    if (steersmanOption !== 'not_required') {
+      let steersmanPrice = 0;
+      let steersmanLabel = '';
+      
+      if (steersmanOption === 'with_practice') {
+        steersmanPrice = getOrderItemPriceFromConfig('rd_steerer');
+        steersmanLabel = t('officialSteersmanHired');
+      } else if (steersmanOption === 'no_practice') {
+        steersmanPrice = getOrderItemPriceFromConfig('rd_steerer_no_practice');
+        steersmanLabel = t('officialSteersmanNotHired');
+      }
+      
+      if (steersmanPrice > 0) {
+        steersmanSubtotal += steersmanPrice;
+        const teamNameEn = sessionStorage.getItem(`${currentEventType}_team${i}_name_en`) || `Team ${i}`;
+        const teamNameTc = sessionStorage.getItem(`${currentEventType}_team${i}_name_tc`);
+        const teamName = (currentLang === 'zh' && teamNameTc) ? teamNameTc : teamNameEn;
+        const safeTeamName = SafeDOM.escapeHtml(teamName);
+        pricingRows.push({
+          item: `${safeTeamName} - ${steersmanLabel}`,
+          qty: 1,
+          unitPrice: steersmanPrice,
+          amount: steersmanPrice
+        });
+      }
+    }
+  }
+  
+  // Junk Boat
+  const junkQty = parseInt(sessionStorage.getItem(`${currentEventType}_junkBoatQty`) || '0', 10);
+  let junkTotal = 0;
+  if (junkQty > 0) {
+    const junkPrice = getOrderItemPriceFromConfig('junk_boat');
+    junkTotal = junkQty * junkPrice;
+    pricingRows.push({
+      item: t('junkBoatRegistration'),
+      qty: junkQty,
+      unitPrice: junkPrice,
+      amount: junkTotal
+    });
+    grandTotal += junkTotal;
+  }
+  
+  // Speed Boat
+  const speedQty = parseInt(sessionStorage.getItem(`${currentEventType}_speedboatQty`) || '0', 10);
+  let speedTotal = 0;
+  if (speedQty > 0) {
+    const speedPrice = getOrderItemPriceFromConfig('speed_boat');
+    speedTotal = speedQty * speedPrice;
+    pricingRows.push({
+      item: t('speedBoatRegistration'),
+      qty: speedQty,
+      unitPrice: speedPrice,
+      amount: speedTotal
+    });
+    grandTotal += speedTotal;
+  }
+  
+  // Race Day Arrangement Subtotal (Marquee + Steersman + Boats)
+  // Note: marqueeTotal, junkTotal, speedTotal already added to grandTotal above
+  // Add steersmanSubtotal to grandTotal (steersman items are not added individually)
+  grandTotal += steersmanSubtotal;
+  
+  const raceDaySubtotal = marqueeTotal + steersmanSubtotal + junkTotal + speedTotal;
+  if (raceDaySubtotal > 0) {
+    pricingRows.push({
+      item: `<strong>${t('raceDayArrangementSubtotal')}</strong>`,
+      qty: '',
+      unitPrice: '',
+      amount: raceDaySubtotal,
+      isSubtotal: true
+    });
+  }
+  
+  // 3. PRACTICE SESSIONS (if applicable - WU/SC typically don't have practice, but include for completeness)
+  // Note: WU/SC forms don't typically have practice sessions, but we'll leave this structure
+  // in case it's needed in the future
+  
+  // Render pricing table
+  if (pricingRows.length === 0) {
+    pricingTbody.innerHTML = '<tr><td colspan="4" class="muted" data-i18n="noPricingData">No pricing data available</td></tr>';
+    if (pricingTotal) pricingTotal.textContent = formatCurrency(0);
+    return;
+  }
+  
+  let html = '';
+  pricingRows.forEach(row => {
+    const rowClass = row.isSubtotal ? 'subtotal-row' : '';
+    const qtyDisplay = row.qty === '' ? '' : row.qty;
+    const unitPriceDisplay = row.unitPrice === '' ? '' : formatCurrency(row.unitPrice);
+    const amountDisplay = formatCurrency(row.amount);
+    
+    html += `<tr class="${rowClass}">`;
+    html += `<td>${row.item}</td>`;
+    html += `<td class="text-center">${qtyDisplay}</td>`;
+    html += `<td class="text-right">${unitPriceDisplay}</td>`;
+    html += `<td class="text-right"><strong>${amountDisplay}</strong></td>`;
+    html += `</tr>`;
+  });
+  
+  pricingTbody.innerHTML = html;
+  if (pricingTotal) pricingTotal.textContent = formatCurrency(grandTotal);
+  
+	Logger.debug('🎯 loadCostSummary: Cost summary updated, total:', grandTotal);
+}
+
+/**
+ * Calculate and display total cost (legacy function - kept for backward compatibility)
  */
 function calculateTotalCost() {
   const cfg = window.__CONFIG;
@@ -2606,6 +2964,8 @@ function setupStepNavigation() {
   
   if (backBtn) {
     backBtn.addEventListener('click', () => {
+      // Save current step data before going back
+      saveCurrentStepData();
       if (currentStep > 1) {
         loadStep(currentStep - 1);
       }
@@ -2616,6 +2976,8 @@ function setupStepNavigation() {
     nextBtn.addEventListener('click', (e) => {
       e.preventDefault();
       if (validateCurrentStep()) {
+        // Save current step data before proceeding
+        saveCurrentStepData();
         if (currentStep < totalSteps) {
           loadStep(currentStep + 1);
         }
@@ -2627,9 +2989,33 @@ function setupStepNavigation() {
     submitBtn.addEventListener('click', (e) => {
       e.preventDefault();
       if (validateCurrentStep()) {
+        // Save current step data before submitting
+        saveCurrentStepData();
         submitWUSCForm();
       }
     });
+  }
+}
+
+/**
+ * Save current step data
+ */
+function saveCurrentStepData() {
+  switch (currentStep) {
+    case 1:
+      saveStep1Data();
+      break;
+    case 2:
+      saveStep2Data();
+      break;
+    case 3:
+      saveStep3Data();
+      break;
+    case 4:
+      // Step 4 is summary, no data to save
+      break;
+    default:
+      break;
   }
 }
 
@@ -2990,6 +3376,161 @@ function validateStep3() {
 }
 
 /**
+ * Save Step 1 data (Team Details)
+ */
+function saveStep1Data() {
+	Logger.debug('🎯 saveStep1Data: Saving team details');
+  
+  const teamCount = document.getElementById('teamCount');
+  if (teamCount?.value) {
+    const count = parseInt(teamCount.value, 10);
+    sessionStorage.setItem(`${eventType}_team_count`, count.toString());
+	Logger.debug('🎯 saveStep1Data: Saved team count:', count);
+  }
+  
+  // Save each team's data
+  const savedCount = parseInt(sessionStorage.getItem(`${eventType}_team_count`), 10) || 0;
+  for (let i = 1; i <= savedCount; i++) {
+    const teamNameEn = document.getElementById(`teamNameEn${i}`);
+    const teamNameTc = document.getElementById(`teamNameTc${i}`);
+    const entryGroupSelect = document.getElementById(`entryGroup${i}`);
+    
+    if (teamNameEn?.value?.trim()) {
+      sessionStorage.setItem(`${eventType}_team${i}_name_en`, teamNameEn.value.trim());
+    }
+    if (teamNameTc?.value?.trim()) {
+      sessionStorage.setItem(`${eventType}_team${i}_name_tc`, teamNameTc.value.trim());
+    }
+    
+    // Entry group data is already saved by dropdown change event, but ensure it's saved here too
+    if (entryGroupSelect && entryGroupSelect.value) {
+      const selectedOption = entryGroupSelect.options[entryGroupSelect.selectedIndex];
+      if (selectedOption && selectedOption.dataset) {
+        sessionStorage.setItem(`${eventType}_team${i}_entryGroup`, entryGroupSelect.value);
+        sessionStorage.setItem(`${eventType}_team${i}_entryGroupLabel`, selectedOption.dataset.labelEn || '');
+        sessionStorage.setItem(`${eventType}_team${i}_boatType`, selectedOption.dataset.boatTypeEn || '');
+        sessionStorage.setItem(`${eventType}_team${i}_price`, selectedOption.dataset.price || '0');
+        sessionStorage.setItem(`${eventType}_team${i}_division`, selectedOption.dataset.labelEn || '');
+      }
+    }
+  }
+  
+	Logger.debug('🎯 saveStep1Data: Team details saved');
+}
+
+/**
+ * Save Step 2 data (Organization & Managers)
+ */
+function saveStep2Data() {
+	Logger.debug('🎯 saveStep2Data: Saving organization and manager data');
+  
+  const orgName = document.getElementById('orgName');
+  const mailingAddress = document.getElementById('mailingAddress');
+  const manager1Name = document.getElementById('manager1Name');
+  const manager1Phone = document.getElementById('manager1Phone');
+  const manager1Email = document.getElementById('manager1Email');
+  const manager2Name = document.getElementById('manager2Name');
+  const manager2Phone = document.getElementById('manager2Phone');
+  const manager2Email = document.getElementById('manager2Email');
+  const manager3Name = document.getElementById('manager3Name');
+  const manager3Phone = document.getElementById('manager3Phone');
+  const manager3Email = document.getElementById('manager3Email');
+  
+  // Save organization data
+  if (orgName?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_orgName`, orgName.value.trim());
+  }
+  if (mailingAddress?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_mailingAddress`, mailingAddress.value.trim());
+  }
+  
+  // Save Manager 1 data
+  if (manager1Name?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager1Name`, manager1Name.value.trim());
+  }
+  if (manager1Phone?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager1Phone`, normalizeHKPhone(manager1Phone.value));
+  }
+  if (manager1Email?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager1Email`, manager1Email.value.trim());
+  }
+  
+  // Save Manager 2 data
+  if (manager2Name?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager2Name`, manager2Name.value.trim());
+  }
+  if (manager2Phone?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager2Phone`, normalizeHKPhone(manager2Phone.value));
+  }
+  if (manager2Email?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager2Email`, manager2Email.value.trim());
+  }
+  
+  // Save Manager 3 data (optional)
+  if (manager3Name?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager3Name`, manager3Name.value.trim());
+  }
+  if (manager3Phone?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager3Phone`, normalizeHKPhone(manager3Phone.value));
+  }
+  if (manager3Email?.value?.trim()) {
+    sessionStorage.setItem(`${eventType}_manager3Email`, manager3Email.value.trim());
+  }
+  
+	Logger.debug('🎯 saveStep2Data: Organization and manager data saved');
+}
+
+/**
+ * Save Step 3 data (Race Day Arrangement)
+ */
+function saveStep3Data() {
+	Logger.debug('🎯 saveStep3Data: Saving race day arrangement data');
+  
+  // Save marquee quantity
+  const marqueeQty = document.getElementById('marqueeQty');
+  if (marqueeQty) {
+    sessionStorage.setItem(`${eventType}_marqueeQty`, marqueeQty.value || '0');
+  }
+  
+  // Save steersman options for each team
+  const teamCount = parseInt(sessionStorage.getItem(`${eventType}_team_count`), 10) || 0;
+  for (let i = 0; i < teamCount; i++) {
+    const select = document.querySelector(`select[name="steersman_team_${i}"]`);
+    if (select) {
+      sessionStorage.setItem(`${eventType}_team${i+1}_steersman_option`, select.value);
+    }
+  }
+  
+  // Collect and save junk boat licenses as array
+  const junkLicenses = [];
+  const junkBoatQty = document.getElementById('junkBoatQty');
+  const junkQty = parseInt(junkBoatQty?.value || '0', 10);
+  for (let i = 1; i <= junkQty; i++) {
+    const license = document.getElementById(`junkBoatLicense${i}`)?.value?.trim();
+    if (license) junkLicenses.push(license);
+  }
+  sessionStorage.setItem(`${eventType}_junkBoatLicenses`, JSON.stringify(junkLicenses));
+  if (junkBoatQty) {
+    sessionStorage.setItem(`${eventType}_junkBoatQty`, junkBoatQty.value || '0');
+  }
+  
+  // Collect and save speed boat licenses as array
+  const speedLicenses = [];
+  const speedboatQty = document.getElementById('speedboatQty');
+  const speedQty = parseInt(speedboatQty?.value || '0', 10);
+  for (let i = 1; i <= speedQty; i++) {
+    const license = document.getElementById(`speedBoatLicense${i}`)?.value?.trim();
+    if (license) speedLicenses.push(license);
+  }
+  sessionStorage.setItem(`${eventType}_speedBoatLicenses`, JSON.stringify(speedLicenses));
+  if (speedboatQty) {
+    sessionStorage.setItem(`${eventType}_speedboatQty`, speedboatQty.value || '0');
+  }
+  
+	Logger.debug('🎯 saveStep3Data: Race day arrangement data saved');
+}
+
+/**
  * Validate Step 4
  */
 function validateStep4() { return true; }
@@ -3005,13 +3546,117 @@ function showError(message) {
 /**
  * Submit WU/SC form
  */
+/**
+ * Show loading overlay during form submission
+ */
+function showLoadingOverlay(message) {
+  const t = (key) => window.i18n?.t?.(key) || key;
+  const loadingText = message || t('submittingRegistration');
+  
+  // Create loading overlay if it doesn't exist
+  let overlay = document.getElementById('submission-loading');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'submission-loading';
+    overlay.className = 'loading-overlay';
+    overlay.innerHTML = `
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p class="loading-text">${SafeDOM.escapeHtml(loadingText)}</p>
+        <p class="loading-subtext">${SafeDOM.escapeHtml(t('pleaseWait'))}</p>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  } else {
+    // Update existing overlay
+    const textEl = overlay.querySelector('.loading-text');
+    if (textEl) textEl.textContent = loadingText;
+  }
+  
+  overlay.style.display = 'flex';
+}
+
+/**
+ * Update loading overlay message
+ */
+function updateLoadingMessage(message) {
+  const loadingText = document.querySelector('#submission-loading .loading-text');
+  if (loadingText) {
+    loadingText.textContent = message;
+  }
+}
+
+/**
+ * Hide loading overlay
+ */
+function hideLoadingOverlay() {
+  const overlay = document.getElementById('submission-loading');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
+/**
+ * Collect all form data needed for success page BEFORE clearing sessionStorage
+ */
+function collectSuccessPageData() {
+  const teamCount = parseInt(sessionStorage.getItem(`${eventType}_team_count`), 10) || 0;
+  const teamNames = [];
+  const teamNamesEn = [];
+  const teamNamesTc = [];
+  
+  for (let i = 1; i <= teamCount; i++) {
+    const nameEn = sessionStorage.getItem(`${eventType}_team${i}_name_en`);
+    const nameTc = sessionStorage.getItem(`${eventType}_team${i}_name_tc`);
+    if (nameEn) {
+      teamNamesEn.push(nameEn);
+      if (nameTc) {
+        teamNamesTc.push(nameTc);
+        teamNames.push(`${nameEn} (${nameTc})`);
+      } else {
+        teamNames.push(nameEn);
+      }
+    }
+  }
+  
+  return {
+    orgName: sessionStorage.getItem(`${eventType}_orgName`) || '',
+    mailingAddress: sessionStorage.getItem(`${eventType}_mailingAddress`) || '',
+    teamNames: teamNames,
+    teamNamesEn: teamNamesEn,
+    teamNamesTc: teamNamesTc,
+    manager1Name: sessionStorage.getItem(`${eventType}_manager1Name`) || '',
+    manager1Email: sessionStorage.getItem(`${eventType}_manager1Email`) || '',
+    manager2Name: sessionStorage.getItem(`${eventType}_manager2Name`) || '',
+    manager2Email: sessionStorage.getItem(`${eventType}_manager2Email`) || '',
+    manager3Name: sessionStorage.getItem(`${eventType}_manager3Name`) || '',
+    manager3Email: sessionStorage.getItem(`${eventType}_manager3Email`) || ''
+  };
+}
+
 async function submitWUSCForm() {
 	Logger.debug('🎯 submitWUSCForm: Submitting WU/SC form');
+  
+  // Show loading overlay
+  showLoadingOverlay();
+  
+  // Disable submit button
+  const submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.dataset.busy = '1';
+  }
   
   try {
     // Collect form data from sessionStorage
     const formData = collectFormData();
 	Logger.debug('🎯 Form data collected:', formData);
+    
+    // Collect data for success page BEFORE clearing sessionStorage
+    const successPageData = collectSuccessPageData();
+    
+    // Calculate total price BEFORE clearing sessionStorage
+    const calculatedTotal = calculateTotalPriceForWUSC();
     
     // Generate client transaction ID
     const clientTxId = getClientTxId();
@@ -3034,6 +3679,10 @@ async function submitWUSCForm() {
       Logger.debug('✅ Submission successful:', result.data);
       console.log('✅ Submission successful');
 
+      // Update loading message
+      const t = (key) => window.i18n?.t?.(key) || key;
+      updateLoadingMessage(t('redirecting'));
+
       // Clear draft from localStorage on successful submission
       if (window.AutoSave) {
         const eventRef = getWUSCEventShortRef();
@@ -3042,27 +3691,49 @@ async function submitWUSCForm() {
         console.log('💾 Auto-save: Draft cleared after successful submission');
       }
 
-      // Save receipt and display success page
+      // Save receipt
       saveReceipt(result.data);
       
-      // Use the new success handler - pass all data from response
+      // Collect all emails that will receive confirmation
+      const emails = [];
+      if (successPageData.manager1Email) emails.push(successPageData.manager1Email);
+      if (successPageData.manager2Email && !emails.includes(successPageData.manager2Email)) {
+        emails.push(successPageData.manager2Email);
+      }
+      if (successPageData.manager3Email && !emails.includes(successPageData.manager3Email)) {
+        emails.push(successPageData.manager3Email);
+      }
+      
+      // Use the new success handler - pass all data from response AND sessionStorage
       displaySuccessPage({
         registration_id: result.data.registration_id,
         registration_number: result.data.registration_number || null,
         team_codes: result.data.team_codes,
-        team_name: result.data.team_name || null,
+        team_name: result.data.team_name || successPageData.teamNames[0] || null,
+        team_names: result.data.team_names || successPageData.teamNamesEn || successPageData.teamNames,
         teams: result.data.teams || null,
-        email: result.data.email || formData.contact?.email,
-        event_type: result.data.event_type || result.data.ref_event_type || null,
-        ref_event_type: result.data.ref_event_type || result.data.event_type || null,
+        email: result.data.email || successPageData.manager1Email,
+        contact_email: result.data.contact_email || successPageData.manager1Email,
+        manager_email: result.data.manager_email || successPageData.manager2Email,
+        org_email: result.data.org_email || successPageData.manager1Email,
+        event_type: result.data.event_type || result.data.ref_event_type || eventType.toUpperCase(),
+        ref_event_type: result.data.ref_event_type || result.data.event_type || eventType.toUpperCase(),
         event_short_ref: result.data.event_short_ref || getEventShortRef(),
+        event_long_name: result.data.event_long_name || null,
         created_at: result.data.created_at || new Date().toISOString(),
         season: result.data.season || null,
-        category: result.data.category || null
+        category: result.data.category || null,
+        total_price: result.data.total_price || calculatedTotal || null
       });
 
-      // Clear sessionStorage
-      clearSessionData();
+      // Hide loading overlay (success page is now visible)
+      hideLoadingOverlay();
+
+      // Clear sessionStorage AFTER success page has been displayed
+      // Delay slightly to ensure success page has read the data
+      setTimeout(() => {
+        clearSessionData();
+      }, 100);
     } else {
       Logger.error('❌ Submission error:', result.error);
       
@@ -3223,6 +3894,84 @@ function collectFormData() {
     managers: managers,
     race_day: raceDayArray.length > 0 ? raceDayArray : null
   };
+}
+
+/**
+ * Calculate total price for WU/SC from sessionStorage
+ * This should be called BEFORE clearing sessionStorage
+ */
+function calculateTotalPriceForWUSC() {
+  let total = 0;
+  const teamCount = parseInt(sessionStorage.getItem(`${eventType}_team_count`), 10) || 0;
+  
+  // 1. Entry Fees (per team)
+  for (let i = 1; i <= teamCount; i++) {
+    const price = parseFloat(sessionStorage.getItem(`${eventType}_team${i}_price`)) || 0;
+    if (price > 0) {
+      total += price;
+    } else {
+      // Fallback: try to get from package config
+      const entryGroup = sessionStorage.getItem(`${eventType}_team${i}_entryGroup`) || '';
+      const boatType = sessionStorage.getItem(`${eventType}_team${i}_boatType`) || '';
+      const division = sessionStorage.getItem(`${eventType}_team${i}_division`) || '';
+      
+      let pkg = null;
+      if (entryGroup && window.__CONFIG?.packages) {
+        pkg = window.__CONFIG.packages.find(p => 
+          p.package_code === entryGroup || 
+          p.title_en === entryGroup ||
+          p.title_en === boatType ||
+          p.title_en === division
+        );
+      }
+      
+      if (!pkg && window.__CONFIG?.packages) {
+        pkg = window.__CONFIG.packages.find(p => 
+          p.title_en === boatType || 
+          p.title_en === division
+        );
+      }
+      
+      if (pkg && pkg.listed_unit_price) {
+        total += pkg.listed_unit_price;
+      }
+    }
+  }
+  
+  // 2. Race Day Arrangements
+  // Marquee
+  const marqueeQty = parseInt(sessionStorage.getItem(`${eventType}_marqueeQty`) || '0', 10);
+  if (marqueeQty > 0) {
+    const marqueePrice = getOrderItemPriceFromConfig('marquee');
+    total += marqueeQty * marqueePrice;
+  }
+  
+  // Official Steersman (per team)
+  for (let i = 1; i <= teamCount; i++) {
+    const steersmanOption = sessionStorage.getItem(`${eventType}_team${i}_steersman_option`) || 'not_required';
+    if (steersmanOption === 'with_practice') {
+      total += getOrderItemPriceFromConfig('rd_steerer');
+    } else if (steersmanOption === 'no_practice') {
+      total += getOrderItemPriceFromConfig('rd_steerer_no_practice');
+    }
+  }
+  
+  // Junk Boat
+  const junkQty = parseInt(sessionStorage.getItem(`${eventType}_junkBoatQty`) || '0', 10);
+  if (junkQty > 0) {
+    const junkPrice = getOrderItemPriceFromConfig('junk_boat');
+    total += junkQty * junkPrice;
+  }
+  
+  // Speed Boat
+  const speedQty = parseInt(sessionStorage.getItem(`${eventType}_speedboatQty`) || '0', 10);
+  if (speedQty > 0) {
+    const speedPrice = getOrderItemPriceFromConfig('speed_boat');
+    total += speedQty * speedPrice;
+  }
+  
+	Logger.debug('🎯 calculateTotalPriceForWUSC: Calculated total:', total);
+  return total;
 }
 
 /**

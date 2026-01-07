@@ -404,3 +404,4 @@ Database Insert (race_day_quantities = {...}) ✅
 
 4. **Future Processing:** According to the comment in the edge function (line 679), `race_day_requests` will be created after admin approval when teams are moved to `team_meta`. This is a separate process and not part of the current issue.
 
+

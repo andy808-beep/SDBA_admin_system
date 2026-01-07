@@ -352,3 +352,4 @@ END IF;
 - Uses `ON CONFLICT` to handle updates if practice data changes
 - Helper function simplifies the complex JSONB processing
 
+

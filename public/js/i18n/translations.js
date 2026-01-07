@@ -48,6 +48,12 @@ const translations = {
     copyDetails: "Copy Details",
     copyFromTeam1: "Copy from Team 1",
     clearCacheReload: "Clear Cache & Reload",
+    
+    // Loading states
+    submittingRegistration: "Submitting registration...",
+    pleaseWait: "Please wait",
+    processingPayment: "Processing...",
+    redirecting: "Redirecting to confirmation...",
     clickToSelect: "Click to select",
     selected: "Selected",
     copiedSuccess: "Copied!",
@@ -107,13 +113,12 @@ const translations = {
     "success.details": "Registration Details",
     "success.registration_number": "Registration Number",
     "success.registration_id": "Registration ID",
-    "success.event_type": "Event Type",
-    "success.team_names": "Team Name(s)",
-    "success.team_codes": "Team Codes",
-    "success.number_of_teams": "Number of Teams",
-    "success.confirmation_email": "Confirmation Email",
+    "success.event": "Event",
+    "success.team_names": "Team Names",
+    "success.team_codes": "Team Code(s)",
+    "success.confirmation_emails": "Confirmation Emails",
+    "success.total_price": "Total Price",
     "success.submitted_at": "Submitted At",
-    "success.print": "Print Confirmation",
     "success.copy_details": "Copy Details",
     "success.return_to_events": "Return to Events Registration",
     "success.important": "Important Notice",
@@ -507,6 +512,40 @@ const translations = {
     
     // Table headers
     numberSymbol: "#",
+    
+    // Cost Summary
+    costSummary: "Cost Summary",
+    item: "Item",
+    quantity: "Quantity",
+    unitPrice: "Unit Price",
+    amount: "Amount",
+    entryFeesSubtotal: "Entry Fees Subtotal",
+    raceDayArrangementSubtotal: "Race Day Arrangement Subtotal",
+    practiceSessionsSubtotal: "Practice Sessions Subtotal",
+    total: "Total",
+    athleteMarquee: "Athlete Marquee",
+    officialSteersmanHired: "Official Steersman (Hired during practice)",
+    officialSteersmanNotHired: "Official Steersman (Did not hire during practice)",
+    junkBoatRegistration: "Junk Boat Registration",
+    speedBoatRegistration: "Speed Boat Registration",
+    practiceOfficialTrainer: "Practice - Official Trainer",
+    practiceOfficialSteersman: "Practice - Official Steersman",
+    optionI: "Option I",
+    optionII: "Option II",
+    
+    // Practice Booking Section
+    practiceBooking: "Practice Booking",
+    practiceSessions: "Practice Sessions",
+    practiceDates: "Practice Dates",
+    slotPreferences: "Slot Preferences",
+    practiceBookingDataUnavailable: "Practice booking data unavailable",
+    noSessionsBooked: "No practice sessions booked",
+    noPracticeBookingData: "No practice booking data",
+    hour: "hour",
+    hours: "hours",
+    session: "Session",
+    sessions: "Sessions",
+    totalHours: "Total Hours",
   },
   
   zh: {
@@ -540,6 +579,18 @@ const translations = {
     copyDetails: "複製詳情",
     copyFromTeam1: "從第1隊複製",
     clearCacheReload: "清除緩存並重新載入",
+    
+    // Loading states
+    submittingRegistration: "正在提交註冊...",
+    pleaseWait: "請稍候",
+    processingPayment: "處理中...",
+    redirecting: "正在跳轉到確認頁面...",
+    
+    // Status labels
+    pending: "待定",
+    pendingApproval: "待審批",
+    teamCodeAssignedAfterApproval: "隊伍編號將在審批後分配",
+    
     clickToSelect: "點擊選擇",
     selected: "已選擇",
     copiedSuccess: "已複製！",
@@ -599,13 +650,12 @@ const translations = {
     "success.details": "報名詳情",
     "success.registration_number": "報名編號",
     "success.registration_id": "報名ID",
-    "success.event_type": "活動類型",
+    "success.event": "活動",
     "success.team_names": "隊伍名稱",
     "success.team_codes": "隊伍代碼",
-    "success.number_of_teams": "隊伍數量",
-    "success.confirmation_email": "確認電郵",
+    "success.confirmation_emails": "確認電郵",
+    "success.total_price": "總費用",
     "success.submitted_at": "提交時間",
-    "success.print": "列印確認",
     "success.copy_details": "複製詳情",
     "success.return_to_events": "返回活動報名",
     "success.important": "重要通知",
@@ -999,6 +1049,40 @@ const translations = {
     
     // Table headers
     numberSymbol: "#",
+    
+    // Cost Summary
+    costSummary: "費用摘要",
+    item: "項目",
+    quantity: "數量",
+    unitPrice: "單價",
+    amount: "金額",
+    entryFeesSubtotal: "報名費小計",
+    raceDayArrangementSubtotal: "比賽日安排小計",
+    practiceSessionsSubtotal: "練習時段小計",
+    total: "總計",
+    athleteMarquee: "運動員帳篷",
+    officialSteersmanHired: "大會舵手（練習期間已聘用）",
+    officialSteersmanNotHired: "大會舵手（練習期間未聘用）",
+    junkBoatRegistration: "遊艇登記",
+    speedBoatRegistration: "快艇登記",
+    practiceOfficialTrainer: "練習 - 大會教練",
+    practiceOfficialSteersman: "練習 - 大會舵手",
+    optionI: "選項 I",
+    optionII: "選項 II",
+    
+    // Practice Booking Section
+    practiceBooking: "練習預約",
+    practiceSessions: "練習時段",
+    practiceDates: "練習日期",
+    slotPreferences: "時段偏好",
+    practiceBookingDataUnavailable: "練習預約資料無法使用",
+    noSessionsBooked: "未預約練習時段",
+    noPracticeBookingData: "沒有練習預約資料",
+    hour: "小時",
+    hours: "小時",
+    session: "節",
+    sessions: "節",
+    totalHours: "總時數",
   }
 };
 

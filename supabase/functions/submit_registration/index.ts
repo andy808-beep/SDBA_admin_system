@@ -374,7 +374,7 @@ Deno.serve(async (req) => {
     // 1) Validate event exists and is enabled
     const { data: eventRows, error: eventError } = await admin
       .from('v_event_config_public')
-      .select('event_short_ref, season, form_enabled, practice_start_date, practice_end_date')
+      .select('event_short_ref, season, form_enabled, practice_start_date, practice_end_date, event_long_name_en, event_long_name_tc')
       .eq('event_short_ref', eventShortRef)
       .limit(1);
     
@@ -869,6 +869,8 @@ Deno.serve(async (req) => {
 
     // Get email from managers (first manager's email)
     const contactEmail = mgrs[0]?.email || null;
+    const managerEmail = mgrs.length > 1 ? mgrs[1]?.email : null;
+    const orgEmail = mgrs[0]?.email || null; // Use first manager email as org email if no separate field
 
     // Build array of all team names for multi-team registrations
     const teams = insertedRegistrations.map((reg: any) => ({
@@ -879,6 +881,17 @@ Deno.serve(async (req) => {
       // NOTE: team_code not included - generated on approval
     }));
 
+    // Build team_names array (for success page display)
+    const teamNamesArray = insertedRegistrations.map((reg: any) => {
+      if (reg.team_name_en && reg.team_name_tc) {
+        return `${reg.team_name_en} (${reg.team_name_tc})`;
+      }
+      return reg.team_name_en || reg.team_name_tc || null;
+    }).filter(Boolean);
+
+    // Get event long name from config (already loaded in eventRow above)
+    const eventLongName = eventRow?.event_long_name_en || null;
+
     // Build response with all required data for success page
     return respond(req, { 
       ok: true,
@@ -886,16 +899,21 @@ Deno.serve(async (req) => {
       registration_id: primaryRegistration.id, // Primary registration ID (backward compatibility)
       registration_number: primaryRegistration.registration_number || null, // Auto-generated registration number
       team_name: primaryRegistration.team_name_en || primaryRegistration.team_name_tc || null, // Primary team name for display
+      team_names: teamNamesArray, // Array of team names (for success page)
       team_name_en: primaryRegistration.team_name_en || null,
       team_name_tc: primaryRegistration.team_name_tc || null,
       teams: teams, // Array of all teams (for multi-team registrations)
       event_type: primaryRegistration.event_type || eventType, // Event type from database or fallback
       ref_event_type: primaryRegistration.event_type || eventType, // Alias for compatibility
       event_short_ref: primaryRegistration.event_short_ref || eventShortRef,
+      event_long_name: eventLongName, // Event long name from config
       season: primaryRegistration.season || seasonNum,
       category: primaryRegistration.category || category || null,
       created_at: primaryRegistration.created_at, // Timestamp from database
-      email: contactEmail, // Contact email from first manager
+      email: contactEmail, // Primary email
+      contact_email: contactEmail, // Contact email from first manager
+      manager_email: managerEmail, // Second manager email if available
+      org_email: orgEmail, // Organization email
     }, 200);
   } catch (err) {
     console.error("submit_registration failed:", err);

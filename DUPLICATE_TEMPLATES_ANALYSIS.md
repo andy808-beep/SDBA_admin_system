@@ -381,3 +381,4 @@ Time 250ms: initTNWizard() calls loadStepContent(), finds duplicate templates
 - `initTNWizard()` runs → `loadStepContent()` clones template
 - Brief duplication visible before `wizardMount.innerHTML = ''` clears
 
+

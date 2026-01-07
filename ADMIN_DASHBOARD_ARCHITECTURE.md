@@ -739,3 +739,4 @@ The admin dashboard is a **single-page React application** with:
 4. Row-level locking prevents concurrent approval conflicts
 5. CSRF protection for all state-changing operations
 
+

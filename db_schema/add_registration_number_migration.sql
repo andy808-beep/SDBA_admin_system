@@ -194,3 +194,4 @@ FROM information_schema.triggers
 WHERE event_object_table = 'registration_meta'
   AND trigger_name = 'trigger_auto_registration_number';
 
+

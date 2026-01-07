@@ -94,3 +94,4 @@ COMMENT ON COLUMN public.registration_meta.team_code IS
 -- (This should already exist, but we'll check it exists)
 -- If it doesn't exist, it needs to be created to generate team codes on approval
 
+

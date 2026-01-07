@@ -166,3 +166,4 @@ WHERE marquee_qty > 0 OR steer_with_qty > 0 OR steer_without_qty > 0
 6. Deploy to production
 7. Drop old JSONB column after verification period
 
+

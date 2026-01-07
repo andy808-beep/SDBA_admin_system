@@ -7464,7 +7464,8 @@ function loadSummaryData() {
   // Load basic info
   const orgName = sessionStorage.getItem('tn_org_name');
   const orgAddress = sessionStorage.getItem('tn_org_address');
-  const season = sessionStorage.getItem('tn_season');
+  // Get season from config first, fallback to sessionStorage, then default to 2026
+  const season = window.__CONFIG?.event?.season || sessionStorage.getItem('tn_season') || '2026';
   
   // Update summary elements
   const sumOrg = document.getElementById('sumOrg');
@@ -7478,7 +7479,7 @@ function loadSummaryData() {
   }
   
   const sumSeason = document.getElementById('sumSeason');
-  if (sumSeason && season) {
+  if (sumSeason) {
     sumSeason.textContent = season;
   }
   
@@ -7497,6 +7498,10 @@ function loadSummaryData() {
   // Load practice data
 	Logger.debug('🎯 loadSummaryData: Calling loadPracticeSummary');
   loadPracticeSummary();
+  
+  // Load pricing summary
+	Logger.debug('🎯 loadSummaryData: Calling loadPricingSummary');
+  loadPricingSummary();
   
 	Logger.debug('🎯 loadSummaryData: All summary functions called');
 }
@@ -7528,6 +7533,8 @@ function getCategoryDisplayName(categoryCode) {
  * Get option display name from loaded package configuration
  */
 function getOptionDisplayName(optionCode) {
+  if (!optionCode) return '—';
+  
   // Try to get from loaded configuration first
   if (window.__CONFIG && window.__CONFIG.packages) {
     const package_ = window.__CONFIG.packages.find(p => p.package_code === optionCode);
@@ -7537,11 +7544,14 @@ function getOptionDisplayName(optionCode) {
   }
   
   // Fallback mapping if configuration not loaded
+  // Handle both full package codes and legacy 'opt1'/'opt2' values
   const fallbackMap = {
     'option_1_non_corp': 'Option I',
     'option_1_corp': 'Option I',
     'option_2_non_corp': 'Option II',
-    'option_2_corp': 'Option II'
+    'option_2_corp': 'Option II',
+    'opt1': 'Option I',
+    'opt2': 'Option II'
   };
   
   return fallbackMap[optionCode] || optionCode;
@@ -7700,29 +7710,416 @@ function loadRaceDaySummary() {
   
   // Map the data to display values (using actual input IDs from template)
   const marqueeQty = raceDayData.marqueeQty || 0;
-  const steerWith = raceDayData.steerWithQty || 0;
-  const steerWithout = raceDayData.steerWithoutQty || 0;
   const junkBoat = raceDayData.junkBoatQty ? `${raceDayData.junkBoatQty} units` : '—';
   const speedBoat = raceDayData.speedboatQty ? `${raceDayData.speedboatQty} units` : '—';
+  
+  // Get per-team steersman options (new system)
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  const steersmanOptions = [];
+  const currentLang = window.i18n?.currentLang || 'en';
+  
+  for (let i = 1; i <= teamCount; i++) {
+    const teamNameEn = sessionStorage.getItem(`tn_team_name_en_${i}`) || `Team ${i}`;
+    const teamNameTc = sessionStorage.getItem(`tn_team_name_tc_${i}`);
+    const teamName = (currentLang === 'zh' && teamNameTc) ? teamNameTc : teamNameEn;
+    const steersmanOption = sessionStorage.getItem(`tn_team_${i}_steersman_option`) || 'not_required';
+    
+    let optionText = '';
+    if (steersmanOption === 'with_practice') {
+      optionText = currentLang === 'zh' ? '練習時已聘用舵手' : 'Hired steersman during practice';
+    } else if (steersmanOption === 'no_practice') {
+      optionText = currentLang === 'zh' ? '練習時沒有聘用舵手' : 'Did not hire steersman during practice';
+    } else {
+      optionText = currentLang === 'zh' ? '不需要' : 'Not required';
+    }
+    
+    // Escape team name and option text for XSS safety
+    const safeTeamName = SafeDOM.escapeHtml(teamName);
+    const safeOptionText = SafeDOM.escapeHtml(optionText);
+    
+    // Format with bold team name in theme color, each team on a new line
+    steersmanOptions.push(`<strong style="color: var(--theme-primary-dark, #c79100); font-weight: bold;">${safeTeamName}</strong>: ${safeOptionText}`);
+  }
+  
+  const steersmanDisplay = steersmanOptions.length > 0 
+    ? steersmanOptions.join('<br>') 
+    : (currentLang === 'zh' ? '無' : 'None');
   
     // Update race day summary elements
     const sumMarquee = document.getElementById('sumMarquee');
     const sumSteerWith = document.getElementById('sumSteerWith');
-    const sumSteerWithout = document.getElementById('sumSteerWithout');
     const sumJunk = document.getElementById('sumJunk');
     const sumSpeed = document.getElementById('sumSpeed');
     
 	Logger.debug('🎯 loadRaceDaySummary: Display values:', {
-    marqueeQty, steerWith, steerWithout, junkBoat, speedBoat
+    marqueeQty, steersmanDisplay, junkBoat, speedBoat
   });
   
   if (sumMarquee) sumMarquee.textContent = marqueeQty;
-  if (sumSteerWith) sumSteerWith.textContent = steerWith;
-  if (sumSteerWithout) sumSteerWithout.textContent = steerWithout;
+  // Update steersman display - show per-team options instead of old quantities
+  if (sumSteerWith) {
+    // Show all per-team steersman options with HTML formatting (line breaks and styled team names)
+    sumSteerWith.innerHTML = steersmanDisplay;
+  }
   if (sumJunk) sumJunk.textContent = junkBoat;
   if (sumSpeed) sumSpeed.textContent = speedBoat;
   
 	Logger.debug('🎯 loadRaceDaySummary: Summary elements updated');
+}
+
+/**
+ * Format currency in HKD format
+ */
+function formatCurrency(amount) {
+  if (typeof amount !== 'number' || isNaN(amount)) return 'HK$0';
+  return `HK$${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+/**
+ * Get package price from config
+ */
+function getPackagePrice(packageCode) {
+  // Try window.__CONFIG.packages first
+  if (window.__CONFIG?.packages) {
+    const pkg = window.__CONFIG.packages.find(p => p.package_code === packageCode);
+    if (pkg && pkg.listed_unit_price) return pkg.listed_unit_price;
+  }
+  
+  // Try window.__PACKAGES (loaded from database)
+  if (window.__PACKAGES) {
+    const pkg = window.__PACKAGES.find(p => p.package_code === packageCode);
+    if (pkg && pkg.listed_unit_price) return pkg.listed_unit_price;
+  }
+  
+  // Fallback prices from order.sql
+  const fallbackPrices = {
+    'option_1_non_corp': 20900,
+    'option_2_non_corp': 17500,
+    'option_1_corp': 21900,
+    'option_2_corp': 18500,
+    'opt1': 20900,
+    'opt2': 17500
+  };
+  
+  return fallbackPrices[packageCode] || 0;
+}
+
+/**
+ * Get order item price from config
+ */
+function getOrderItemPrice(itemCode) {
+  // Try window.__CONFIG.orderItems
+  if (window.__CONFIG?.orderItems) {
+    const item = window.__CONFIG.orderItems.find(i => 
+      i.order_item_code === itemCode || i.item_code === itemCode
+    );
+    if (item && item.listed_unit_price) return item.listed_unit_price;
+  }
+  
+  // Fallback prices from order.sql for TN2026
+  const fallbackPrices = {
+    'rd_marquee': 800,
+    'rd_steerer': 800,  // with practice
+    'rd_steerer_no_practice': 1500,  // without practice
+    'rd_junk': 2500,
+    'rd_speedboat': 1500,
+    'extra_practice_hr_regular': 600,
+    'practice_trainer': 550,
+    'practice_steerer': 350
+  };
+  
+  return fallbackPrices[itemCode] || 0;
+}
+
+/**
+ * Load pricing summary data
+ */
+function loadPricingSummary() {
+	Logger.debug('🎯 loadPricingSummary: Starting');
+  const pricingTbody = document.getElementById('pricingTbody');
+  const pricingTotal = document.getElementById('pricingTotal');
+  
+  if (!pricingTbody) {
+	Logger.warn('🎯 loadPricingSummary: pricingTbody element not found');
+    return;
+  }
+  
+  const pricingRows = [];
+  let grandTotal = 0;
+  const currentLang = window.i18n?.currentLang || 'en';
+  
+  // 1. ENTRY FEES (per team, based on entry option)
+  const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+  let entryFeesSubtotal = 0;
+  
+  for (let i = 1; i <= teamCount; i++) {
+    const teamNameEn = sessionStorage.getItem(`tn_team_name_en_${i}`);
+    const teamNameTc = sessionStorage.getItem(`tn_team_name_tc_${i}`);
+    const teamName = (currentLang === 'zh' && teamNameTc) ? teamNameTc : (teamNameEn || `Team ${i}`);
+    const packageCode = sessionStorage.getItem(`tn_team_option_${i}`);
+    
+    if (teamNameEn && packageCode) {
+      const packagePrice = getPackagePrice(packageCode);
+      const optionDisplay = getOptionDisplayName(packageCode);
+      
+      if (packagePrice > 0) {
+        entryFeesSubtotal += packagePrice;
+        const safeTeamName = SafeDOM.escapeHtml(teamName);
+        const safeOptionDisplay = SafeDOM.escapeHtml(optionDisplay);
+        pricingRows.push({
+          item: `${safeTeamName} - ${safeOptionDisplay}`,
+          qty: 1,
+          unitPrice: packagePrice,
+          amount: packagePrice
+        });
+      }
+    }
+  }
+  
+  if (entryFeesSubtotal > 0) {
+    const t = (key) => window.i18n?.t?.(key) || key;
+    pricingRows.push({
+      item: `<strong>${t('entryFeesSubtotal')}</strong>`,
+      qty: '',
+      unitPrice: '',
+      amount: entryFeesSubtotal,
+      isSubtotal: true
+    });
+    grandTotal += entryFeesSubtotal;
+  }
+  
+  // 2. RACE DAY ARRANGEMENTS
+  const raceDayDataStr = sessionStorage.getItem('tn_race_day');
+  let raceDayData = {};
+  if (raceDayDataStr) {
+    try {
+      raceDayData = JSON.parse(raceDayDataStr);
+    } catch (e) {
+	Logger.warn('Failed to parse race day data:', e);
+    }
+  }
+  
+  // Marquee
+  const marqueeQty = parseInt(raceDayData.marqueeQty || 0, 10);
+  let marqueeTotal = 0;
+  if (marqueeQty > 0) {
+    const marqueePrice = getOrderItemPrice('rd_marquee');
+    marqueeTotal = marqueeQty * marqueePrice;
+    const t = (key) => window.i18n?.t?.(key) || key;
+    pricingRows.push({
+      item: t('athleteMarquee'),
+      qty: marqueeQty,
+      unitPrice: marqueePrice,
+      amount: marqueeTotal
+    });
+    grandTotal += marqueeTotal;
+  }
+  
+  // Official Steersman (per team)
+  let steersmanSubtotal = 0;
+  for (let i = 1; i <= teamCount; i++) {
+    const teamNameEn = sessionStorage.getItem(`tn_team_name_en_${i}`);
+    const teamNameTc = sessionStorage.getItem(`tn_team_name_tc_${i}`);
+    const teamName = (currentLang === 'zh' && teamNameTc) ? teamNameTc : (teamNameEn || `Team ${i}`);
+    const steersmanOption = sessionStorage.getItem(`tn_team_${i}_steersman_option`) || 'not_required';
+    
+    if (teamNameEn && steersmanOption !== 'not_required') {
+      let steersmanPrice = 0;
+      let steersmanLabel = '';
+      const t = (key) => window.i18n?.t?.(key) || key;
+      
+      if (steersmanOption === 'with_practice') {
+        steersmanPrice = getOrderItemPrice('rd_steerer');
+        steersmanLabel = t('officialSteersmanHired');
+      } else if (steersmanOption === 'no_practice') {
+        steersmanPrice = getOrderItemPrice('rd_steerer_no_practice');
+        steersmanLabel = t('officialSteersmanNotHired');
+      }
+      
+      if (steersmanPrice > 0) {
+        steersmanSubtotal += steersmanPrice;
+        const safeTeamName = SafeDOM.escapeHtml(teamName);
+        pricingRows.push({
+          item: `${safeTeamName} - ${steersmanLabel}`,
+          qty: 1,
+          unitPrice: steersmanPrice,
+          amount: steersmanPrice
+        });
+      }
+    }
+  }
+  
+  // Junk Boat
+  const junkQty = parseInt(raceDayData.junkBoatQty || 0, 10);
+  let junkTotal = 0;
+  if (junkQty > 0) {
+    const junkPrice = getOrderItemPrice('rd_junk');
+    junkTotal = junkQty * junkPrice;
+    const t = (key) => window.i18n?.t?.(key) || key;
+    pricingRows.push({
+      item: t('junkBoatRegistration'),
+      qty: junkQty,
+      unitPrice: junkPrice,
+      amount: junkTotal
+    });
+    grandTotal += junkTotal;
+  }
+  
+  // Speed Boat
+  const speedQty = parseInt(raceDayData.speedboatQty || 0, 10);
+  let speedTotal = 0;
+  if (speedQty > 0) {
+    const speedPrice = getOrderItemPrice('rd_speedboat');
+    speedTotal = speedQty * speedPrice;
+    const t = (key) => window.i18n?.t?.(key) || key;
+    pricingRows.push({
+      item: t('speedBoatRegistration'),
+      qty: speedQty,
+      unitPrice: speedPrice,
+      amount: speedTotal
+    });
+    grandTotal += speedTotal;
+  }
+  
+  // Race Day Arrangement Subtotal (Marquee + Steersman + Junk + Speed)
+  const raceDaySubtotal = marqueeTotal + steersmanSubtotal + junkTotal + speedTotal;
+  if (raceDaySubtotal > 0) {
+    const t = (key) => window.i18n?.t?.(key) || key;
+    pricingRows.push({
+      item: `<strong>${t('raceDayArrangementSubtotal')}</strong>`,
+      qty: '',
+      unitPrice: '',
+      amount: raceDaySubtotal,
+      isSubtotal: true
+    });
+    // Note: marqueeTotal, junkTotal, speedTotal already added to grandTotal above
+    // Add steersmanSubtotal to grandTotal (steersman items are not added individually)
+    grandTotal += steersmanSubtotal;
+  }
+  
+  // 3. PRACTICE SESSIONS
+  const { readTeamRows } = window.__DBG_TN || {};
+  if (readTeamRows) {
+    let extraPracticeHours = 0;
+    let trainerHours = 0;
+    let steersmanHours = 0;
+    
+    // Calculate practice costs across all teams
+    for (let i = 1; i <= teamCount; i++) {
+      const teamKey = `t${i}`;
+      const practiceRows = readTeamRows(teamKey) || [];
+      
+      let teamTotalHours = 0;
+      let teamTrainerHours = 0;
+      let teamSteersmanHours = 0;
+      
+      practiceRows.forEach(row => {
+        const duration = parseInt(row.duration_hours || 2, 10);
+        const helper = row.helper || 'NONE';
+        
+        teamTotalHours += duration;
+        
+        // Count trainer hours (T or ST)
+        if (helper === 'T' || helper === 'ST') {
+          teamTrainerHours += duration;
+        }
+        
+        // Count steersman hours (S or ST)
+        if (helper === 'S' || helper === 'ST') {
+          teamSteersmanHours += duration;
+        }
+      });
+      
+      // Extra practice hours (over 12 hours included in package)
+      const teamExtraHours = Math.max(0, teamTotalHours - 12);
+      extraPracticeHours += teamExtraHours;
+      trainerHours += teamTrainerHours;
+      steersmanHours += teamSteersmanHours;
+    }
+    
+    // Extra Practice Sessions
+    if (extraPracticeHours > 0) {
+      const extraPracticePrice = getOrderItemPrice('extra_practice_hr_regular');
+      const extraPracticeTotal = extraPracticeHours * extraPracticePrice;
+      pricingRows.push({
+        item: currentLang === 'zh' ? '額外練習 (標準龍租船費)' : 'Extra Practice – Standard Boat Rental',
+        qty: extraPracticeHours,
+        unitPrice: extraPracticePrice,
+        amount: extraPracticeTotal
+      });
+      grandTotal += extraPracticeTotal;
+    }
+    
+    // Trainer Sessions
+    let trainerTotal = 0;
+    if (trainerHours > 0) {
+      const trainerPrice = getOrderItemPrice('practice_trainer');
+      trainerTotal = trainerHours * trainerPrice;
+      const t = (key) => window.i18n?.t?.(key) || key;
+      pricingRows.push({
+        item: t('practiceOfficialTrainer'),
+        qty: trainerHours,
+        unitPrice: trainerPrice,
+        amount: trainerTotal
+      });
+      grandTotal += trainerTotal;
+    }
+    
+    // Steersman Sessions
+    let steersmanTotal = 0;
+    if (steersmanHours > 0) {
+      const steersmanPrice = getOrderItemPrice('practice_steerer');
+      steersmanTotal = steersmanHours * steersmanPrice;
+      const t = (key) => window.i18n?.t?.(key) || key;
+      pricingRows.push({
+        item: t('practiceOfficialSteersman'),
+        qty: steersmanHours,
+        unitPrice: steersmanPrice,
+        amount: steersmanTotal
+      });
+      grandTotal += steersmanTotal;
+    }
+    
+    // Practice Sessions Subtotal (Trainer + Steersman)
+    const practiceSessionsSubtotal = trainerTotal + steersmanTotal;
+    if (practiceSessionsSubtotal > 0) {
+      const t = (key) => window.i18n?.t?.(key) || key;
+      pricingRows.push({
+        item: `<strong>${t('practiceSessionsSubtotal')}</strong>`,
+        qty: '',
+        unitPrice: '',
+        amount: practiceSessionsSubtotal,
+        isSubtotal: true
+      });
+    }
+  }
+  
+  // Render pricing table
+  if (pricingRows.length === 0) {
+    pricingTbody.innerHTML = '<tr><td colspan="4" class="muted" data-i18n="noPricingData">No pricing data available</td></tr>';
+    if (pricingTotal) pricingTotal.textContent = formatCurrency(0);
+    return;
+  }
+  
+  let html = '';
+  pricingRows.forEach(row => {
+    const rowClass = row.isSubtotal ? 'subtotal-row' : '';
+    const qtyDisplay = row.qty === '' ? '' : row.qty;
+    const unitPriceDisplay = row.unitPrice === '' ? '' : formatCurrency(row.unitPrice);
+    const amountDisplay = formatCurrency(row.amount);
+    
+    html += `<tr class="${rowClass}">`;
+    html += `<td>${row.item}</td>`;
+    html += `<td class="text-center">${qtyDisplay}</td>`;
+    html += `<td class="text-right">${unitPriceDisplay}</td>`;
+    html += `<td class="text-right"><strong>${amountDisplay}</strong></td>`;
+    html += `</tr>`;
+  });
+  
+  pricingTbody.innerHTML = html;
+  if (pricingTotal) pricingTotal.textContent = formatCurrency(grandTotal);
+  
+	Logger.debug('🎯 loadPricingSummary: Pricing summary updated, total:', grandTotal);
 }
 
 /**
@@ -7739,9 +8136,11 @@ function loadPracticeSummary() {
   
   // Import the store functions
   const { readTeamRows, readTeamRanks } = window.__DBG_TN || {};
+  const t = (key) => window.i18n?.t?.(key) || key;
+  const currentLang = window.i18n?.currentLang || 'en';
   
   if (!readTeamRows || !readTeamRanks) {
-    perTeamPracticeSummary.innerHTML = '<p class="muted">Practice booking data unavailable</p>';
+    perTeamPracticeSummary.innerHTML = `<p class="muted">${t('practiceBookingDataUnavailable')}</p>`;
     return;
   }
   
@@ -7772,7 +8171,7 @@ function loadPracticeSummary() {
   }
   
   if (practiceData.length === 0) {
-    perTeamPracticeSummary.innerHTML = '<p class="muted">No practice booking data</p>';
+    perTeamPracticeSummary.innerHTML = `<p class="muted">${t('noSessionsBooked')}</p>`;
     return;
   }
   
@@ -7783,19 +8182,21 @@ function loadPracticeSummary() {
     // team.teamName comes from sessionStorage (user input), so it must be escaped
     const safeTeamName = SafeDOM.escapeHtml(team.teamName);
     html += `<div class="team-practice-section" style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 6px;">`;
-    html += `<h4 style="margin: 0 0 0.5rem 0; color: #0f6ec7;">${safeTeamName}</h4>`;
+    // Apply theme color to team name
+    html += `<h4 class="practice-team-name" style="margin: 0 0 0.5rem 0; color: var(--theme-primary-dark, #c79100); font-weight: 600;">${safeTeamName}</h4>`;
     
     // Practice dates
     if (team.practiceRows.length > 0) {
       html += `<div style="margin-bottom: 0.5rem;">`;
-      html += `<strong>Practice Dates:</strong><br>`;
+      html += `<strong>${t('practiceDates')}:</strong><br>`;
       team.practiceRows.forEach(row => {
-        const date = new Date(row.pref_date).toLocaleDateString();
+        const date = new Date(row.pref_date).toLocaleDateString(currentLang === 'zh' ? 'zh-HK' : 'en-US');
         const duration = row.duration_hours;
         const helper = row.helper;
         // XSS FIX: Escape steersman & coach value (could be user-selected)
         const safeHelper = SafeDOM.escapeHtml(helper);
-        html += `<span style="margin-right: 1rem;">• ${date} (${duration}h, ${safeHelper})</span>`;
+        const hourLabel = duration === 1 ? t('hour') : t('hours');
+        html += `<span style="margin-right: 1rem;">• ${date} (${duration} ${hourLabel}, ${safeHelper})</span>`;
       });
       html += `</div>`;
     }
@@ -7803,7 +8204,7 @@ function loadPracticeSummary() {
     // Slot preferences
     if (team.slotRanks.length > 0) {
       html += `<div>`;
-      html += `<strong>Slot Preferences:</strong><br>`;
+      html += `<strong>${t('slotPreferences')}:</strong><br>`;
       team.slotRanks.forEach(rank => {
         // XSS FIX: Escape slot_code (from config, but should be safe)
         const safeSlotCode = SafeDOM.escapeHtml(rank.slot_code);
@@ -9078,21 +9479,54 @@ async function submitTNForm() {
       // Hide loading and display success page
       hideLoadingIndicator();
       
+      // Collect team names and emails from sessionStorage before clearing
+      const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
+      const teamNamesEn = [];
+      const teamNamesTc = [];
+      const managerEmails = [];
+      
+      for (let i = 1; i <= teamCount; i++) {
+        const nameEn = sessionStorage.getItem(`tn_team_name_en_${i}`);
+        const nameTc = sessionStorage.getItem(`tn_team_name_tc_${i}`);
+        if (nameEn) {
+          teamNamesEn.push(nameEn);
+          if (nameTc) teamNamesTc.push(nameTc);
+        }
+      }
+      
+      // Collect all manager emails from sessionStorage (TN uses tn_manager1_email format)
+      const manager1Email = sessionStorage.getItem('tn_manager1_email');
+      const manager2Email = sessionStorage.getItem('tn_manager2_email');
+      const manager3Email = sessionStorage.getItem('tn_manager3_email');
+      
+      if (manager1Email) managerEmails.push(manager1Email);
+      if (manager2Email && !managerEmails.includes(manager2Email)) managerEmails.push(manager2Email);
+      if (manager3Email && !managerEmails.includes(manager3Email)) managerEmails.push(manager3Email);
+      
       // Use the new success handler - pass all data from response
+      // Collect all unique manager emails for confirmation
+      const allManagerEmails = [...new Set(managerEmails.filter(Boolean))];
+      
       displaySuccessPage({
         registration_id: data?.registration_id || registration_ids?.[0],
         registration_ids: registration_ids,
         registration_number: data?.registration_number || null,
         team_codes: data?.team_codes || team_codes,
-        team_name: data?.team_name || null,
+        team_name: data?.team_name || teamNamesEn[0] || null,
+        team_names: data?.team_names || teamNamesEn || [],
         teams: data?.teams || null,
-        email: data?.email || contact.email,
-        event_type: data?.event_type || data?.ref_event_type || null,
-        ref_event_type: data?.ref_event_type || data?.event_type || null,
+        email: data?.email || contact.email || allManagerEmails[0],
+        contact_email: data?.contact_email || contact.email || allManagerEmails[0],
+        manager_email: allManagerEmails.length > 1 ? allManagerEmails[1] : (allManagerEmails[0] || null),
+        org_email: allManagerEmails[0] || contact.email,
+        event_type: data?.event_type || data?.ref_event_type || 'TN',
+        ref_event_type: data?.ref_event_type || data?.event_type || 'TN',
         event_short_ref: data?.event_short_ref || getEventShortRef(),
+        event_long_name: data?.event_long_name || null,
         created_at: data?.created_at || new Date().toISOString(),
         season: data?.season || null,
-        category: data?.category || null
+        category: data?.category || null,
+        total_price: data?.total_price || null
       });
     } else {
 	Logger.debug('⚠️ No data in response, but no error either');

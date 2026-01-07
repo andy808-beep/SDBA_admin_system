@@ -181,3 +181,4 @@ After changes:
 - [ ] Event picker shows correctly after manual navigation
 - [ ] Session data is cleared on manual navigation
 
+

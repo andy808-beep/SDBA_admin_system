@@ -470,47 +470,47 @@
           <h2 class="success-details-title" data-i18n="success.details">Registration Details</h2>
           
           <div class="success-details-grid">
-            <!-- Event Type -->
+            <!-- Event (show long name from config) -->
             <div class="success-detail-item">
-              <label class="success-detail-label" data-i18n="success.event_type">Event Type</label>
-              <div id="success-event-type" class="success-detail-value">
+              <label class="success-detail-label" data-i18n="success.event">Event</label>
+              <div id="success-event" class="success-detail-value">
                 Loading...
               </div>
             </div>
 
-            <!-- Team Names -->
+            <!-- Team Names (plural, handles multiple teams) -->
             <div class="success-detail-item success-detail-item-full">
-              <label class="success-detail-label" data-i18n="success.team_names">Team Name(s)</label>
+              <label class="success-detail-label" data-i18n="success.team_names">Team Names</label>
               <div id="success-team-names" class="success-detail-value">
                 Loading...
               </div>
             </div>
 
-            <!-- Team Codes -->
+            <!-- Team Codes (pending until approval) -->
             <div class="success-detail-item success-detail-item-full">
-              <label class="success-detail-label" data-i18n="success.team_codes">Team Codes</label>
+              <label class="success-detail-label" data-i18n="success.team_codes">Team Code(s)</label>
               <div id="success-team-codes" class="success-detail-value success-team-codes-value">
+                <span class="pending-badge">Pending</span>
+              </div>
+            </div>
+
+            <!-- Confirmation Emails (all emails receiving confirmation) -->
+            <div class="success-detail-item success-detail-item-full">
+              <label class="success-detail-label" data-i18n="success.confirmation_emails">Confirmation Emails</label>
+              <div id="success-confirmation-emails" class="success-detail-value">
                 Loading...
               </div>
             </div>
 
-            <!-- Number of Teams -->
-            <div class="success-detail-item">
-              <label class="success-detail-label" data-i18n="success.number_of_teams">Number of Teams</label>
-              <div id="success-number-of-teams" class="success-detail-value">
+            <!-- Total Price -->
+            <div class="success-detail-item success-detail-item-full">
+              <label class="success-detail-label" data-i18n="success.total_price">Total Price</label>
+              <div id="success-total-price" class="success-detail-value success-total-price-value">
                 Loading...
               </div>
             </div>
 
-            <!-- Confirmation Email -->
-            <div class="success-detail-item">
-              <label class="success-detail-label" data-i18n="success.confirmation_email">Confirmation Email</label>
-              <div id="success-email" class="success-detail-value">
-                Loading...
-              </div>
-            </div>
-
-            <!-- Submission Timestamp -->
+            <!-- Submitted At (timestamp) -->
             <div class="success-detail-item success-detail-item-full">
               <label class="success-detail-label" data-i18n="success.submitted_at">Submitted At</label>
               <div id="success-timestamp" class="success-detail-value">
@@ -527,14 +527,11 @@
             You will receive a confirmation email shortly.
           </p>
         </div>
-
+        
         <!-- Action Buttons -->
         <div class="success-actions">
           <button id="copyReceiptBtn" class="success-btn success-btn-secondary" data-i18n="success.copy_details">
             Copy Details
-          </button>
-          <button id="printReceiptBtn" class="success-btn success-btn-secondary" data-i18n="success.print">
-            Print Confirmation
           </button>
           <button id="redirectNowBtn" class="success-btn success-btn-primary" data-i18n="success.return_to_events">
             Return to Events Registration
@@ -644,7 +641,7 @@
   <script>
     (function() {
       // ... old code removed ...
-      function showSuccessPage() {
+            function showSuccessPage() {
               const eventPicker = document.getElementById('eventPicker');
               const formContainer = document.getElementById('formContainer');
               const successPage = document.getElementById('successPage');

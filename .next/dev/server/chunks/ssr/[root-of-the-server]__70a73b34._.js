@@ -1,4 +1,3 @@
-;!function(){try { var e="undefined"!=typeof globalThis?globalThis:"undefined"!=typeof global?global:"undefined"!=typeof window?window:"undefined"!=typeof self?self:{},n=(new e.Error).stack;n&&((e._debugIds|| (e._debugIds={}))[n]="eb61d4a9-acc3-ebc1-85bc-8370fe38c2d4")}catch(e){}}();
 module.exports = [
 "[externals]/react/jsx-runtime [external] (react/jsx-runtime, cjs)", ((__turbopack_context__, module, exports) => {
 
@@ -283,5 +282,4 @@ module.exports = __turbopack_context__.r("[project]/node_modules/next/dist/pages
 }),
 ];
 
-//# debugId=eb61d4a9-acc3-ebc1-85bc-8370fe38c2d4
 //# sourceMappingURL=%5Broot-of-the-server%5D__70a73b34._.js.map

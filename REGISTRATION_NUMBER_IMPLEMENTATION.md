@@ -233,3 +233,4 @@ DROP INDEX IF EXISTS idx_registration_number;
 ALTER TABLE public.registration_meta DROP COLUMN IF EXISTS registration_number;
 ```
 
+

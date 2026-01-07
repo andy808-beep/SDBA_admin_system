@@ -186,3 +186,4 @@ If you want to keep a minimum width but make it smaller:
 - Remove `min-width: 200px` from both inline styles and CSS
 - Let dropdown size naturally to match WU/SC
 
+

@@ -126,3 +126,4 @@ To verify the fix works:
 - The edge function already had the correct processing logic - it just needed the correct input format
 - Database trigger handles the creation of `race_day_requests` records automatically on approval
 
+
