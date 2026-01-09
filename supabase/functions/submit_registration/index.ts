@@ -266,17 +266,22 @@ Deno.serve(async (req) => {
   } = payload ?? {} as Payload;
 
   if (!eventShortRef) return bad(req, "eventShortRef is required");
-  if (!category) return bad(req, "category is required");
   
   // Normalize event type from eventShortRef (e.g., 'SC2026' -> 'sc', 'TN2026' -> 'tn')
   const eventType = eventShortRef.replace(/\d+/g, '').toLowerCase(); // Remove numbers and lowercase
   
-  // Check if this is a WU/SC event (has teams array with individual categories)
-  const isWUSC = payload.teams && Array.isArray(payload.teams) && payload.teams.length > 0;
+  // Check if this is a WU/SC event (eventType is 'wu' or 'sc')
+  const isWUSC = eventType === 'wu' || eventType === 'sc';
   
-  // For TN events, validate category
+  // Check if TN event has per-team categories (teams array with category field)
+  const hasTNPerTeamCategories = eventType === 'tn' && payload.teams && Array.isArray(payload.teams) && payload.teams.length > 0 && payload.teams[0]?.category;
+  
+  // Category is required unless we have per-team categories or WU/SC teams
+  if (!category && !isWUSC && !hasTNPerTeamCategories) return bad(req, "category is required");
+  
+  // For TN events without per-team categories, validate single category
   let divLetter: string | null = null;
-  if (!isWUSC) {
+  if (!isWUSC && !hasTNPerTeamCategories) {
     divLetter = letterFromCategory(category);
     if (!divLetter) return bad(req, `Unknown category: ${category}`);
   }
@@ -287,14 +292,20 @@ Deno.serve(async (req) => {
   if (!isWUSC) {
     const { num_teams, num_teams_opt1, num_teams_opt2 } = counts || {};
     if (!Number.isInteger(num_teams) || num_teams < 1) return bad(req, "num_teams invalid");
-    // Use team_names_en if provided, otherwise fall back to team_names
-    const effectiveTeamNames = (team_names_en && team_names_en.length > 0) ? team_names_en : team_names;
-    if (effectiveTeamNames.length !== num_teams || team_options.length !== num_teams) {
-      return bad(req, "team_names / team_options length must equal num_teams");
-    }
-    // If team_names_tc is provided, it should match length (but can be empty strings)
-    if (team_names_tc && team_names_tc.length > 0 && team_names_tc.length !== num_teams) {
-      return bad(req, "team_names_tc length must equal num_teams if provided");
+    
+    // Skip validation if using new teams array format with per-team categories
+    if (!hasTNPerTeamCategories) {
+      // Use team_names_en if provided, otherwise fall back to team_names
+      const effectiveTeamNames = (team_names_en && Array.isArray(team_names_en) && team_names_en.length > 0) ? team_names_en : (Array.isArray(team_names) ? team_names : []);
+      const effectiveTeamOptions = Array.isArray(team_options) ? team_options : [];
+      
+      if (effectiveTeamNames.length !== num_teams || effectiveTeamOptions.length !== num_teams) {
+        return bad(req, "team_names / team_options length must equal num_teams");
+      }
+      // If team_names_tc is provided, it should match length (but can be empty strings)
+      if (team_names_tc && Array.isArray(team_names_tc) && team_names_tc.length > 0 && team_names_tc.length !== num_teams) {
+        return bad(req, "team_names_tc length must equal num_teams if provided");
+      }
     }
     if ((num_teams_opt1 + num_teams_opt2) !== num_teams) {
       return bad(req, "num_teams_opt1 + num_teams_opt2 must equal num_teams");
@@ -390,41 +401,101 @@ Deno.serve(async (req) => {
 
     // TN-specific validation: Division and Package checks
     if (!isWUSC) {
-      // 2) Division check
-      const { data: divRows, error: divError } = await admin
-        .from('v_divisions_public')
-        .select('division_code')
-        .eq('event_short_ref', eventShortRef)
-        .eq('division_code', divLetter)
-        .eq('is_active', true)
-        .limit(1);
-      
-      if (divError) throw new Error(`Division check failed: ${divError.message}`);
-      if (!divRows.length) {
-        // Get available divisions for better error message
-        const { data: availableDivs } = await admin
+      if (hasTNPerTeamCategories) {
+        // Validate per-team divisions and packages
+        const teams = (payload as any).teams || [];
+        const uniqueDivLetters = new Set<string>();
+        const pkgCodes = new Set<string>();
+        
+        for (const team of teams) {
+          const teamCategory = team.category || category;
+          const teamDivLetter = letterFromCategory(teamCategory);
+          if (!teamDivLetter) {
+            throw new Error(`Invalid category for team: ${teamCategory}`);
+          }
+          uniqueDivLetters.add(teamDivLetter);
+          
+          // Get team option (opt1 or opt2)
+          const teamOption = team.option || 'opt1';
+          pkgCodes.add(derivePackageCode(eventShortRef, teamCategory, teamOption as "opt1" | "opt2"));
+        }
+        
+        // Validate all unique divisions
+        if (uniqueDivLetters.size > 0) {
+          const { data: divRows, error: divError } = await admin
+            .from('v_divisions_public')
+            .select('division_code')
+            .eq('event_short_ref', eventShortRef)
+            .in('division_code', Array.from(uniqueDivLetters))
+            .eq('is_active', true);
+          
+          if (divError) throw new Error(`Division check failed: ${divError.message}`);
+          const activeDivs = new Set(divRows.map((r: any) => r.division_code));
+          for (const div of uniqueDivLetters) {
+            if (!activeDivs.has(div)) {
+              // Get available divisions for better error message
+              const { data: availableDivs } = await admin
+                .from('v_divisions_public')
+                .select('division_code')
+                .eq('event_short_ref', eventShortRef)
+                .eq('is_active', true);
+              const available = availableDivs?.map(d => d.division_code).join(', ') || 'none';
+              throw new Error(`Division ${div} not active for ${eventShortRef}. Available: ${available}`);
+            }
+          }
+        }
+        
+        // Validate all packages
+        if (pkgCodes.size > 0) {
+          const { data: pkgRows, error: pkgError } = await admin
+            .from('v_packages_public')
+            .select('package_code')
+            .eq('event_short_ref', eventShortRef)
+            .in('package_code', Array.from(pkgCodes))
+            .eq('is_active', true);
+          
+          if (pkgError) throw new Error(`Package check failed: ${pkgError.message}`);
+          const ok = new Set(pkgRows.map((r: any) => r.package_code));
+          for (const code of pkgCodes) if (!ok.has(code)) throw new Error(`Package not available: ${code}`);
+        }
+      } else {
+        // Legacy: single division and category for all teams
+        // 2) Division check
+        const { data: divRows, error: divError } = await admin
           .from('v_divisions_public')
           .select('division_code')
           .eq('event_short_ref', eventShortRef)
-          .eq('is_active', true);
-        const available = availableDivs?.map(d => d.division_code).join(', ') || 'none';
-        throw new Error(`Division ${divLetter} not active for ${eventShortRef}. Available: ${available}`);
-      }
-
-      // 3) Package availability check
-      const pkgCodes = new Set<string>();
-      for (const opt of team_options) pkgCodes.add(derivePackageCode(eventShortRef, category, opt));
-      if (pkgCodes.size) {
-        const { data: pkgRows, error: pkgError } = await admin
-          .from('v_packages_public')
-          .select('package_code')
-          .eq('event_short_ref', eventShortRef)
-          .in('package_code', Array.from(pkgCodes))
-          .eq('is_active', true);
+          .eq('division_code', divLetter)
+          .eq('is_active', true)
+          .limit(1);
         
-        if (pkgError) throw new Error(`Package check failed: ${pkgError.message}`);
-        const ok = new Set(pkgRows.map((r: any) => r.package_code));
-        for (const code of pkgCodes) if (!ok.has(code)) throw new Error(`Package not available: ${code}`);
+        if (divError) throw new Error(`Division check failed: ${divError.message}`);
+        if (!divRows.length) {
+          // Get available divisions for better error message
+          const { data: availableDivs } = await admin
+            .from('v_divisions_public')
+            .select('division_code')
+            .eq('event_short_ref', eventShortRef)
+            .eq('is_active', true);
+          const available = availableDivs?.map(d => d.division_code).join(', ') || 'none';
+          throw new Error(`Division ${divLetter} not active for ${eventShortRef}. Available: ${available}`);
+        }
+
+        // 3) Package availability check
+        const pkgCodes = new Set<string>();
+        for (const opt of team_options) pkgCodes.add(derivePackageCode(eventShortRef, category, opt));
+        if (pkgCodes.size) {
+          const { data: pkgRows, error: pkgError } = await admin
+            .from('v_packages_public')
+            .select('package_code')
+            .eq('event_short_ref', eventShortRef)
+            .in('package_code', Array.from(pkgCodes))
+            .eq('is_active', true);
+          
+          if (pkgError) throw new Error(`Package check failed: ${pkgError.message}`);
+          const ok = new Set(pkgRows.map((r: any) => r.package_code));
+          for (const code of pkgCodes) if (!ok.has(code)) throw new Error(`Package not available: ${code}`);
+        }
       }
     }
 
@@ -674,58 +745,125 @@ Deno.serve(async (req) => {
     let registrationsToInsert: any[];
     
     if (eventType === 'tn') {
-      // TN: Use existing logic with team_names array
-      // Use team_names_en if provided, otherwise fall back to team_names for backward compatibility
-      const namesEn = (team_names_en && team_names_en.length > 0) ? team_names_en : team_names;
-      const namesTc = team_names_tc || [];
-      const teamSteersmanOptions = (payload as any).team_race_day_steersman_options || [];
+      // TN: Support per-team categories from teams array, fallback to team_names array for backward compatibility
+      const teams = Array.isArray((payload as any).teams) ? (payload as any).teams : [];
+      const teamSteersmanOptions = Array.isArray((payload as any).team_race_day_steersman_options) ? (payload as any).team_race_day_steersman_options : [];
       
-      registrationsToInsert = namesEn.map((team_name_en, idx) => {
-        // Get race_day_steersman_option for this team (validate value)
-        const steersmanOption = teamSteersmanOptions[idx];
-        const validSteersmanOption = (steersmanOption === 'with_practice' || steersmanOption === 'no_practice' || steersmanOption === 'not_required') 
-          ? steersmanOption 
-          : null;
+      // Check if we have teams array with per-team categories
+      const hasPerTeamCategories = Array.isArray(teams) && teams.length > 0 && teams[0]?.category;
+      
+      if (hasPerTeamCategories) {
+        // New format: use teams array with per-team categories
+        // Note: Using outer registrationsToInsert variable (declared on line 745)
+        registrationsToInsert = teams.map((team: any, idx: number) => {
+          // Get per-team category and convert to division_code
+          const teamCategory = team.category || category; // Fallback to registration-level category
+          const teamDivLetter = letterFromCategory(teamCategory);
+          if (!teamDivLetter) {
+            throw new Error(`Invalid category for team ${idx + 1}: ${teamCategory}`);
+          }
+          
+          // Get race_day_steersman_option for this team (validate value)
+          const steersmanOption = teamSteersmanOptions[idx];
+          const validSteersmanOption = (steersmanOption === 'with_practice' || steersmanOption === 'no_practice' || steersmanOption === 'not_required') 
+            ? steersmanOption 
+            : null;
+          
+          // Get practice data for this team
+          const practiceData = practiceDataMap.get(idx);
+          
+          // Get team option (opt1 or opt2)
+          const teamOption = team.option || (Array.isArray(team_options) && team_options[idx]) || 'opt1';
+          
+          return {
+            event_type: 'tn',
+            event_short_ref: eventShortRef,
+            client_tx_id: payload.client_tx_id,
+            season: seasonNum,
+            category: teamCategory, // Per-team category
+            division_code: teamDivLetter, // Per-team division code
+            option_choice: optionText(teamOption as "opt1" | "opt2"),
+            team_name_en: team.name_en || team.team_name_en || team.name || '',
+            team_name_tc: (team.name_tc || team.team_name_tc || '').trim() || null,
+            org_name,
+            org_address: org_address ?? null,
+            team_manager_1: mgrs[0]?.name || "",
+            mobile_1:       mgrs[0]?.mobile || "",
+            email_1:        mgrs[0]?.email  || "",
+            team_manager_2: mgrs[1]?.name || "",
+            mobile_2:       mgrs[1]?.mobile || "",
+            email_2:        mgrs[1]?.email  || "",
+            team_manager_3: mgrs[2]?.name || "",
+            mobile_3:       mgrs[2]?.mobile || "",
+            email_3:        mgrs[2]?.email  || "",
+            // Only populate race day columns for primary team (index 0)
+            marquee_qty: idx === 0 ? (raceDayColumns?.marquee_qty ?? 0) : 0,
+            race_day_steersman_option: validSteersmanOption,
+            junk_boat_qty: idx === 0 ? (raceDayColumns?.junk_boat_qty ?? 0) : 0,
+            junk_boat_license_nos: idx === 0 ? (raceDayColumns?.junk_boat_license_nos ?? null) : null,
+            speed_boat_qty: idx === 0 ? (raceDayColumns?.speed_boat_qty ?? 0) : 0,
+            speed_boat_license_nos: idx === 0 ? (raceDayColumns?.speed_boat_license_nos ?? null) : null,
+            // Practice data as parallel arrays
+            practice_dates: (practiceData?.dates && Array.isArray(practiceData.dates) && practiceData.dates.length > 0) ? practiceData.dates : null,
+            practice_durations: (practiceData?.durations && Array.isArray(practiceData.durations) && practiceData.durations.length > 0) ? practiceData.durations : null,
+            practice_helpers: (practiceData?.helpers && Array.isArray(practiceData.helpers) && practiceData.helpers.length > 0) ? practiceData.helpers : null,
+            practice_slot_prefs: (practiceData?.slotPrefs && Array.isArray(practiceData.slotPrefs) && practiceData.slotPrefs.some(s => s !== null)) ? practiceData.slotPrefs : null,
+            status: 'pending'
+          };
+        });
+      } else {
+        // Legacy format: use team_names array with single category
+        // Use team_names_en if provided, otherwise fall back to team_names for backward compatibility
+        const namesEn = (team_names_en && Array.isArray(team_names_en) && team_names_en.length > 0) ? team_names_en : (Array.isArray(team_names) ? team_names : []);
+        const namesTc = Array.isArray(team_names_tc) ? team_names_tc : [];
         
-        // Get practice data for this team
-        const practiceData = practiceDataMap.get(idx);
-        
-        return {
-          event_type: 'tn',
-          event_short_ref: eventShortRef,
-          client_tx_id: payload.client_tx_id,
-          season: seasonNum,
-          category,
-          division_code: divLetter,
-          option_choice: optionText(team_options[idx]),
-          team_name_en: team_name_en || '',
-          team_name_tc: (namesTc[idx] || '').trim() || null,
-          org_name,
-          org_address: org_address ?? null,
-          team_manager_1: mgrs[0]?.name || "",
-          mobile_1:       mgrs[0]?.mobile || "",
-          email_1:        mgrs[0]?.email  || "",
-          team_manager_2: mgrs[1]?.name || "",
-          mobile_2:       mgrs[1]?.mobile || "",
-          email_2:        mgrs[1]?.email  || "",
-          team_manager_3: mgrs[2]?.name || "",
-          mobile_3:       mgrs[2]?.mobile || "",
-          email_3:        mgrs[2]?.email  || "",
-          // Only populate race day columns for primary team (index 0)
-          marquee_qty: idx === 0 ? (raceDayColumns?.marquee_qty ?? 0) : 0,
-          race_day_steersman_option: validSteersmanOption,
-          junk_boat_qty: idx === 0 ? (raceDayColumns?.junk_boat_qty ?? 0) : 0,
-          junk_boat_license_nos: idx === 0 ? (raceDayColumns?.junk_boat_license_nos ?? null) : null,
-          speed_boat_qty: idx === 0 ? (raceDayColumns?.speed_boat_qty ?? 0) : 0,
-          speed_boat_license_nos: idx === 0 ? (raceDayColumns?.speed_boat_license_nos ?? null) : null,
-          // Practice data as parallel arrays
-          practice_dates: practiceData?.dates && practiceData.dates.length > 0 ? practiceData.dates : null,
-          practice_durations: practiceData?.durations && practiceData.durations.length > 0 ? practiceData.durations : null,
-          practice_helpers: practiceData?.helpers && practiceData.helpers.length > 0 ? practiceData.helpers : null,
-          practice_slot_prefs: practiceData?.slotPrefs && practiceData.slotPrefs.some(s => s !== null) ? practiceData.slotPrefs : null,
-          status: 'pending'
-        };
-      });
+        registrationsToInsert = namesEn.map((team_name_en, idx) => {
+          // Get race_day_steersman_option for this team (validate value)
+          const steersmanOption = teamSteersmanOptions[idx];
+          const validSteersmanOption = (steersmanOption === 'with_practice' || steersmanOption === 'no_practice' || steersmanOption === 'not_required') 
+            ? steersmanOption 
+            : null;
+          
+          // Get practice data for this team
+          const practiceData = practiceDataMap.get(idx);
+          
+          return {
+            event_type: 'tn',
+            event_short_ref: eventShortRef,
+            client_tx_id: payload.client_tx_id,
+            season: seasonNum,
+            category,
+            division_code: divLetter,
+            option_choice: optionText((Array.isArray(team_options) && team_options[idx]) || 'opt1' as "opt1" | "opt2"),
+            team_name_en: team_name_en || '',
+            team_name_tc: (namesTc[idx] || '').trim() || null,
+            org_name,
+            org_address: org_address ?? null,
+            team_manager_1: mgrs[0]?.name || "",
+            mobile_1:       mgrs[0]?.mobile || "",
+            email_1:        mgrs[0]?.email  || "",
+            team_manager_2: mgrs[1]?.name || "",
+            mobile_2:       mgrs[1]?.mobile || "",
+            email_2:        mgrs[1]?.email  || "",
+            team_manager_3: mgrs[2]?.name || "",
+            mobile_3:       mgrs[2]?.mobile || "",
+            email_3:        mgrs[2]?.email  || "",
+            // Only populate race day columns for primary team (index 0)
+            marquee_qty: idx === 0 ? (raceDayColumns?.marquee_qty ?? 0) : 0,
+            race_day_steersman_option: validSteersmanOption,
+            junk_boat_qty: idx === 0 ? (raceDayColumns?.junk_boat_qty ?? 0) : 0,
+            junk_boat_license_nos: idx === 0 ? (raceDayColumns?.junk_boat_license_nos ?? null) : null,
+            speed_boat_qty: idx === 0 ? (raceDayColumns?.speed_boat_qty ?? 0) : 0,
+            speed_boat_license_nos: idx === 0 ? (raceDayColumns?.speed_boat_license_nos ?? null) : null,
+            // Practice data as parallel arrays
+            practice_dates: (practiceData?.dates && Array.isArray(practiceData.dates) && practiceData.dates.length > 0) ? practiceData.dates : null,
+            practice_durations: (practiceData?.durations && Array.isArray(practiceData.durations) && practiceData.durations.length > 0) ? practiceData.durations : null,
+            practice_helpers: (practiceData?.helpers && Array.isArray(practiceData.helpers) && practiceData.helpers.length > 0) ? practiceData.helpers : null,
+            practice_slot_prefs: (practiceData?.slotPrefs && Array.isArray(practiceData.slotPrefs) && practiceData.slotPrefs.some(s => s !== null)) ? practiceData.slotPrefs : null,
+            status: 'pending'
+          };
+        });
+      }
     } else {
       // WU/SC: Use new teams structure from payload
       const teams = (payload as any).teams || [];

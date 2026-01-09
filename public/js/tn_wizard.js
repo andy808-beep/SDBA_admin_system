@@ -5999,6 +5999,9 @@ async function testSubmissionWithCurrentData() {
     
 	Logger.debug('🎯 Generated unique team names:', uniqueTeamNames);
     
+    // Build teams array with per-team categories for edge function
+    const teamsArray = buildTNTeamsArray(teams);
+    
         const payload = {
           client_tx_id: 'test_debug_' + Date.now(),
           eventShortRef: 'TN2026',
@@ -6013,6 +6016,7 @@ async function testSubmissionWithCurrentData() {
       },
       team_names: uniqueTeamNames,
       team_options: teams.map(t => t.option),
+      teams: teamsArray, // Per-team categories array for edge function
       managers: managers,
       race_day: raceDay.length > 0 ? raceDay.map(item => ({
         item_code: item.code,
@@ -9065,6 +9069,37 @@ function buildTNPracticePayload() {
   return { teams };
 }
 
+/**
+ * Build teams array with per-team categories for edge function
+ * Converts division codes (M/L/X/C) to category names (men_open/ladies_open/mixed_open/mixed_corporate)
+ */
+function buildTNTeamsArray(teams) {
+  // Map division codes (M/L/X/C) to category names (men_open/ladies_open/mixed_open/mixed_corporate)
+  const categoryMap = {
+    'M': 'men_open',
+    'L': 'ladies_open',
+    'X': 'mixed_open',
+    'C': 'mixed_corporate'
+  };
+  
+  return teams.map(team => {
+    const divisionCode = team.category || ''; // Division code from sessionStorage (M, L, X, or C)
+    const categoryName = categoryMap[divisionCode] || 'mixed_open'; // Convert to category name
+    
+    return {
+      key: `t${team.index + 1}`,
+      name: team.name_en || team.name, // Backward compatibility
+      name_en: team.name_en || team.name,
+      name_tc: team.name_tc || '',
+      category: categoryName, // men_open, ladies_open, mixed_open, or mixed_corporate
+      division_code: divisionCode, // M, L, X, or C
+      option: team.option,
+      race_day_steersman_option: team.race_day_steersman_option || 'not_required',
+      index: team.index
+    };
+  });
+}
+
 // TN-specific data collection functions
 function collectContactData() {
   // Get organization name from form or sessionStorage
@@ -9241,11 +9276,14 @@ async function submitTNForm() {
     const opt1Count = teams.filter(t => t.option && t.option.startsWith('option_1')).length; // Calculate from actual teams
     const opt2Count = teams.filter(t => t.option && t.option.startsWith('option_2')).length; // Calculate from actual teams
     
+    // Build teams array with per-team categories for edge function
+    const teamsArray = buildTNTeamsArray(teams);
+    
     // Build payload in server-expected format
     const payload = {
       client_tx_id: getClientTxId(),
       eventShortRef: getEventShortRef() || 'TN2026',
-      category: raceCategory,
+      category: raceCategory, // Keep for backward compatibility
       season: window.__CONFIG?.event?.season || 2026,
       org_name: contact.name,
       org_address: contact.address,
@@ -9259,6 +9297,7 @@ async function submitTNForm() {
       team_names_tc: teams.map(t => t.name_tc || ''),
       team_options: teams.map(t => t.option),
       team_race_day_steersman_options: teams.map(t => t.race_day_steersman_option || 'not_required'),
+      teams: teamsArray, // NEW: Per-team categories array for edge function
       managers: managers,
       race_day: raceDay.length > 0 ? raceDay.map(item => ({
         item_code: item.code,
@@ -9886,6 +9925,9 @@ if (window.__DEV__) {
       const opt1Count = teams.filter(t => t.option && t.option.startsWith('option_1')).length; // Calculate from actual teams
       const opt2Count = teams.filter(t => t.option && t.option.startsWith('option_2')).length; // Calculate from actual teams
       
+      // Build teams array with per-team categories for edge function
+      const teamsArray = buildTNTeamsArray(teams);
+      
       const payload = {
         client_tx_id: getClientTxId(),
         eventShortRef: getEventShortRef() || 'TN2026',
@@ -9900,6 +9942,7 @@ if (window.__DEV__) {
         },
         team_names: teams.map(t => t.name),
         team_options: teams.map(t => t.option),
+        teams: teamsArray, // Per-team categories array for edge function
         managers: managers,
         race_day: raceDay.length > 0 ? raceDay.map(item => ({
           item_code: item.code,

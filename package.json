@@ -25,17 +25,26 @@
     "@babel/preset-env": "^7.23.0",
     "@testing-library/dom": "^9.3.0",
     "@testing-library/jest-dom": "^6.1.0",
+    "@types/react": "19.2.7",
     "babel-jest": "^29.7.0",
     "jest": "^29.7.0",
     "jest-axe": "^7.0.0",
-    "jest-environment-jsdom": "^29.7.0"
+    "jest-environment-jsdom": "^29.7.0",
+    "typescript": "5.9.3"
   },
   "jest": {
     "testEnvironment": "jsdom",
     "transform": {
-      "^.+\\.js$": ["babel-jest", { "configFile": "./.babelrc.jest.json" }]
+      "^.+\\.js$": [
+        "babel-jest",
+        {
+          "configFile": "./.babelrc.jest.json"
+        }
+      ]
     },
-    "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ],
     "collectCoverageFrom": [
       "public/js/error-system.js"
     ],

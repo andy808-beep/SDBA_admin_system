@@ -54,16 +54,31 @@ function buildTNTeamsFromUI() {
 	const teams = [];
 	const teamCount = parseInt(sessionStorage.getItem('tn_team_count'), 10) || 0;
 	
+	// Map division codes (M/L/X/C) to category names (men_open/ladies_open/mixed_open/mixed_corporate)
+	const divisionCodeToCategory = {
+		'M': 'men_open',
+		'L': 'ladies_open',
+		'X': 'mixed_open',
+		'C': 'mixed_corporate'
+	};
+	
 	for (let i = 1; i <= teamCount; i++) {
-		const teamName = sessionStorage.getItem(`tn_team_name_${i}`);
-		const teamCategory = sessionStorage.getItem(`tn_team_category_${i}`);
+		const teamNameEn = sessionStorage.getItem(`tn_team_name_en_${i}`);
+		const teamNameTc = sessionStorage.getItem(`tn_team_name_tc_${i}`);
+		const teamCategoryCode = sessionStorage.getItem(`tn_team_category_${i}`); // M, L, X, or C
 		const teamOption = sessionStorage.getItem(`tn_team_option_${i}`);
 		
-		if (teamName) {
+		// Convert division code to category name
+		const category = divisionCodeToCategory[teamCategoryCode] || 'mixed_open';
+		
+		if (teamNameEn || teamNameTc) {
 			teams.push({
 				key: `t${i}`,
-				name: teamName,
-				category: teamCategory,
+				name: teamNameEn || teamNameTc, // Backward compatibility
+				name_en: teamNameEn || null,
+				name_tc: teamNameTc || null,
+				category: category, // men_open, ladies_open, mixed_open, or mixed_corporate
+				division_code: teamCategoryCode, // M, L, X, or C
 				option: teamOption,
 				index: i - 1
 			});
@@ -75,20 +90,28 @@ function buildTNTeamsFromUI() {
 
 function makePayload() {
 	const base = collectStateFromForm();
+	
+	// Check if this is a TN event by looking for tn_team_count in sessionStorage
+	const isTNEvent = sessionStorage.getItem('tn_team_count') !== null;
+	
+	// For TN events, use buildTNTeamsFromUI() to get per-team categories
+	// For WU/SC events, use teams from collectStateFromForm()
+	const teams = isTNEvent ? buildTNTeamsFromUI() : (base.teams || []);
+	
 	const payload = {
 		client_tx_id: getClientTxId(),
 		event_short_ref: base.event_short_ref || getEventShortRef(),
 		contact: base.contact || {},
-		teams: base.teams || [],
+		teams: teams,
 		race_day: base.race_day || [],
 		packages: base.packages || [],
 		hp: readHoneypot()
 	};
 	
 	if (window.__PRACTICE_ENABLED) {
-		const teams = (base.teams || []).map((t,i) => ({ key: t.key || `t${i+1}`, name: t.name, index: i }));
+		const practiceTeams = (teams || []).map((t,i) => ({ key: t.key || `t${i+1}`, name: t.name, index: i }));
 		payload.practice = {
-			teams: teams.map(t => ({
+			teams: practiceTeams.map(t => ({
 				team_key: t.key,
 				dates: (readTeamRows(t.key)||[]).map(r => ({
 					pref_date: r.pref_date,
