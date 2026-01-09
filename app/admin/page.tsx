@@ -8,10 +8,11 @@ import { Spinner, SpinnerWithText } from '@/components/Spinner';
 import { toast } from 'sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { getHeadersWithCsrf, getCsrfToken } from '@/lib/csrf-client';
+import { EditRegistrationPanel, type RegistrationMeta } from '@/components/admin/EditRegistrationPanel';
 
 /** Match your vanilla routes */
-type HashPath = "#overview" | "#applications" | "#practice" | "#exports";
-const VALID: HashPath[] = ["#overview", "#applications", "#practice", "#exports"];
+type HashPath = "#overview" | "#applications" | "#practice" | "#exports" | "#users";
+const VALID: HashPath[] = ["#overview", "#applications", "#practice", "#exports", "#users"];
 
 function parseHash(): { path: HashPath; params: URLSearchParams } {
   const raw = (typeof window !== "undefined" && window.location.hash) || "#overview";
@@ -39,7 +40,7 @@ export default function AdminPage() {
     division_code: string | null;
     category: string | null;
     option_choice: string | null;
-    team_code: string;
+    team_code: string | null; // Can be NULL for pending registrations
     team_name: string;
     org_name: string | null;
     org_address: string | null;
@@ -81,6 +82,16 @@ export default function AdminPage() {
 
   // Export state
   const [exporting, setExporting] = useState<Record<string, boolean>>({});
+
+  // Admin user creation state
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
+
+  // Edit panel state
+  const [editingRegistration, setEditingRegistration] = useState<RegistrationMeta | null>(null);
+  const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
+  const [loadingRegistration, setLoadingRegistration] = useState(false);
 
   // ---- Lifecycle: on mount + hashchange (parity with window.addEventListener('hashchange', route))
   useEffect(() => {
@@ -283,6 +294,48 @@ export default function AdminPage() {
   }, [fetchApplications]);
 
   // -------------------------------
+  // Edit panel handlers
+  // -------------------------------
+  const handleEditClick = async (registrationId: string) => {
+    setLoadingRegistration(true);
+    try {
+      const response = await fetch(`/api/admin/registration/${registrationId}`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.ok && data.registration) {
+        setEditingRegistration(data.registration);
+        setIsEditPanelOpen(true);
+      } else {
+        throw new Error(data.error || "Failed to load registration");
+      }
+    } catch (err: any) {
+      toast.error(`Error: ${err.message || "Failed to load registration"}`);
+      console.error("handleEditClick error:", err);
+    } finally {
+      setLoadingRegistration(false);
+    }
+  };
+
+  const handleEditClose = () => {
+    setIsEditPanelOpen(false);
+    setEditingRegistration(null);
+  };
+
+  const handleEditSuccess = () => {
+    handleEditClose();
+    // Refresh the list
+    fetchApplications();
+  };
+
+  // -------------------------------
   // Approve function
   // -------------------------------
   const handleApprove = async (registrationId: string, notes?: string) => {
@@ -382,6 +435,47 @@ export default function AdminPage() {
   };
 
   // -------------------------------
+  // Create admin user
+  // -------------------------------
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatingAdmin(true);
+    
+    try {
+      const headers = await getHeadersWithCsrf();
+      const response = await fetch("/api/admin/users/create", {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({
+          email: newAdminEmail,
+          password: newAdminPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create admin user");
+      }
+
+      if (data.ok) {
+        toast.success(`Admin user created successfully! User ID: ${data.user_id}`);
+        // Clear form
+        setNewAdminEmail("");
+        setNewAdminPassword("");
+      } else {
+        throw new Error(data.error || "Failed to create admin user");
+      }
+    } catch (err: any) {
+      toast.error(`Error: ${err.message || "Failed to create admin user"}`);
+      console.error("create admin error:", err);
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
+  // -------------------------------
   // Logout (same behavior as your vanilla helper)
   // -------------------------------
   async function onLogout() {
@@ -470,11 +564,22 @@ export default function AdminPage() {
             >
               <span className="nav-label">Exports</span>
             </a>
+
+            <a
+              href="#users"
+              data-route="#users"
+              aria-current={isActive("#users") ? "page" : "false"}
+              className={`block rounded-xl px-3 py-2 text-sm hover:bg-gray-50 ${
+                isActive("#users") ? "bg-gray-900 text-white hover:bg-gray-900" : ""
+              }`}
+            >
+              <span className="nav-label">Users</span>
+            </a>
           </nav>
         </aside>
 
         {/* Views (parity with VIEWS[...] + .active) */}
-        <main className="space-y-6">
+        <main className="min-w-0 space-y-6">
           <section
             id="view-overview"
             role="region"
@@ -589,8 +694,8 @@ export default function AdminPage() {
               </div>
 
               {/* Table */}
-              <div className="table-wrap overflow-hidden rounded-2xl border">
-                <table className="table w-full text-left text-sm">
+              <div className="table-wrap overflow-x-auto rounded-2xl border">
+                <table className="table w-full min-w-max text-left text-sm">
                   <thead className="bg-gray-50 text-gray-600">
                     <tr>
                       <th className="px-3 py-2">Team Name</th>
@@ -618,7 +723,7 @@ export default function AdminPage() {
                           className="border-t hover:bg-gray-50"
                         >
                           <td className="px-3 py-2">{r.team_name}</td>
-                          <td className="px-3 py-2 font-semibold">{r.team_code}</td>
+                          <td className="px-3 py-2 font-semibold">{r.team_code || "—"}</td>
                           <td className="px-3 py-2">{r.event_type.toUpperCase()}</td>
                           <td className="px-3 py-2">{r.division_code || "—"}</td>
                           <td className="px-3 py-2">{r.manager_name}</td>
@@ -634,19 +739,31 @@ export default function AdminPage() {
                             </span>
                           </td>
                           <td className="px-3 py-2">
-                            {r.status === 'pending' && (
+                            <div className="flex items-center gap-2">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleApprove(r.id);
+                                  handleEditClick(r.id);
                                 }}
-                                disabled={approvingId === r.id || isLoading}
-                                className="flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={loadingRegistration || isLoading}
+                                className="flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {approvingId === r.id && <Spinner size="sm" className="border-white border-t-transparent" />}
-                                {approvingId === r.id ? "Approving..." : "Approve"}
+                                {loadingRegistration ? "Loading..." : "Edit"}
                               </button>
-                            )}
+                              {r.status === 'pending' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleApprove(r.id);
+                                  }}
+                                  disabled={approvingId === r.id || isLoading}
+                                  className="flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {approvingId === r.id && <Spinner size="sm" className="border-white border-t-transparent" />}
+                                  {approvingId === r.id ? "Approving..." : "Approve"}
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -785,8 +902,74 @@ export default function AdminPage() {
               </div>
             </div>
           </section>
+
+          <section
+            id="view-users"
+            role="region"
+            aria-labelledby="users-h2"
+            className={`rounded-2xl border bg-white p-4 md:p-6 ${isActive("#users") ? "" : "hidden"}`}
+          >
+            <div className="section">
+              <h2 id="users-h2" className="text-base font-semibold">Users</h2>
+              <p className="text-sm text-gray-600">
+                Create new admin user accounts.
+              </p>
+            </div>
+
+            <form onSubmit={handleCreateAdmin} className="mt-6 space-y-4 max-w-md">
+              <div>
+                <label htmlFor="admin-email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  id="admin-email"
+                  type="email"
+                  required
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  placeholder="admin@example.com"
+                  className="h-9 w-full rounded-xl border px-3 text-sm"
+                  disabled={creatingAdmin}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="admin-password" className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
+                <input
+                  id="admin-password"
+                  type="password"
+                  required
+                  minLength={8}
+                  value={newAdminPassword}
+                  onChange={(e) => setNewAdminPassword(e.target.value)}
+                  placeholder="Minimum 8 characters"
+                  className="h-9 w-full rounded-xl border px-3 text-sm"
+                  disabled={creatingAdmin}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={creatingAdmin}
+                className="flex items-center gap-1.5 rounded-xl bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creatingAdmin && <Spinner size="sm" className="border-white border-t-transparent" />}
+                {creatingAdmin ? "Creating..." : "Create Admin"}
+              </button>
+            </form>
+          </section>
         </main>
       </div>
+
+      {/* Edit Registration Panel */}
+      <EditRegistrationPanel
+        registration={editingRegistration}
+        isOpen={isEditPanelOpen}
+        onClose={handleEditClose}
+        onSuccess={handleEditSuccess}
+      />
     </div>
     </ErrorBoundary>
   );

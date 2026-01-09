@@ -182,25 +182,63 @@ export async function GET(req: NextRequest) {
 
     // Transform response items
     // Only return necessary fields to reduce payload size
-    const items = (data || []).map((item) => ({
-      id: item.id,
-      season: item.season,
-      event_type: item.event_type,
-      division_code: item.division_code,
-      category: item.category,
-      option_choice: item.option_choice,
-      team_code: item.team_code,
-      team_name: item.team_name,
-      org_name: item.org_name,
-      org_address: item.org_address,
-      manager_name: item.team_manager_1,
-      manager_email: item.email_1,
-      manager_mobile: item.mobile_1,
-      status: item.status,
-      approved_by: item.approved_by,
-      approved_at: item.approved_at,
-      created_at: item.created_at,
-    }));
+    // For approved registrations, fetch team_code from team tables if not in registration_meta
+    const items = await Promise.all(
+      (data || []).map(async (item) => {
+        let teamCode = item.team_code;
+        
+        // If status is approved and team_code is null, fetch from team tables
+        if (item.status === 'approved' && !teamCode) {
+          try {
+            if (item.event_type === 'tn') {
+              const { data: teamData } = await supabaseServer
+                .from('team_meta')
+                .select('team_code')
+                .eq('registration_id', item.id)
+                .single();
+              teamCode = teamData?.team_code || null;
+            } else if (item.event_type === 'wu') {
+              const { data: teamData } = await supabaseServer
+                .from('wu_team_meta')
+                .select('team_code')
+                .eq('registration_id', item.id)
+                .single();
+              teamCode = teamData?.team_code || null;
+            } else if (item.event_type === 'sc') {
+              const { data: teamData } = await supabaseServer
+                .from('sc_team_meta')
+                .select('team_code')
+                .eq('registration_id', item.id)
+                .single();
+              teamCode = teamData?.team_code || null;
+            }
+          } catch (err) {
+            // If team not found, teamCode stays null
+            logger.debug('Team not found for registration', { registrationId: item.id, eventType: item.event_type });
+          }
+        }
+        
+        return {
+          id: item.id,
+          season: item.season,
+          event_type: item.event_type,
+          division_code: item.division_code,
+          category: item.category,
+          option_choice: item.option_choice,
+          team_code: teamCode, // Use fetched team_code or original value
+          team_name: item.team_name_en, // Fixed: use team_name_en from database
+          org_name: item.org_name,
+          org_address: item.org_address,
+          manager_name: item.team_manager_1,
+          manager_email: item.email_1,
+          manager_mobile: item.mobile_1,
+          status: item.status,
+          approved_by: item.approved_by,
+          approved_at: item.approved_at,
+          created_at: item.created_at,
+        };
+      })
+    );
 
     return NextResponse.json({
       ok: true,
